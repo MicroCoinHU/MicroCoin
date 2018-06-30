@@ -1,7 +1,7 @@
 unit UGPUMining;
-
+{$ifdef fpc}
 {$mode delphi}
-
+{$endif}
 { Copyright (c) 2017 by MicroCoin Developers
 
   Distributed under the MIT software license, see the accompanying file LICENSE

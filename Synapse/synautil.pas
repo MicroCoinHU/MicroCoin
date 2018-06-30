@@ -909,9 +909,9 @@ var
   x: TLargeInteger;
 {$ENDIF}
 begin
-  if Windows.QueryPerformanceFrequency(freq) then
+  if QueryPerformanceFrequency(freq) then
   begin
-    Windows.QueryPerformanceCounter(tick);
+    QueryPerformanceCounter(tick);
 {$IFDEF VER100}
     x.QuadPart := (tick.QuadPart / freq.QuadPart) * 1000;
     Result := x.LowPart;
@@ -920,7 +920,7 @@ begin
 {$ENDIF}
   end
   else
-    Result := Windows.GetTickCount;
+    Result := GetTickCount;
 end;
 {$ENDIF}
 

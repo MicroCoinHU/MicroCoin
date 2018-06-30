@@ -15,7 +15,7 @@ interface
 
 Uses
 {$IFnDEF FPC}
-  Windows,
+  Winapi.Windows,
 {$ELSE}
   {LCLIntf, LCLType, LMessages,}
 {$ENDIF}

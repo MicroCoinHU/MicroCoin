@@ -18,7 +18,7 @@ interface
   {$MODE Delphi}
 {$ENDIF}
 
-uses {$IFDEF UNIX}BaseUnix {$ELSE} Windows{$ENDIF};
+uses {$IFDEF UNIX}BaseUnix {$ELSE}Windows{$ENDIF};
 
 {$REGION 'OBJECT'}
 const
