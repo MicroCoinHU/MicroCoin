@@ -47,6 +47,8 @@ Const
   CT_NewLineRewardDecrease: Cardinal = 420480; // Avg 4 year
 
   CT_WaitNewBlocksBeforeTransaction = 10;
+  CT_WaitNewBlocksBeforeTransactionV2 = 100;
+  CT_V2BlockNumber = 60000;
 
   CT_RecoverFoundsWaitInactiveCount = 420480;  // After 4 years... if an account has no operations, money will be a reward for a miner!
   CT_MaxFutureBlocksLockedAccount = 105120; // Maximum future blocks an account can be locked
@@ -54,7 +56,7 @@ Const
   CT_MaxTransactionAmount = 1000000000000;
   CT_MaxTransactionFee = 100000000;
   CT_MaxWalletAmount = 10000000000000;
-  //
+
   CT_MinCompactTarget: Cardinal = {$IFDEF PRODUCTION}$19000000{$ELSE}{$IFDEF TESTNET}$19000000{$ELSE}{$ENDIF}{$ENDIF}; // First compact target of block 0
 
   CT_CalcNewTargetBlocksAverage: Cardinal = 100;
@@ -102,11 +104,9 @@ Const
 
   CT_MagicIdentificator: AnsiString = {$IFDEF PRODUCTION}'MicroCoin'{$ELSE}'MicroCoinTESTNET'{$ENDIF}; //
 
-  // Value of Operations type in Protocol 1
   CT_Op_Transaction = $01;
   CT_Op_Changekey = $02;
   CT_Op_Recover = $03;
-  // Protocol 2 new operations
   CT_Op_ListAccountForSale = $04;
   CT_Op_DelistAccount = $05;
   CT_Op_BuyAccount = $06;
@@ -129,7 +129,7 @@ Const
   CT_OpSubtype_ChangeKeySigned            = 71;
   CT_OpSubtype_ChangeAccountInfo          = 81;
 
-  CT_ClientAppVersion : AnsiString = {$IFDEF PRODUCTION}'1.0.4'{$ELSE}{$IFDEF TESTNET}'TESTNET 1.0.4'{$ELSE}{$ENDIF}{$ENDIF};
+  CT_ClientAppVersion : AnsiString = {$IFDEF PRODUCTION}'1.1.0'{$ELSE}{$IFDEF TESTNET}'TESTNET 1.1.0'{$ELSE}{$ENDIF}{$ENDIF};
   {$IFDEF PRODUCTION}
   CT_Discover_IPs =  '185.28.101.93;80.211.211.48;94.177.237.196;185.33.146.44;80.211.200.121;194.182.64.181';
   {$ENDIF}

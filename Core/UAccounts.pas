@@ -940,10 +940,16 @@ begin
 end;
 
 class function TAccountComp.IsAccountBlockedByProtocol(account_number, blocks_count: Cardinal): Boolean;
+var
+ waitBlocks : integer;
 begin
-  if blocks_count<CT_WaitNewBlocksBeforeTransaction then result := true
+  // Update protocol
+  if blocks_count >= CT_V2BlockNumber
+  then waitBlocks := CT_WaitNewBlocksBeforeTransactionV2
+  else waitBlocks := CT_WaitNewBlocksBeforeTransaction;
+  if blocks_count<waitBlocks then result := true
   else begin
-    Result := ((blocks_count-CT_WaitNewBlocksBeforeTransaction) * CT_AccountsPerBlock) <= account_number;
+    Result := ((blocks_count-waitBlocks) * CT_AccountsPerBlock) <= account_number;
   end;
 end;
 
