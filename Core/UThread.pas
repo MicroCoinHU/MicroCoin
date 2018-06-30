@@ -14,7 +14,7 @@ interface
 
 uses
 {$IFnDEF FPC}
-  Windows,
+  Winapi.Windows,
 {$ELSE}
   {$IFDEF LINUX}cthreads,{$ENDIF}
 {$ENDIF}

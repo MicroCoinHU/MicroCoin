@@ -880,9 +880,6 @@ begin
     ms.Position := 0;
     ms.ReadBuffer(Result[1],ms.Size);
     s := TCrypto.ToHexaString(Result);
-    asm
-    nop;
-    end;
   finally
     ms.Free;
   end;

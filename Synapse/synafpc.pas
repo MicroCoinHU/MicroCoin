@@ -65,7 +65,7 @@ uses
   dynlibs, sysutils;
 {$ELSE}
   {$IFDEF MSWINDOWS}
-  Windows;
+  Winapi.Windows;
   {$ELSE}
   SysUtils;
   {$ENDIF}
@@ -135,9 +135,9 @@ procedure Sleep(milliseconds: Cardinal);
 begin
 {$IFDEF MSWINDOWS}
   {$IFDEF FPC}
-  sysutils.sleep(milliseconds);
+  sleep(milliseconds);
   {$ELSE}
-  windows.sleep(milliseconds);
+  sleep(milliseconds);
   {$ENDIF}
 {$ELSE}
   sysutils.sleep(milliseconds);
