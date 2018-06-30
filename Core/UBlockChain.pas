@@ -408,7 +408,7 @@ uses
   {Messages, }
   SysUtils, Variants, {Graphics,}
   {Controls, Forms,}
-  Dialogs, {StdCtrls,}
+  {StdCtrls,}
   UTime, UConst, UOpTransaction;
 
 { TPCBank }
