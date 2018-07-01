@@ -135,12 +135,12 @@ procedure Sleep(milliseconds: Cardinal);
 begin
 {$IFDEF MSWINDOWS}
   {$IFDEF FPC}
-  sleep(milliseconds);
+   SysUtils.Sleep(milliseconds);
   {$ELSE}
-  sleep(milliseconds);
+     WinApi.Windows.Sleep(milliseconds);
   {$ENDIF}
 {$ELSE}
-  sysutils.sleep(milliseconds);
+  SysUtils.Sleep(milliseconds);
 {$ENDIF}
 
 end;

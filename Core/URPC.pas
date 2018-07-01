@@ -12,7 +12,8 @@ unit URPC;
 
 interface
 
-Uses UThread, ULog, UConst, UNode, UAccounts, UCrypto, UBlockChain, fpjson,
+Uses UThread, ULog, UConst, UNode, UAccounts, UCrypto, UBlockChain,
+  {$ifdef fpc} fpjson,{$else}System.Json,{$endif}
   UNetProtocol, UOpTransaction, UWalletKeys, UTime, UAES, UECIES, httpsend,
   UJSONFunctions, classes, blcksock, synsock, IniFiles, Variants, math;
 
@@ -194,16 +195,16 @@ procedure TRPCServer.OnNodeNewOperation(Sender: TObject);
          stream := TMemoryStream.Create;
          HTTP := THTTPSend.Create;
           try
-            with TJSONObject.Create do begin
-               Add('from', from);
-               Add('to', toAccount);
-               Add('amount', amount);
-               Add('fee', fee);
-               Add('balance', balance);
-               Add('ophash', ophash);
-               Add('payload', payload);
-               a := AsJSON;
-               Free;
+            with TPCJSONObject.Create do begin
+              GetAsVariant('from').Value := from;
+              GetAsVariant('to').Value := toAccount;
+              GetAsVariant('amount').Value := amount;
+              GetAsVariant('fee').Value := fee;
+              GetAsVariant('balance').Value := balance;
+              GetAsVariant('ophash').Value := ophash;
+              GetAsVariant('payload').Value := payload;
+              a := ToJSON(false);
+              Free;
             end;
             WriteStrToStream(HTTP.Document, a);
             HTTP.MimeType := 'application/json';
@@ -2096,7 +2097,8 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
     state : TAccountState;
     account : TAccount;
     i : Cardinal;
-    errors : AnsiString;
+    errors2 : AnsiString;
+    errors : string;
     hasKey: boolean;
     pubkey: TAccountKey;
   begin
@@ -2107,10 +2109,10 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
     start := params.AsInteger('start', 0);
     max := params.AsInteger('max', 100);
     state := TAccountState(params.AsInteger('status', Longint(as_Normal)));
-    hasKey := CapturePubKey('',pubkey, errors);
+    hasKey := CapturePubKey('', pubkey, errors);
     // Validate Parameters
     if accountName <> '' then begin
-      if not FNode.Bank.SafeBox.ValidAccountName(accountName, errors) then begin
+      if not FNode.Bank.SafeBox.ValidAccountName(accountName, errors2) then begin
         ErrorNum := CT_RPC_ErrNum_InvalidAccountName;
         ErrorDesc := errors;
         exit;
