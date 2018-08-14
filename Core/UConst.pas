@@ -129,7 +129,7 @@ Const
   CT_OpSubtype_ChangeKeySigned            = 71;
   CT_OpSubtype_ChangeAccountInfo          = 81;
 
-  CT_ClientAppVersion : AnsiString = {$IFDEF PRODUCTION}'1.1.2'{$ELSE}{$IFDEF TESTNET}'TESTNET 1.1.2'{$ELSE}{$ENDIF}{$ENDIF};
+  CT_ClientAppVersion : AnsiString = {$IFDEF PRODUCTION}'1.1.3'{$ELSE}{$IFDEF TESTNET}'TESTNET 1.1.3'{$ELSE}{$ENDIF}{$ENDIF};
   {$IFDEF PRODUCTION}
   CT_Discover_IPs =  '185.28.101.93;80.211.211.48;94.177.237.196;185.33.146.44;80.211.200.121;194.182.64.181';
   {$ENDIF}
