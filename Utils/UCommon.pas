@@ -1,7 +1,15 @@
-{ Copyright (c) 2017 Albert Molina -  -  2017 MicroCoin Developers
+
+{ 
+  Copyright (c) Albert Molina 2016 - <YEAR YOU FORKED> original code from PascalCoin https://pascalcoin.org/
 
   Distributed under the MIT software license, see the accompanying file LICENSE
   or visit http://www.opensource.org/licenses/mit-license.php.
+
+  This unit is a part of Pascal Coin, a P2P crypto currency without need of
+  historical operations.   NOTE TO PETER: THIS IS PART OF LICENSE HEADER AND CANNOT BE REMOVED!
+
+  If you like it, consider a donation using BitCoin:
+    16K3HCZRhFUtM8GdWRcfKeaa6KsuyxZaYk
 
   CREDITS:
   [2017-06-29] Herman Schoenfeld (herman@sphere10.com): Created unit, added IFF functions
