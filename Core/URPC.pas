@@ -4,7 +4,7 @@ unit URPC;
   {$MODE Delphi}
 {$ENDIF}
 
-{ Copyright (c) 2018 MicroCoin Developers
+{ Copyright (c) 2017 Albert Molina -   2018 MicroCoin Developers
 
   Distributed under the MIT software license, see the accompanying file LICENSE
   or visit http://www.opensource.org/licenses/mit-license.php.
