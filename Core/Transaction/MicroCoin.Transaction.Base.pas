@@ -7,7 +7,7 @@ uses
 
 type
 
-  TTransactionData = Record
+  TTransactionData = record
     valid: Boolean;
     Block: Cardinal;
     NOpInsideBlock: Integer;

@@ -1789,7 +1789,7 @@ begin
       for i := 0 to l.Count - 1 do
       begin
         P := l[i];
-        P^.op.Free;
+        // P^.op.Free;
         Dispose(P);
       end;
     Finally
@@ -1860,7 +1860,7 @@ begin
   try
     P := l[index];
     l.Delete(index);
-    P^.op.Free;
+    // P^.op.Free;
     Dispose(P);
     // Recalc operations hash
     FTotalAmount := 0;
@@ -2055,7 +2055,7 @@ begin
         end;
         AddTransactionToHashTree(bcop);
       Finally
-        FreeAndNil(bcop);
+       // FreeAndNil(bcop);
       end;
     end;
   finally

@@ -23,7 +23,8 @@ interface
 Uses UThread, ULog, UConst, UNode, UAccounts, UCrypto, UBlockChain,
   {$ifdef fpc} fpjson,{$else}System.Json,{$endif}
   UNetProtocol, UOpTransaction, UWalletKeys, UTime, UAES, UECIES, httpsend,
-  UJSONFunctions, classes, blcksock, synsock, IniFiles, Variants, math;
+  UJSONFunctions, classes, blcksock, synsock, IniFiles, Variants, math,
+  MicroCoin.Transaction.TransferMoney, MicroCoin.Transaction.ChangeKey;
 
 Const
   CT_RPC_ErrNum_InternalError = 100;
@@ -746,7 +747,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
   // It assumes that sender,target,sender_last_n_operation,senderAccountKey and targetAccountKey are correct
   Function CreateOperationTransaction(sender, target, sender_last_n_operation : Cardinal; amount, fee : UInt64;
     Const senderAccounKey, targetAccountKey : TAccountKey; Const RawPayload : TRawBytes;
-    Const Payload_method, EncodePwd : AnsiString) : TOpTransaction;
+    Const Payload_method, EncodePwd : AnsiString) : TTransferMoneyTransaction;
   // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
   Var i : Integer;
     f_raw : TRawBytes;
@@ -784,7 +785,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
         exit;
       end;
     end else f_raw := '';
-    Result := TOpTransaction.CreateTransaction(sender,sender_last_n_operation+1,target,_RPCServer.FWalletKeys.Key[i].PrivateKey,amount,fee,f_raw);
+    Result := TTransferMoneyTransaction.CreateTransaction(sender,sender_last_n_operation+1,target,_RPCServer.FWalletKeys.Key[i].PrivateKey,amount,fee,f_raw);
     if Not Result.HasValidSignature then begin
       FreeAndNil(Result);
       ErrorNum:=CT_RPC_ErrNum_InternalError;
@@ -795,7 +796,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
 
   Function OpSendTo(sender, target : Cardinal; amount, fee : UInt64; Const RawPayload : TRawBytes; Const Payload_method, EncodePwd : AnsiString) : Boolean;
   // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
-  Var opt : TOpTransaction;
+  Var opt : TTransferMoneyTransaction;
     sacc,tacc : TAccount;
     errors : AnsiString;
     opr : TTransactionData;
@@ -844,7 +845,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
   // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
   var OperationsHashTree : TTransactionHashTree;
     errors : AnsiString;
-    opt : TOpTransaction;
+    opt : TTransferMoneyTransaction;
   begin
     Result := false;
     if Not HexaStringToOperationsHashTree(HexaStringOperationsHashTree,OperationsHashTree,errors) then begin
@@ -869,7 +870,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
 
   // This function creates a TOpChangeKey without looking for private key of account
   // It assumes that account_signer,account_last_n_operation, account_target and account_pubkey are correct
-  Function CreateOperationChangeKey(account_signer, account_last_n_operation, account_target : Cardinal; const account_pubkey, new_pubkey : TAccountKey; fee : UInt64; RawPayload : TRawBytes; Const Payload_method, EncodePwd : AnsiString) : TOpChangeKey;
+  Function CreateOperationChangeKey(account_signer, account_last_n_operation, account_target : Cardinal; const account_pubkey, new_pubkey : TAccountKey; fee : UInt64; RawPayload : TRawBytes; Const Payload_method, EncodePwd : AnsiString) : TChangeKeyTransaction;
   // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
   var i : Integer;
     errors : AnsiString;
@@ -908,9 +909,9 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
       end;
     end else f_raw := '';
     If account_signer=account_target then begin
-      Result := TOpChangeKey.Create(account_signer,account_last_n_operation+1,account_target,_RPCServer.FWalletKeys.Key[i].PrivateKey,new_pubkey,fee,f_raw);
+      Result := TChangeKeyTransaction.Create(account_signer,account_last_n_operation+1,account_target,_RPCServer.FWalletKeys.Key[i].PrivateKey,new_pubkey,fee,f_raw);
     end else begin
-      Result := TOpChangeKeySigned.Create(account_signer,account_last_n_operation+1,account_target,_RPCServer.FWalletKeys.Key[i].PrivateKey,new_pubkey,fee,f_raw);
+      Result := TChangeKeySignedTransaction.Create(account_signer,account_last_n_operation+1,account_target,_RPCServer.FWalletKeys.Key[i].PrivateKey,new_pubkey,fee,f_raw);
     end;
     if Not Result.HasValidSignature then begin
       FreeAndNil(Result);
@@ -922,7 +923,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
 
   Function ChangeAccountKey(account_signer, account_target : Cardinal; const new_pub_key : TAccountKey; fee : UInt64; const RawPayload : TRawBytes; Const Payload_method, EncodePwd : AnsiString) : Boolean;
   // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
-  Var opck : TOpChangeKey;
+  Var opck : TChangeKeyTransaction;
     acc_signer : TAccount;
     errors : AnsiString;
     opr : TTransactionData;
@@ -1061,7 +1062,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
   // Also asumes that amount is >= price and other needed conditions
   Function CreateOperationBuyAccount(account_number, account_last_n_operation : Cardinal; const account_pubkey: TAccountKey;
     account_to_buy : Cardinal; account_price, amount : UInt64; account_to_pay : Cardinal; Const new_account_pubkey : TAccountKey;
-    fee : UInt64; RawPayload : TRawBytes; Const Payload_method, EncodePwd : AnsiString) : TOpBuyAccount;
+    fee : UInt64; RawPayload : TRawBytes; Const Payload_method, EncodePwd : AnsiString) : TBuyAccountTransaction;
   // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
   var i : Integer;
     errors : AnsiString;
@@ -1099,7 +1100,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
         exit;
       end;
     end else f_raw := '';
-    Result := TOpBuyAccount.CreateBuy(account_number,account_last_n_operation+1,account_to_buy,account_to_pay,account_price,amount,fee,new_account_pubkey,_RPCServer.FWalletKeys.Key[i].PrivateKey,f_raw);
+    Result := TBuyAccountTransaction.CreateBuy(account_number,account_last_n_operation+1,account_to_buy,account_to_pay,account_price,amount,fee,new_account_pubkey,_RPCServer.FWalletKeys.Key[i].PrivateKey,f_raw);
     if Not Result.HasValidSignature then begin
       FreeAndNil(Result);
       ErrorNum:=CT_RPC_ErrNum_InternalError;
@@ -1155,7 +1156,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
 
   Function ChangeAccountsKey(accounts_txt : String; const new_pub_key : TAccountKey; fee : UInt64; const RawPayload : TRawBytes; Const Payload_method, EncodePwd : AnsiString) : Boolean;
   // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
-  Var opck : TOpChangeKey;
+  Var opck : TChangeKeyTransaction;
     acc : TAccount;
     i, ian : Integer;
     errors : AnsiString;
@@ -1227,7 +1228,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
   // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
   var OperationsHashTree : TTransactionHashTree;
     errors : AnsiString;
-    opck : TOpChangeKey;
+    opck : TChangeKeyTransaction;
   begin
     Result := false;
     if Not HexaStringToOperationsHashTree(HexaStringOperationsHashTree,OperationsHashTree,errors) then begin
@@ -1790,7 +1791,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
     // "new_b58_pubkey" or "new_enc_pubkey" is the future public key for this sale (private sale), otherwise is open and everybody can buy
     // "amount" is the transferred amount to pay (can exceed price)
   var
-    opBuy: TOpBuyAccount;
+    opBuy: TBuyAccountTransaction;
     buyer_account, account_to_purchase, seller_account : Cardinal;
     price,amount,fee : Int64;
     new_pubkey : TAccountKey;

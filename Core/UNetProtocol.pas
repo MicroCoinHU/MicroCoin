@@ -2107,7 +2107,7 @@ begin
         op.LoadFromNettransfer(DataBuffer);
         operations.AddTransactionToHashTree(op);
       Finally
-        op.Free;
+        // op.Free;
       End;
     end;
     DoDisconnect := false;

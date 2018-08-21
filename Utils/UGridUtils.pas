@@ -28,7 +28,7 @@ uses
   LCLIntf, LCLType, LMessages,
 {$ENDIF}
   Classes, Grids, UNode, UAccounts, UBlockChain, UAppParams,
-  UWalletKeys, UCrypto;
+  UWalletKeys, UCrypto, MicroCoin.Transaction.Base;
 
 Type
   // TAccountsGrid implements a visual integration of TDrawGrid
@@ -83,7 +83,7 @@ Type
   private
     FDrawGrid: TDrawGrid;
     FAccountNumber: Int64;
-    FOperationsResume : TOperationsResumeList;
+    FOperationsResume : TTransactionList;
     FNodeNotifyEvents : TNodeNotifyEvents;
     FPendingOperations: Boolean;
     FBlockStart: Int64;
@@ -117,7 +117,7 @@ Type
     Property BlockStart : Int64 read FBlockStart write SetBlockStart;
     Property BlockEnd : Int64 read FBlockEnd write SetBlockEnd;
     Procedure SetBlocks(bstart,bend : Int64);
-    Property OperationsResume : TOperationsResumeList read FOperationsResume;
+    Property OperationsResume : TTransactionList read FOperationsResume;
   End;
 
   TBlockChainData = Record
@@ -642,7 +642,7 @@ begin
   FAccountNumber := 0;
   FDrawGrid := Nil;
   MustShowAlwaysAnAccount := false;
-  FOperationsResume := TOperationsResumeList.Create;
+  FOperationsResume := TTransactionList.Create;
   FNodeNotifyEvents := TNodeNotifyEvents.Create(Self);
   FNodeNotifyEvents.OnBlocksChanged := OnNodeNewAccount;
   FNodeNotifyEvents.OnOperationsChanged := OnNodeNewOperation;
@@ -701,12 +701,12 @@ end;
 
 procedure TOperationsGrid.OnGridDrawCell(Sender: TObject; ACol, ARow: Integer; Rect: TRect; State: TGridDrawState);
 Var s : String;
-  opr : TOperationResume;
+  opr : TTransactionData;
 begin
   {.$IFDEF FPC}
   DrawGrid.Canvas.Font.Color:=clBlack;
   {.$ENDIF}
-  opr := CT_TOperationResume_NUL;
+  opr := TTransactionData.Empty;
   Try
   if (ARow=0) then begin
     // Header
@@ -730,7 +730,7 @@ begin
     DrawGrid.Canvas.FillRect(Rect);
     InflateRect(Rect,-2,-1);
     if (ARow<=FOperationsResume.Count) then begin
-      opr := FOperationsResume.OperationResume[ARow-1];
+      opr := FOperationsResume.TransactionData[ARow-1];
       If (opr.AffectedAccount=opr.SignerAccount) then begin
       end else begin
         if (gdSelected in State) or (gdFocused in State) then begin
@@ -805,7 +805,7 @@ begin
     end else begin
       l := TList.Create;
       Try
-        If Node.Operations.OperationsHashTree.GetOperationsAffectingAccount(AccountNumber,l)>0 then begin
+        If Node.Operations.OperationsHashTree.GetTransactionsAffectingAccount(AccountNumber,l)>0 then begin
           if l.IndexOf(TObject(PtrInt(AccountNumber)))>=0 then UpdateAccountOperations;
         end;
       Finally
@@ -883,12 +883,12 @@ end;
 
 procedure TOperationsGrid.ShowModalDecoder(WalletKeys: TWalletKeys; AppParams : TAppParams);
 Var i : Integer;
-  opr : TOperationResume;
+  opr : TTransactionData;
   FRM : TFRMPayloadDecoder;
 begin
   if Not Assigned(FDrawGrid) then exit;
   if (FDrawGrid.Row<=0) Or (FDrawGrid.Row>FOperationsResume.Count) then exit;
-  opr := FOperationsResume.OperationResume[FDrawGrid.Row-1];
+  opr := FOperationsResume.TransactionData[FDrawGrid.Row-1];
   FRM := TFRMPayloadDecoder.Create(FDrawGrid.Owner);
   try
     FRM.Init(opr,WalletKeys,AppParams);
@@ -901,8 +901,8 @@ end;
 procedure TOperationsGrid.UpdateAccountOperations;
 Var list : TList;
   i,j : Integer;
-  OPR : TOperationResume;
-  Op : TPCOperation;
+  OPR : TTransactionData;
+  Op : ITransaction;
   opc : TPCOperationsComp;
   bstart,bend : int64;
 begin
@@ -914,7 +914,7 @@ begin
     if FPendingOperations then begin
       for i := Node.Operations.Count - 1 downto 0 do begin
         Op := Node.Operations.OperationsHashTree.GetOperation(i);
-        If TPCOperation.OperationToOperationResume(0,Op,Op.SignerAccount,OPR) then begin
+        If Op.GetTransactionData(0,Op.SignerAccount,OPR) then begin
           OPR.NOpInsideBlock := i;
           OPR.Block := Node.Bank.BlocksCount;
           OPR.Balance := Node.Operations.SafeBoxTransaction.Account(Op.SignerAccount).balance;
@@ -937,10 +937,10 @@ begin
           If bstart<0 then bstart := 0;
           if bend>=Node.Bank.BlocksCount then bend:=Node.Bank.BlocksCount;
           while (bstart<=bend) do begin
-            opr := CT_TOperationResume_NUL;
+            opr := TTransactionData.Empty;
             if (Node.Bank.Storage.LoadBlockChainBlock(opc,bend)) then begin
               // Reward operation
-              OPR := CT_TOperationResume_NUL;
+              OPR := TTransactionData.Empty;
               OPR.valid := true;
               OPR.Block := bend;
               OPR.time := opc.OperationBlock.timestamp;
@@ -952,7 +952,7 @@ begin
               FOperationsResume.Add(OPR);
               // Reverse operations inside a block
               for i := opc.Count - 1 downto 0 do begin
-                if TPCOperation.OperationToOperationResume(bend,opc.Operation[i],opc.Operation[i].SignerAccount,opr) then begin
+                if opc.Operation[i].GetTransactionData(bend,opc.Operation[i].SignerAccount,opr) then begin
                   opr.NOpInsideBlock := i;
                   opr.Block := bend;
                   opr.time := opc.OperationBlock.timestamp;
@@ -969,10 +969,10 @@ begin
       end else begin
         list := TList.Create;
         Try
-          Node.Operations.OperationsHashTree.GetOperationsAffectingAccount(AccountNumber,list);
+          Node.Operations.OperationsHashTree.GetTransactionsAffectingAccount(AccountNumber,list);
           for i := list.Count - 1 downto 0 do begin
             Op := Node.Operations.OperationsHashTree.GetOperation(PtrInt(list[i]));
-            If TPCOperation.OperationToOperationResume(0,Op,AccountNumber,OPR) then begin
+            If Op.GetTransactionData(0,AccountNumber,OPR) then begin
               OPR.NOpInsideBlock := i;
               OPR.Block := Node.Operations.OperationBlock.block;
               OPR.Balance := Node.Operations.SafeBoxTransaction.Account(AccountNumber).balance;
