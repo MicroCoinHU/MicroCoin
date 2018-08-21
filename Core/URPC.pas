@@ -108,7 +108,7 @@ Type
 implementation
 
 Uses  {$IFNDEF FPC}windows,{$ENDIF}
-  SysUtils, Synautil;
+  SysUtils, Synautil, MicroCoin.Transaction.Base, MicroCoin.Transaction.Transaction;
 
 var _RPCServer : TRPCServer = Nil;
 
@@ -136,8 +136,8 @@ end;
 procedure TRPCServer.OnNodeNewOperation(Sender: TObject);
   var
      i,j : integer;
-     Op : TPCOperation;
-     OPR : TOperationResume;
+     Op : ITransaction;
+     OPR : TTransactionData;
      an : cardinal;
      ToAccount :string;
      Amount: string;
@@ -176,7 +176,7 @@ procedure TRPCServer.OnNodeNewOperation(Sender: TObject);
        Script.AddRegisteredVariable('OpHash', 'btString');
        Script.AddRegisteredVariable('Payload', 'btString');
 }
-       TPCOperation.OperationToOperationResume(0,Op,Op.SignerAccount,OPR);
+       Op.GetTransactionData(0,Op.SignerAccount,OPR);
        an := OPR.DestAccount;
        FromAccount := TAccountComp.AccountNumberToAccountTxtNumber(OPR.AffectedAccount);
        ToAccount := TAccountComp.AccountNumberToAccountTxtNumber(OPR.DestAccount);
@@ -528,7 +528,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
     Result := Round(jsonCurr * 10000);
   End;
 
-  Function HexaStringToOperationsHashTree(Const HexaStringOperationsHashTree : AnsiString; out OperationsHashTree : TOperationsHashTree; var errors : AnsiString) : Boolean;
+  Function HexaStringToOperationsHashTree(Const HexaStringOperationsHashTree : AnsiString; out OperationsHashTree : TTransactionHashTree; var errors : AnsiString) : Boolean;
   var raw : TRawBytes;
     ms : TMemoryStream;
   Begin
@@ -542,9 +542,9 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
     Try
       ms.WriteBuffer(raw[1],length(raw));
       ms.Position := 0;
-      OperationsHashTree := TOperationsHashTree.Create;
+      OperationsHashTree := TTransactionHashTree.Create;
       if (raw<>'') then begin
-        If not OperationsHashTree.LoadOperationsHashTreeFromStream(ms,false,false,errors) then begin
+        If not OperationsHashTree.LoadFromStream(ms,false,false,errors) then begin
           FreeAndNil(OperationsHashTree);
           exit;
         end;
@@ -555,13 +555,13 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
     End;
   End;
 
-  Function OperationsHashTreeToHexaString(Const OperationsHashTree : TOperationsHashTree) : AnsiString;
+  Function OperationsHashTreeToHexaString(Const OperationsHashTree : TTransactionHashTree) : AnsiString;
   var ms : TMemoryStream;
     raw : TRawBytes;
   Begin
     ms := TMemoryStream.Create;
     Try
-      OperationsHashTree.SaveOperationsHashTreeToStream(ms,false);
+      OperationsHashTree.SaveToStream(ms,false);
       ms.Position := 0;
       SetLength(raw,ms.Size);
       ms.ReadBuffer(raw[1],ms.Size);
@@ -609,7 +609,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
     end;
   end;
 
-  Procedure FillOperationResumeToJSONObject(Const OPR : TOperationResume; jsonObject : TPCJSONObject);
+  Procedure FillOperationResumeToJSONObject(Const OPR : TTransactionData; jsonObject : TPCJSONObject);
   Begin
     if Not OPR.valid then begin
       jsonObject.GetAsVariant('valid').Value := OPR.valid;
@@ -653,7 +653,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
     end;
   end;
 
-  Procedure FillOperationsHashTreeToJSONObject(Const OperationsHashTree : TOperationsHashTree; jsonObject : TPCJSONObject);
+  Procedure FillOperationsHashTreeToJSONObject(Const OperationsHashTree : TTransactionHashTree; jsonObject : TPCJSONObject);
   Begin
     jsonObject.GetAsVariant('operations').Value:=OperationsHashTree.OperationsCount;
     jsonObject.GetAsVariant('amount').Value:=ToJSONCurrency(OperationsHashTree.TotalAmount);
@@ -663,10 +663,10 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
 
   Function GetAccountOperations(accountNumber : Cardinal; jsonArray : TPCJSONArray; maxBlocksDepth, startReg, maxReg: Integer) : Boolean;
   var list : TList;
-    Op : TPCOperation;
-    OPR : TOperationResume;
+    Op : ITransaction;
+    OPR : TTransactionData;
     Obj : TPCJSONObject;
-    OperationsResume : TOperationsResumeList;
+    OperationsResume : TTransactionList;
     i, nCounter : Integer;
   Begin
     Result := false;
@@ -676,17 +676,17 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
       Exit;
     end;
     nCounter := 0;
-    OperationsResume := TOperationsResumeList.Create;
+    OperationsResume := TTransactionList.Create;
     try
       if (startReg=-1) then begin
         // 1.5.5 change: If start=-1 then will include PENDING OPERATIONS, otherwise not.
         // Only will return pending operations if start=0, otherwise
         list := TList.Create;
         Try
-          FNode.Operations.OperationsHashTree.GetOperationsAffectingAccount(accountNumber,list);
+          FNode.Operations.OperationsHashTree.GetTransactionsAffectingAccount(accountNumber,list);
           for i := list.Count - 1 downto 0 do begin
             Op := FNode.Operations.OperationsHashTree.GetOperation(PtrInt(list[i]));
-            If TPCOperation.OperationToOperationResume(0,Op,accountNumber,OPR) then begin
+            If Op.GetTransactionData(0,accountNumber,OPR) then begin
               OPR.NOpInsideBlock := i;
               OPR.Block := FNode.Operations.OperationBlock.block;
               OPR.Balance := FNode.Operations.SafeBoxTransaction.Account(accountNumber).balance;
@@ -798,7 +798,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
   Var opt : TOpTransaction;
     sacc,tacc : TAccount;
     errors : AnsiString;
-    opr : TOperationResume;
+    opr : TTransactionData;
   begin
     FNode.OperationSequenceLock.Acquire;  // Use lock to prevent N_Operation race-condition on concurrent sends
     try
@@ -826,7 +826,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
           ErrorNum := CT_RPC_ErrNum_InvalidOperation;
           Exit;
         end;
-        TPCOperation.OperationToOperationResume(0,opt,sender,opr);
+        opt.GetTransactionData(0,sender,opr);
         FillOperationResumeToJSONObject(opr,GetResultObject);
         Result := true;
       finally
@@ -842,7 +842,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
     last_sender_n_operation : Cardinal;
     amount, fee : UInt64; Const RawPayload : TRawBytes; Const Payload_method, EncodePwd : AnsiString) : Boolean;
   // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
-  var OperationsHashTree : TOperationsHashTree;
+  var OperationsHashTree : TTransactionHashTree;
     errors : AnsiString;
     opt : TOpTransaction;
   begin
@@ -856,7 +856,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
       opt := CreateOperationTransaction(sender,target,last_sender_n_operation,amount,fee,senderAccounKey,targetAccountKey,RawPayload,Payload_method,EncodePwd);
       if opt=nil then exit;
       try
-        OperationsHashTree.AddOperationToHashTree(opt);
+        OperationsHashTree.AddTransactionToHashTree(opt);
         FillOperationsHashTreeToJSONObject(OperationsHashTree,GetResultObject);
         Result := true;
       finally
@@ -925,7 +925,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
   Var opck : TOpChangeKey;
     acc_signer : TAccount;
     errors : AnsiString;
-    opr : TOperationResume;
+    opr : TTransactionData;
   begin
     FNode.OperationSequenceLock.Acquire;  // Use lock to prevent N_Operation race-condition on concurrent invocations
     try
@@ -945,7 +945,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
           ErrorNum := CT_RPC_ErrNum_InvalidOperation;
           Exit;
         end;
-        TPCOperation.OperationToOperationResume(0,opck,account_signer,opr);
+        opck.GetTransactionData(0,account_signer,opr);
         FillOperationResumeToJSONObject(opr,GetResultObject);
         Result := true;
       finally
@@ -1159,10 +1159,10 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
     acc : TAccount;
     i, ian : Integer;
     errors : AnsiString;
-    opr : TOperationResume;
+    opr : TTransactionData;
     accountsnumber : TOrderedCardinalList;
-    operationsht : TOperationsHashTree;
-    OperationsResumeList : TOperationsResumeList;
+    operationsht : TTransactionHashTree;
+    OperationsResumeList : TTransactionList;
   begin
     FNode.OperationSequenceLock.Acquire;  // Use lock to prevent N_Operation race-condition on concurrent invocations
     try
@@ -1174,7 +1174,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
           Exit;
         end;
-        operationsht := TOperationsHashTree.Create;
+        operationsht := TTransactionHashTree.Create;
         try
           for ian := 0 to accountsnumber.Count - 1 do begin
 
@@ -1187,13 +1187,13 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
             opck := CreateOperationChangeKey(acc.account,acc.n_operation,acc.account,acc.accountInfo.accountKey,new_pub_key,fee,RawPayload,Payload_method,EncodePwd);
             if not assigned(opck) then exit;
             try
-              operationsht.AddOperationToHashTree(opck);
+              operationsht.AddTransactionToHashTree(opck);
             finally
               opck.free;
             end;
           end; // For
           // Ready to execute...
-          OperationsResumeList := TOperationsResumeList.Create;
+          OperationsResumeList := TTransactionList.Create;
           Try
             i := FNode.AddOperations(Nil,operationsht,OperationsResumeList, errors);
             if (i<0) then begin
@@ -1225,7 +1225,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
     last_n_operation : Cardinal;
     fee : UInt64; Const RawPayload : TRawBytes; Const Payload_method, EncodePwd : AnsiString) : Boolean;
   // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
-  var OperationsHashTree : TOperationsHashTree;
+  var OperationsHashTree : TTransactionHashTree;
     errors : AnsiString;
     opck : TOpChangeKey;
   begin
@@ -1239,7 +1239,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
       opck := CreateOperationChangeKey(account_signer,last_n_operation,account_target,actualAccounKey,newAccountKey,fee,RawPayload,Payload_method,EncodePwd);
       if opck=nil then exit;
       try
-        OperationsHashTree.AddOperationToHashTree(opck);
+        OperationsHashTree.AddTransactionToHashTree(opck);
         FillOperationsHashTreeToJSONObject(OperationsHashTree,GetResultObject);
         Result := true;
       finally
@@ -1251,11 +1251,11 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
   end;
 
   Function OperationsInfo(Const HexaStringOperationsHashTree : TRawBytes; jsonArray : TPCJSONArray) : Boolean;
-  var OperationsHashTree : TOperationsHashTree;
+  var OperationsHashTree : TTransactionHashTree;
     errors : AnsiString;
-    OPR : TOperationResume;
+    OPR : TTransactionData;
     Obj : TPCJSONObject;
-    Op : TPCOperation;
+    Op : ITransaction;
     i : Integer;
   Begin
     if Not HexaStringToOperationsHashTree(HexaStringOperationsHashTree,OperationsHashTree,errors) then begin
@@ -1268,10 +1268,10 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
       for i := 0 to OperationsHashTree.OperationsCount - 1 do begin
         Op := OperationsHashTree.GetOperation(i);
         Obj := jsonArray.GetAsObject(i);
-        If TPCOperation.OperationToOperationResume(0,Op,Op.SignerAccount,OPR) then begin
+        If Op.GetTransactionData(0,Op.SignerAccount,OPR) then begin
           OPR.NOpInsideBlock := i;
           OPR.Balance := -1;
-        end else OPR := CT_TOperationResume_NUL;
+        end else OPR := TTransactionData.Empty;
         FillOperationResumeToJSONObject(OPR,Obj);
       end;
       Result := true;
@@ -1281,10 +1281,10 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
   End;
 
   Function ExecuteOperations(Const HexaStringOperationsHashTree : TRawBytes) : Boolean;
-  var OperationsHashTree : TOperationsHashTree;
+  var OperationsHashTree : TTransactionHashTree;
     errors : AnsiString;
     i : Integer;
-    OperationsResumeList : TOperationsResumeList;
+    OperationsResumeList : TTransactionList;
   Begin
     if Not HexaStringToOperationsHashTree(HexaStringOperationsHashTree,OperationsHashTree,errors) then begin
       ErrorNum:=CT_RPC_ErrNum_InvalidData;
@@ -1293,7 +1293,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
     end;
     Try
       errors := '';
-      OperationsResumeList := TOperationsResumeList.Create;
+      OperationsResumeList := TTransactionList.Create;
       Try
         i := FNode.AddOperations(Nil,OperationsHashTree,OperationsResumeList,errors);
         if (i<0) then begin
@@ -1447,7 +1447,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
     end else Result := true;
   end;
 
-  function SignListAccountForSaleEx(params : TPCJSONObject; OperationsHashTree : TOperationsHashTree; const actualAccounKey : TAccountKey; last_n_operation : Cardinal) : boolean;
+  function SignListAccountForSaleEx(params : TPCJSONObject; OperationsHashTree : TTransactionHashTree; const actualAccounKey : TAccountKey; last_n_operation : Cardinal) : boolean;
     // params:
     // "account_signer" is the account that signs operations and pays the fee
     // "account_target" is the account being listed
@@ -1511,7 +1511,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
       params.AsString('payload_method','dest'),params.AsString('pwd',''));
     if opSale=nil then exit;
     try
-      OperationsHashTree.AddOperationToHashTree(opSale);
+      OperationsHashTree.AddTransactionToHashTree(opSale);
       Result := true;
     finally
       opSale.Free;
@@ -1520,7 +1520,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
 
   function SignListAccountForSaleColdWallet(Const HexaStringOperationsHashTree : TRawBytes; params : TPCJSONObject) : boolean;
   var errors : AnsiString;
-    OperationsHashTree : TOperationsHashTree;
+    OperationsHashTree : TTransactionHashTree;
     accountpubkey : TAccountKey;
     last_n_operation : Cardinal;
   begin
@@ -1545,7 +1545,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
     end;
   end;
 
-  function SignDelistAccountForSaleEx(params : TPCJSONObject; OperationsHashTree : TOperationsHashTree; const actualAccountKey : TAccountKey; last_n_operation : Cardinal) : boolean;
+  function SignDelistAccountForSaleEx(params : TPCJSONObject; OperationsHashTree : TTransactionHashTree; const actualAccountKey : TAccountKey; last_n_operation : Cardinal) : boolean;
     // params:
     // "account_signer" is the account that signs operations and pays the fee
     // "account_target" is the delisted account
@@ -1581,7 +1581,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
       params.AsString('payload_method','dest'),params.AsString('pwd',''));
     if opDelist=nil then exit;
     try
-      OperationsHashTree.AddOperationToHashTree(opDelist);
+      OperationsHashTree.AddTransactionToHashTree(opDelist);
       Result := true;
     finally
       opDelist.Free;
@@ -1645,7 +1645,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
     end;
   End;
 
-  function SignChangeAccountInfoEx(params : TPCJSONObject; OperationsHashTree : TOperationsHashTree; const actualAccountKey : TAccountKey; last_n_operation : Cardinal) : boolean;
+  function SignChangeAccountInfoEx(params : TPCJSONObject; OperationsHashTree : TTransactionHashTree; const actualAccountKey : TAccountKey; last_n_operation : Cardinal) : boolean;
     // params:
     // "account_signer" is the account that signs operations and pays the fee
     // "account_target" is the target to change info
@@ -1720,7 +1720,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
       params.AsString('payload_method','dest'),params.AsString('pwd',''));
     if opChangeInfo=nil then exit;
     try
-      OperationsHashTree.AddOperationToHashTree(opChangeInfo);
+      OperationsHashTree.AddTransactionToHashTree(opChangeInfo);
       Result := true;
     finally
       opChangeInfo.Free;
@@ -1729,7 +1729,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
 
   function SignChangeAccountInfoColdWallet(Const HexaStringOperationsHashTree : TRawBytes; params : TPCJSONObject) : boolean;
   var errors : AnsiString;
-    OperationsHashTree : TOperationsHashTree;
+    OperationsHashTree : TTransactionHashTree;
     accountpubkey : TAccountKey;
     last_n_operation : Cardinal;
   begin
@@ -1756,7 +1756,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
 
   function SignDelistAccountForSaleColdWallet(Const HexaStringOperationsHashTree : TRawBytes; params : TPCJSONObject) : boolean;
   var errors : AnsiString;
-    OperationsHashTree : TOperationsHashTree;
+    OperationsHashTree : TTransactionHashTree;
     accountpubkey : TAccountKey;
     last_n_operation : Cardinal;
   begin
@@ -1781,7 +1781,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
     end;
   end;
 
-  function SignBuyAccountEx(params : TPCJSONObject; OperationsHashTree : TOperationsHashTree; const buyerAccountKey : TAccountKey; last_n_operation : Cardinal) : boolean;
+  function SignBuyAccountEx(params : TPCJSONObject; OperationsHashTree : TTransactionHashTree; const buyerAccountKey : TAccountKey; last_n_operation : Cardinal) : boolean;
     // params:
     // "buyer_account" is the buyer account
     // "account_to_purchase" is the account to purchase
@@ -1843,7 +1843,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
       params.AsString('payload_method','dest'),params.AsString('pwd',''));
     if opBuy=nil then exit;
     try
-      OperationsHashTree.AddOperationToHashTree(opBuy);
+      OperationsHashTree.AddTransactionToHashTree(opBuy);
       Result := true;
     finally
       opBuy.Free;
@@ -1852,7 +1852,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
 
   function SignBuyAccountColdWallet(Const HexaStringOperationsHashTree : TRawBytes; params : TPCJSONObject) : boolean;
   var errors : AnsiString;
-    OperationsHashTree : TOperationsHashTree;
+    OperationsHashTree : TTransactionHashTree;
     accountpubkey : TAccountKey;
     last_n_operation : Cardinal;
   begin
@@ -1878,17 +1878,17 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
   end;
 
   function ListAccountForSale(params : TPCJSONObject) : boolean;
-  Var OperationsHashTree : TOperationsHashTree;
+  Var OperationsHashTree : TTransactionHashTree;
     account_signer, account_target : TAccount;
-    opt : TPCOperation;
-    opr : TOperationResume;
+    opt : ITransaction;
+    opr : TTransactionData;
     errors : AnsiString;
     c_account : Cardinal;
   Begin
     FNode.OperationSequenceLock.Acquire;  // Use lock to prevent N_Operation race-condition on concurrent invocations
     try
       Result := False;
-      OperationsHashTree := TOperationsHashTree.Create;
+      OperationsHashTree := TTransactionHashTree.Create;
       try
         if (params.IndexOfName('account_signer')<0) then begin
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
@@ -1926,7 +1926,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
           ErrorDesc := errors;
           Exit;
         end else Result := True;
-        TPCOperation.OperationToOperationResume(0,opt,c_account,opr);
+        opt.GetTransactionData(0,c_account,opr);
         FillOperationResumeToJSONObject(opr,GetResultObject);
       finally
         OperationsHashTree.Free;
@@ -1937,17 +1937,17 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
   End;
 
   function DelistAccountForSale(params : TPCJSONObject) : boolean;
-  Var OperationsHashTree : TOperationsHashTree;
+  Var OperationsHashTree : TTransactionHashTree;
     account_signer, account_target : TAccount;
-    opt : TPCOperation;
-    opr : TOperationResume;
+    opt : ITransaction;
+    opr : TTransactionData;
     errors : AnsiString;
     c_account : Cardinal;
   Begin
     FNode.OperationSequenceLock.Acquire;  // Use lock to prevent N_Operation race-condition on concurrent invocations
     try
       Result := False;
-      OperationsHashTree := TOperationsHashTree.Create;
+      OperationsHashTree := TTransactionHashTree.Create;
       try
         if (params.IndexOfName('account_signer')<0) then begin
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
@@ -1985,7 +1985,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
           ErrorDesc := errors;
           Exit;
         end else Result := True;
-        TPCOperation.OperationToOperationResume(0,opt,c_account,opr);
+        opt.GetTransactionData(0,c_account,opr);
         FillOperationResumeToJSONObject(opr,GetResultObject);
       finally
         OperationsHashTree.Free;
@@ -1996,17 +1996,17 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
   End;
 
   function BuyAccount(params : TPCJSONObject) : boolean;
-  Var OperationsHashTree : TOperationsHashTree;
+  Var OperationsHashTree : TTransactionHashTree;
     buyer_account : TAccount;
-    opt : TPCOperation;
-    opr : TOperationResume;
+    opt : ITransaction;
+    opr : TTransactionData;
     errors : AnsiString;
     c_account : Cardinal;
   Begin
     FNode.OperationSequenceLock.Acquire;  // Use lock to prevent N_Operation race-condition on concurrent invocations
     try
       Result := False;
-      OperationsHashTree := TOperationsHashTree.Create;
+      OperationsHashTree := TTransactionHashTree.Create;
       try
         if (params.IndexOfName('buyer_account')<0) then begin
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
@@ -2027,7 +2027,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
           ErrorDesc := errors;
           Exit;
         end else Result := True;
-        TPCOperation.OperationToOperationResume(0,opt,c_account,opr);
+        opt.GetTransactionData(0,c_account,opr);
         FillOperationResumeToJSONObject(opr,GetResultObject);
       finally
         OperationsHashTree.Free;
@@ -2038,17 +2038,17 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
   End;
 
   function ChangeAccountInfo(params : TPCJSONObject) : boolean;
-  Var OperationsHashTree : TOperationsHashTree;
+  Var OperationsHashTree : TTransactionHashTree;
     account_signer, account_target : TAccount;
-    opt : TPCOperation;
-    opr : TOperationResume;
+    opt : ITransaction;
+    opr : TTransactionData;
     errors : AnsiString;
     c_account : Cardinal;
   Begin
     FNode.OperationSequenceLock.Acquire;  // Use lock to prevent N_Operation race-condition on concurrent invocations
     try
       Result := False;
-      OperationsHashTree := TOperationsHashTree.Create;
+      OperationsHashTree := TTransactionHashTree.Create;
       try
         if (params.IndexOfName('account_signer')<0) then begin
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
@@ -2086,7 +2086,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
           ErrorDesc := errors;
           Exit;
         end else Result := True;
-        TPCOperation.OperationToOperationResume(0,opt,c_account,opr);
+        opt.GetTransactionData(0,c_account,opr);
         FillOperationResumeToJSONObject(opr,GetResultObject);
       finally
         OperationsHashTree.Free;
@@ -2185,7 +2185,7 @@ Var c,c2 : Cardinal;
   nsaarr : TNodeServerAddressArray;
   pcops : TPCOperationsComp;
   ecpkey : TECPrivateKey;
-  opr : TOperationResume;
+  opr : TTransactionData;
   r : TRawBytes;
   ocl : TOrderedCardinalList;
   jsonarr : TPCJSONArray;
@@ -2418,7 +2418,7 @@ begin
           ErrorDesc := 'Block/Operation not found: '+IntToStr(c)+'/'+IntToStr(i)+' BlockOperations:'+IntToStr(pcops.Count);
           Exit;
         end;
-        If TPCOperation.OperationToOperationResume(c,pcops.Operation[i],pcops.Operation[i].SignerAccount,opr) then begin
+        If pcops.Operation[i].GetTransactionData(c,pcops.Operation[i].SignerAccount,opr) then begin
           opr.NOpInsideBlock:=i;
           opr.time:=pcops.OperationBlock.timestamp;
           opr.Balance := -1;
@@ -2450,7 +2450,7 @@ begin
         j := params.AsInteger('start',0);
         for i := 0 to pcops.Count - 1 do begin
           if (i>=j) then begin
-            If TPCOperation.OperationToOperationResume(c,pcops.Operation[i],pcops.Operation[i].SignerAccount,opr) then begin
+            If pcops.Operation[i].GetTransactionData(c,pcops.Operation[i].SignerAccount,opr) then begin
               opr.NOpInsideBlock:=i;
               opr.time:=pcops.OperationBlock.timestamp;
               opr.Balance := -1; // Don't include!
@@ -2487,7 +2487,7 @@ begin
     // Create result
     GetResultArray;
     for i:=FNode.Operations.Count-1 downto 0 do begin
-      if not TPCOperation.OperationToOperationResume(0,FNode.Operations.Operation[i],FNode.Operations.Operation[i].SignerAccount,opr) then begin
+      if not FNode.Operations.Operation[i].GetTransactionData(0,FNode.Operations.Operation[i].SignerAccount,opr) then begin
         ErrorNum := CT_RPC_ErrNum_InternalError;
         ErrorDesc := 'Error converting data';
         exit;
@@ -2512,7 +2512,7 @@ begin
         ErrorDesc:='ophash not found: "'+params.AsString('ophash','')+'"';
         exit;
       end;
-      If not TPCOperation.OperationToOperationResume(c,pcops.Operation[i],pcops.Operation[i].SignerAccount,opr) then begin
+      If not pcops.Operation[i].GetTransactionData(c,pcops.Operation[i].SignerAccount,opr) then begin
         ErrorNum := CT_RPC_ErrNum_InternalError;
         ErrorDesc := 'Error 20161026-1';
       end;

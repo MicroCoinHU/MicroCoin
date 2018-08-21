@@ -32,7 +32,7 @@ unit UNode;
 interface
 
 uses
-  Classes, UBlockChain, UNetProtocol, UAccounts, UCrypto, UThread, SyncObjs, ULog;
+  Classes, UBlockChain, UNetProtocol, UAccounts, UCrypto, UThread, SyncObjs, ULog, MicroCoin.Transaction.Base;
 
 {$I config.inc}
 
@@ -74,13 +74,13 @@ Type
     Property Operations : TPCOperationsComp read FOperations;
     //
     Function AddNewBlockChain(SenderConnection : TNetConnection; NewBlockOperations: TPCOperationsComp; var newBlockAccount: TBlockAccount; var errors: AnsiString): Boolean;
-    Function AddOperations(SenderConnection : TNetConnection; Operations : TOperationsHashTree; OperationsResult : TOperationsResumeList; var errors: AnsiString): Integer;
-    Function AddOperation(SenderConnection : TNetConnection; Operation : TPCOperation; var errors: AnsiString): Boolean;
+    Function AddOperations(SenderConnection : TNetConnection; Operations : TTransactionHashTree; OperationsResult : TTransactionList; var errors: AnsiString): Integer;
+    Function AddOperation(SenderConnection : TNetConnection; Operation : ITransaction; var errors: AnsiString): Boolean;
     Function SendNodeMessage(Target : TNetConnection; TheMessage : AnsiString; var errors : AnsiString) : Boolean;
     //
     Procedure NotifyBlocksChanged;
     //
-    procedure GetStoredOperationsFromAccount(const OperationsResume: TOperationsResumeList; account_number: Cardinal; MaxDepth, StartOperation, EndOperation : Integer);
+    procedure GetStoredOperationsFromAccount(const OperationsResume: TTransactionList; account_number: Cardinal; MaxDepth, StartOperation, EndOperation : Integer);
     Function FindOperation(Const OperationComp : TPCOperationsComp; Const OperationHash : TRawBytes; var block : Cardinal; var operation_block_index : Integer) : Boolean;
     //
     Procedure AutoDiscoverNodes(Const ips : AnsiString);
@@ -131,11 +131,11 @@ Type
 
   TThreadNodeNotifyNewBlock = Class(TPCThread)
     FNetConnection : TNetConnection;
-    FSanitizedOperationsHashTree : TOperationsHashTree;
+    FSanitizedOperationsHashTree : TTransactionHashTree;
     FNewBlockOperations : TPCOperationsComp;
   protected
     procedure BCExecute; override;
-    Constructor Create(NetConnection : TNetConnection; MakeACopyOfNewBlockOperations: TPCOperationsComp; MakeACopyOfSanitizedOperationsHashTree : TOperationsHashTree);
+    Constructor Create(NetConnection : TNetConnection; MakeACopyOfNewBlockOperations: TPCOperationsComp; MakeACopyOfSanitizedOperationsHashTree : TTransactionHashTree);
     destructor Destroy; override;
   End;
 
@@ -143,13 +143,13 @@ Type
     FNetConnection : TNetConnection;
   protected
     procedure BCExecute; override;
-    Constructor Create(NetConnection : TNetConnection; MakeACopyOfOperationsHashTree : TOperationsHashTree);
+    Constructor Create(NetConnection : TNetConnection; MakeACopyOfOperationsHashTree : TTransactionHashTree);
     destructor Destroy; override;
   End;
 
 implementation
 
-Uses UOpTransaction, SysUtils,  UConst, UTime;
+Uses UOpTransaction, SysUtils,  UConst, UTime, MicroCoin.Transaction.Transaction;
 
 var _Node : TNode;
 
@@ -167,7 +167,7 @@ Var i,j : Integer;
   s : String;
   errors2 : AnsiString;
   OpBlock : TOperationBlock;
-  opsht : TOperationsHashTree;
+  opsht : TTransactionHashTree;
 begin
   Result := false;
   errors := '';
@@ -229,10 +229,10 @@ begin
     end;
     FOperations.SanitizeOperations;
     if Result then begin
-      opsht := TOperationsHashTree.Create;
+      opsht := TTransactionHashTree.Create;
       Try
         for i := 0 to FOperations.Count - 1 do begin
-          opsht.AddOperationToHashTree(FOperations.Operation[i]);
+          opsht.AddTransactionToHashTree(FOperations.Operation[i]);
           // Add to sent operations
           FSentOperations.Add(FOperations.Operation[i].Sha256,Bank.LastBlockFound.OperationBlock.block);
         end;
@@ -278,19 +278,19 @@ begin
   end;
 end;
 
-function TNode.AddOperation(SenderConnection : TNetConnection; Operation: TPCOperation; var errors: AnsiString): Boolean;
-var ops : TOperationsHashTree;
+function TNode.AddOperation(SenderConnection : TNetConnection; Operation: ITransaction; var errors: AnsiString): Boolean;
+var ops : TTransactionHashTree;
 begin
-  ops := TOperationsHashTree.Create;
+  ops := TTransactionHashTree.Create;
   Try
-    ops.AddOperationToHashTree(Operation);
+    ops.AddTransactionToHashTree(Operation);
     Result := AddOperations(SenderConnection,ops,Nil,errors)=1;
   Finally
     ops.Free;
   End;
 end;
 
-function TNode.AddOperations(SenderConnection : TNetConnection; Operations : TOperationsHashTree; OperationsResult : TOperationsResumeList; var errors: AnsiString): Integer;
+function TNode.AddOperations(SenderConnection : TNetConnection; Operations : TTransactionHashTree; OperationsResult : TTransactionList; var errors: AnsiString): Integer;
   {$IFDEF BufferOfFutureOperations}
   Procedure Process_BufferOfFutureOperations(valids_operations : TOperationsHashTree);
   Var i,j, nAdded, nDeleted : Integer;
@@ -327,13 +327,13 @@ function TNode.AddOperations(SenderConnection : TNetConnection; Operations : TOp
 Var
   i,j : Integer;
   operationscomp : TPCOperationsComp;
-  valids_operations : TOperationsHashTree;
+  valids_operations : TTransactionHashTree;
   nc : TNetConnection;
   e : AnsiString;
   mtl : TList;
   s : String;
-  OPR : TOperationResume;
-  ActOp : TPCOperation;
+  OPR : TTransactionData;
+  ActOp : ITransaction;
   sAcc : TAccount;
 begin
   Result := -1;
@@ -345,7 +345,7 @@ begin
   end;
   Result := 0;
   errors := '';
-  valids_operations := TOperationsHashTree.Create;
+  valids_operations := TTransactionHashTree.Create;
   try
     TLog.NewLog(ltdebug,Classname,Format('AddOperations Connection:%s Operations:%d',[
       Inttohex(PtrInt(SenderConnection),8),Operations.OperationsCount]));
@@ -360,10 +360,10 @@ begin
       {$ENDIF}
       for j := 0 to Operations.OperationsCount-1 do begin
         ActOp := Operations.GetOperation(j);
-        If (FOperations.OperationsHashTree.IndexOfOperation(ActOp)<0) And (FSentOperations.GetTag(ActOp.Sha256)=0) then begin
+        If (FOperations.OperationsHashTree.IndexOf(ActOp)<0) And (FSentOperations.GetTag(ActOp.Sha256)=0) then begin
           // Protocol 2 limitation: In order to prevent spam of operations without Fee, will protect it
           If (ActOp.OperationFee=0) And (Bank.SafeBox.CurrentProtocol>=CT_PROTOCOL_2) And
-             (FOperations.OperationsHashTree.CountOperationsBySameSignerWithoutFee(ActOp.SignerAccount)>=CT_MaxAccountOperationsPerBlockWithoutFee) then begin
+             (FOperations.OperationsHashTree.TransactionCountsWithoutFeeBySameSigner(ActOp.SignerAccount)>=CT_MaxAccountOperationsPerBlockWithoutFee) then begin
             e := Format(rsAccountSZero, [
               TAccountComp.AccountNumberToAccountTxtNumber(ActOp.SignerAccount
               ), CT_MaxAccountOperationsPerBlockWithoutFee]);
@@ -372,7 +372,7 @@ begin
             TLog.NewLog(ltdebug,Classname,Format('AddOperation invalid/duplicated %d/%d: %s  - Error:%s',
               [(j+1),Operations.OperationsCount,ActOp.ToString,e]));
             if Assigned(OperationsResult) then begin
-              TPCOperation.OperationToOperationResume(0,ActOp,ActOp.SignerAccount,OPR);
+              ActOp.GetTransactionData(0,ActOp.SignerAccount,OPR);
               OPR.valid := false;
               OPR.NOpInsideBlock:=-1;
               OPR.OperationHash := '';
@@ -384,10 +384,10 @@ begin
             FSentOperations.Add(ActOp.Sha256,FOperations.OperationBlock.block);
             if (FOperations.AddOperation(true,ActOp,e)) then begin
               inc(Result);
-              valids_operations.AddOperationToHashTree(ActOp);
+              valids_operations.AddTransactionToHashTree(ActOp);
               TLog.NewLog(ltdebug,Classname,Format('AddOperation %d/%d: %s',[(j+1),Operations.OperationsCount,ActOp.ToString]));
               if Assigned(OperationsResult) then begin
-                TPCOperation.OperationToOperationResume(0,ActOp,ActOp.SignerAccount,OPR);
+                ActOp.GetTransactionData(0,ActOp.SignerAccount,OPR);
                 OPR.NOpInsideBlock:=FOperations.Count-1;
                 OPR.Balance := FOperations.SafeBoxTransaction.Account(ActOp.SignerAccount).balance;
                 OperationsResult.Add(OPR);
@@ -398,7 +398,7 @@ begin
               TLog.NewLog(ltdebug,Classname,Format('AddOperation invalid/duplicated %d/%d: %s  - Error:%s',
                 [(j+1),Operations.OperationsCount,ActOp.ToString,e]));
               if Assigned(OperationsResult) then begin
-                TPCOperation.OperationToOperationResume(0,ActOp,ActOp.SignerAccount,OPR);
+                ActOp.GetTransactionData(0,ActOp.SignerAccount,OPR);
                 OPR.valid := false;
                 OPR.NOpInsideBlock:=-1;
                 OPR.OperationHash := '';
@@ -676,13 +676,13 @@ begin
   end;
 end;
 
-procedure TNode.GetStoredOperationsFromAccount(const OperationsResume: TOperationsResumeList; account_number: Cardinal; MaxDepth, StartOperation, EndOperation: Integer);
+procedure TNode.GetStoredOperationsFromAccount(const OperationsResume: TTransactionList; account_number: Cardinal; MaxDepth, StartOperation, EndOperation: Integer);
   // Optimization:
   // For better performance, will only include at "OperationsResume" values betweeen "startOperation" and "endOperation"
   Procedure DoGetFromBlock(block_number : Integer; last_balance : Int64; act_depth : Integer; nOpsCounter : Integer);
   var opc : TPCOperationsComp;
-    op : TPCOperation;
-    OPR : TOperationResume;
+    op : ITransaction;
+    OPR : TTransactionData;
     l : TList;
     i : Integer;
     last_block_number, next_block_number : Integer;
@@ -703,15 +703,15 @@ procedure TNode.GetStoredOperationsFromAccount(const OperationsResume: TOperatio
             TLog.NewLog(ltdebug,ClassName,'Block '+inttostr(block_number)+' not found. Cannot read operations');
             exit;
           end;
-          opc.OperationsHashTree.GetOperationsAffectingAccount(account_number,l);
+          opc.OperationsHashTree.GetTransactionsAffectingAccount(account_number,l);
           for i := l.Count - 1 downto 0 do begin
             op := opc.Operation[PtrInt(l.Items[i])];
             if (i=0) then begin
-              If op.SignerAccount=account_number then next_block_number := op.Previous_Signer_updated_block
+              If op.SignerAccount=account_number then next_block_number := op.Previous_Signer_Updated_Block
               else if (op.DestinationAccount=account_number) then next_block_number := op.Previous_Destination_updated_block
               else if (op.SellerAccount=account_number) then next_block_number:=op.Previous_Seller_updated_block;
             end;
-            If TPCOperation.OperationToOperationResume(block_number,Op,account_number,OPR) then begin
+            If Op.GetTransactionData(block_number,account_number,OPR) then begin
               OPR.NOpInsideBlock := Op.tag; // Note: Used Op.tag to include operation index inside a list
               OPR.time := opc.OperationBlock.timestamp;
               OPR.Block := block_number;
@@ -725,7 +725,7 @@ procedure TNode.GetStoredOperationsFromAccount(const OperationsResume: TOperatio
           end;
           // Is a new block operation?
           if (TAccountComp.AccountBlock(account_number)=block_number) And ((account_number MOD CT_AccountsPerBlock)=0) then begin
-            OPR := CT_TOperationResume_NUL;
+            OPR := TTransactionData.Empty;
             OPR.valid := true;
             OPR.Block := block_number;
             OPR.time := opc.OperationBlock.timestamp;
@@ -767,13 +767,13 @@ function TNode.FindOperation(const OperationComp: TPCOperationsComp;
   { With a OperationHash, search it }
 var account,n_operation : Cardinal;
   i : Integer;
-  op : TPCOperation;
+  op : ITransaction;
   initial_block, aux_block : Cardinal;
   opHashValid, opHash_OLD : TRawBytes;
 begin
   Result := False;
   // Decode OperationHash
-  If not TPCOperation.DecodeOperationHash(OperationHash,block,account,n_operation) then exit;
+  If not TTransaction.DecodeOperationHash(OperationHash,block,account,n_operation) then exit;
   initial_block := block;
   //
   If (account>=Bank.AccountsCount) then exit; // Invalid account number
@@ -784,8 +784,8 @@ begin
       For i:=0 to FOperations.Count-1 do begin
         op := FOperations.Operation[i];
         If (op.SignerAccount=account) then begin
-          opHashValid := TPCOperation.OperationHashValid(op,0);
-          opHash_OLD := TPCOperation.OperationHash_OLD(op,0);
+          opHashValid := TTransaction.OperationHashValid(op,0);
+          opHash_OLD := TTransaction.OperationHash_OLD(op,0);
           If (opHashValid=OperationHash) or
             ((FBank.BlocksCount<CT_Protocol_Upgrade_v2_MinBlock) And (opHash_OLD=OperationHash)) then begin
             operation_block_index:=i;
@@ -810,16 +810,16 @@ begin
     For i:=OperationComp.Count-1 downto 0 do begin
       op := OperationComp.Operation[i];
       if (op.SignerAccount=account) then begin
-        If (op.N_Operation<n_operation) then exit; // n_operation is greaten than found
-        If (op.N_Operation=n_operation) then begin
+        If (op.NumberOfOperations<n_operation) then exit; // n_operation is greaten than found
+        If (op.NumberOfOperations=n_operation) then begin
           // Possible candidate or dead
-          opHashValid := TPCOperation.OperationHashValid(op,initial_block);
+          opHashValid := TTransaction.OperationHashValid(op,initial_block);
           If (opHashValid=OperationHash) then begin
             operation_block_index:=i;
             Result := true;
             exit;
           end else if (block<CT_Protocol_Upgrade_v2_MinBlock) then begin
-            opHash_OLD := TPCOperation.OperationHash_OLD(op,initial_block);
+            opHash_OLD := TTransaction.OperationHash_OLD(op,initial_block);
             if (opHash_OLD=OperationHash) then begin
               operation_block_index:=i;
               Result := true;
@@ -827,8 +827,8 @@ begin
             end else exit; // Not found!
           end else exit; // Not found!
         end;
-        If op.Previous_Signer_updated_block>block then exit;
-        block := op.Previous_Signer_updated_block;
+        If op.Previous_Signer_Updated_Block>block then exit;
+        block := op.Previous_Signer_Updated_Block;
       end else if op.DestinationAccount=account then begin
         If op.Previous_Destination_updated_block > block then exit;
         block := op.Previous_Destination_updated_block;
@@ -1033,10 +1033,10 @@ begin
   DebugStep := 'Finalizing';
 end;
 
-constructor TThreadNodeNotifyNewBlock.Create(NetConnection: TNetConnection; MakeACopyOfNewBlockOperations: TPCOperationsComp; MakeACopyOfSanitizedOperationsHashTree : TOperationsHashTree);
+constructor TThreadNodeNotifyNewBlock.Create(NetConnection: TNetConnection; MakeACopyOfNewBlockOperations: TPCOperationsComp; MakeACopyOfSanitizedOperationsHashTree : TTransactionHashTree);
 begin
   FNetConnection := NetConnection;
-  FSanitizedOperationsHashTree := TOperationsHashTree.Create;
+  FSanitizedOperationsHashTree := TTransactionHashTree.Create;
   FSanitizedOperationsHashTree.CopyFromHashTree(MakeACopyOfSanitizedOperationsHashTree);
   FNewBlockOperations := TPCOperationsComp.Create(Nil);
   FNewBlockOperations.CopyFrom(MakeACopyOfNewBlockOperations);
@@ -1066,7 +1066,7 @@ begin
   end;
 end;
 
-constructor TThreadNodeNotifyOperations.Create(NetConnection: TNetConnection; MakeACopyOfOperationsHashTree: TOperationsHashTree);
+constructor TThreadNodeNotifyOperations.Create(NetConnection: TNetConnection; MakeACopyOfOperationsHashTree: TTransactionHashTree);
 begin
   FNetConnection := NetConnection;
   FNetConnection.AddOperationsToBufferForSend(MakeACopyOfOperationsHashTree);

@@ -165,7 +165,7 @@ Const
 
 implementation
 
-Uses ULog, Variants, UTime, UNetProtocol;
+Uses ULog, Variants, UTime, UNetProtocol, MicroCoin.Transaction.Base;
 
 Type TPendingResponseMessage = Record
        sendDateTime : TDateTime;
@@ -711,17 +711,17 @@ begin
 end;
 
 procedure TPoolMiningServer.FillMinerOperations;
-var tree : TOperationsHashTree;
-  Procedure DoAdd(Const Op : TPCOperation; checkDuplicate : Boolean);
+var tree : TTransactionHashTree;
+  Procedure DoAdd(Const Op : ITransaction; checkDuplicate : Boolean);
   Begin
     if checkDuplicate then begin
-      if tree.IndexOfOperation(Op)>=0 then exit;
+      if tree.IndexOf(Op)>=0 then exit;
     end;
-    tree.AddOperationToHashTree(Op);
+    tree.AddTransactionToHashTree(Op);
   End;
 Var i,j : Integer;
   MasterOp : TPCOperationsComp;
-  op : TPCOperation;
+  op : ITransaction;
   Var errors : AnsiString;
 begin
   MasterOp := FNodeNotifyEvents.Node.Operations;
@@ -729,7 +729,7 @@ begin
   Try
     FMinerOperations.Lock;
     Try
-      tree := TOperationsHashTree.Create;
+      tree := TTransactionHashTree.Create;
       try
         if (Not (TPCOperationsComp.EqualsOperationBlock(FMinerOperations.OperationBlock,MasterOp.OperationBlock))) then begin
           FMinerOperations.Clear(true);

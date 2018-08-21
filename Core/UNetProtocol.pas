@@ -309,7 +309,7 @@ Type
     FRandomWaitSecondsSendHello : Cardinal;
     FBufferLock : TPCCriticalSection;
     FBufferReceivedOperationsHash : TOrderedRawList;
-    FBufferToSendOperations : TOperationsHashTree;
+    FBufferToSendOperations : TTransactionHashTree;
     FClientTimestampIp : AnsiString;
     function GetConnected: Boolean;
     procedure SetConnected(const Value: Boolean);
@@ -342,9 +342,9 @@ Type
     Function Send_Hello(NetTranferType : TNetTransferType; request_id : Integer) : Boolean;
     Function Send_NewBlockFound(Const NewBlock : TPCOperationsComp) : Boolean;
     Function Send_GetBlocks(StartAddress, quantity : Cardinal; var request_id : Cardinal) : Boolean;
-    Function Send_AddOperations(Operations : TOperationsHashTree) : Boolean;
+    Function Send_AddOperations(Operations : TTransactionHashTree) : Boolean;
     Function Send_Message(Const TheMessage : AnsiString) : Boolean;
-    Function AddOperationsToBufferForSend(Operations : TOperationsHashTree) : Integer;
+    Function AddOperationsToBufferForSend(Operations : TTransactionHashTree) : Integer;
     Property Client : TNetTcpIpClient read GetClient;
     Function ClientRemoteAddr : AnsiString;
     property TimestampDiff : Integer read FTimestampDiff;
@@ -412,7 +412,7 @@ Const
 implementation
 
 uses
-  UConst, ULog, UNode, UTime, UECIES, UChunk;
+  UConst, ULog, UNode, UTime, UECIES, UChunk, MicroCoin.Transaction.Base;
 
 Const
   CT_NetTransferType : Array[TNetTransferType] of AnsiString = ('Unknown','Request','Response','Autosend');
@@ -1139,8 +1139,8 @@ Const CT_LogSender = 'GetNewBlockChainFromClient';
     i : Integer;
     tempfolder : AnsiString;
     OpComp,OpExecute : TPCOperationsComp;
-    oldBlockchainOperations : TOperationsHashTree;
-    opsResume : TOperationsResumeList;
+    oldBlockchainOperations : TTransactionHashTree;
+    opsResume : TTransactionList;
     newBlock : TBlockAccount;
     errors : AnsiString;
     start,start_c : Cardinal;
@@ -1210,7 +1210,7 @@ Const CT_LogSender = 'GetNewBlockChainFromClient';
       // Before of version 1.5 was: "if Bank.BlocksCount>TNode.Node.Bank.BlocksCount then ..."
       // Starting on version 1.5 is: "if Bank.WORK > MyBank.WORK then ..."
       if Bank.SafeBox.WorkSum > TNode.Node.Bank.SafeBox.WorkSum then begin
-        oldBlockchainOperations := TOperationsHashTree.Create;
+        oldBlockchainOperations := TTransactionHashTree.Create;
         try
           TNode.Node.DisableNewBlocks;
           Try
@@ -1224,7 +1224,7 @@ Const CT_LogSender = 'GetNewBlockChainFromClient';
                   If TNode.Node.Bank.LoadOperations(OpExecute,start) then begin
                     for i:=0 to OpExecute.Count-1 do begin
                       // TODO: NEED TO EXCLUDE OPERATIONS ALREADY INCLUDED IN BLOCKCHAIN?
-                      oldBlockchainOperations.AddOperationToHashTree(OpExecute.Operation[i]);
+                      oldBlockchainOperations.AddTransactionToHashTree(OpExecute.Operation[i]);
                     end;
                     TLog.NewLog(ltInfo,CT_LogSender,'Recovered '+IntToStr(OpExecute.Count)+' operations from block '+IntToStr(start));
                   end else begin
@@ -1246,7 +1246,7 @@ Const CT_LogSender = 'GetNewBlockChainFromClient';
           If oldBlockchainOperations.OperationsCount>0 then begin
             TLog.NewLog(ltInfo,CT_LogSender,Format('Executing %d operations from block %d to %d',
              [oldBlockchainOperations.OperationsCount,start_c,TNode.Node.Bank.BlocksCount-1]));
-            opsResume := TOperationsResumeList.Create;
+            opsResume := TTransactionList.Create;
             Try
               // Re-add orphaned operations back into the pending pool.
               // NIL is passed as senderConnection since localnode is considered
@@ -1844,7 +1844,7 @@ end;
 
 { TNetConnection }
 
-function TNetConnection.AddOperationsToBufferForSend(Operations: TOperationsHashTree): Integer;
+function TNetConnection.AddOperationsToBufferForSend(Operations: TTransactionHashTree): Integer;
 Var i : Integer;
 begin
   Result := 0;
@@ -1854,8 +1854,8 @@ begin
       for i := 0 to Operations.OperationsCount - 1 do begin
         if FBufferReceivedOperationsHash.IndexOf(Operations.GetOperation(i).Sha256)<0 then begin
           FBufferReceivedOperationsHash.Add(Operations.GetOperation(i).Sha256);
-          If FBufferToSendOperations.IndexOfOperation(Operations.GetOperation(i))<0 then begin
-            FBufferToSendOperations.AddOperationToHashTree(Operations.GetOperation(i));
+          If FBufferToSendOperations.IndexOf(Operations.GetOperation(i))<0 then begin
+            FBufferToSendOperations.AddTransactionToHashTree(Operations.GetOperation(i));
             Inc(Result);
           end;
         end;
@@ -1948,7 +1948,7 @@ begin
   TNetData.NetData.NotifyNetConnectionUpdated;
   FBufferLock := TPCCriticalSection.Create('TNetConnection_BufferLock');
   FBufferReceivedOperationsHash := TOrderedRawList.Create;
-  FBufferToSendOperations := TOperationsHashTree.Create;
+  FBufferToSendOperations := TTransactionHashTree.Create;
   FClientTimestampIp := '';
 end;
 
@@ -2080,13 +2080,13 @@ procedure TNetConnection.DoProcess_AddOperations(HeaderData: TNetHeaderData; Dat
 var c,i : Integer;
     optype : Byte;
     opclass : TPCOperationClass;
-    op : TPCOperation;
-    operations : TOperationsHashTree;
+    op : ITransaction;
+    operations : TTransactionHashTree;
     errors : AnsiString;
   DoDisconnect : Boolean;
 begin
   DoDisconnect := true;
-  operations := TOperationsHashTree.Create;
+  operations := TTransactionHashTree.Create;
   try
     if HeaderData.header_type<>ntp_autosend then begin
       errors := 'Not autosend';
@@ -2105,7 +2105,7 @@ begin
       op := opclass.Create;
       Try
         op.LoadFromNettransfer(DataBuffer);
-        operations.AddOperationToHashTree(op);
+        operations.AddTransactionToHashTree(op);
       Finally
         op.Free;
       End;
@@ -2122,7 +2122,7 @@ begin
           for i := 0 to operations.OperationsCount - 1 do begin
             op := operations.GetOperation(i);
             FBufferReceivedOperationsHash.Add(op.Sha256);
-            c := FBufferToSendOperations.IndexOfOperation(op);
+            c := FBufferToSendOperations.IndexOf(op);
             if (c>=0) then FBufferToSendOperations.Delete(c);
           end;
         Finally
@@ -2971,7 +2971,7 @@ begin
   End;
 end;
 
-function TNetConnection.Send_AddOperations(Operations : TOperationsHashTree) : Boolean;
+function TNetConnection.Send_AddOperations(Operations : TTransactionHashTree) : Boolean;
 Var data : TMemoryStream;
   c1, request_id : Cardinal;
   i, nOpsToSend : Integer;
@@ -2988,8 +2988,8 @@ begin
         for i := 0 to Operations.OperationsCount - 1 do begin
           if FBufferReceivedOperationsHash.IndexOf(Operations.GetOperation(i).Sha256)<0 then begin
             FBufferReceivedOperationsHash.Add(Operations.GetOperation(i).Sha256);
-            If FBufferToSendOperations.IndexOfOperation(Operations.GetOperation(i))<0 then begin
-              FBufferToSendOperations.AddOperationToHashTree(Operations.GetOperation(i));
+            If FBufferToSendOperations.IndexOf(Operations.GetOperation(i))<0 then begin
+              FBufferToSendOperations.AddTransactionToHashTree(Operations.GetOperation(i));
             end;
           end;
         end;

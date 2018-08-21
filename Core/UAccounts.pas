@@ -23,7 +23,8 @@ interface
 
 uses
   Classes, UConst, UCrypto, SyncObjs, UThread, UBaseTypes, UCommon;
-{$I config.inc}
+
+  {$I config.inc}
 
 Type
   TAccountKey = TECDSA_Public;

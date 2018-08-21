@@ -20,7 +20,7 @@ unit UOpTransaction;
 
 interface
 
-Uses UCrypto, UBlockChain, Classes, UAccounts;
+Uses UCrypto, UBlockChain, Classes, UAccounts, MicroCoin.Transaction.Transaction, MicroCoin.Transaction.Base;
 
 Type
   // Operations Type
@@ -67,59 +67,69 @@ Const
 Type
   { TOpTransaction }
 
-  TOpTransaction = Class(TPCOperation)
+  TOpTransaction = Class(TTransaction)
   private
     FData : TOpTransactionData;
   protected
     procedure InitializeData; override;
-    function SaveOpToStream(Stream: TStream; SaveExtendedData : Boolean): Boolean; override;
-    function LoadOpFromStream(Stream: TStream; LoadExtendedData : Boolean): Boolean; override;
+    function SaveToStream(Stream: TStream; SaveExtendedData : Boolean): Boolean; override;
+    function LoadFromStream(Stream: TStream; LoadExtendedData : Boolean): Boolean; override;
   public
     function GetBufferForOpHash(UseProtocolV2 : Boolean): TRawBytes; override;
     function DoOperation(AccountTransaction : TPCSafeBoxTransaction; var errors : AnsiString) : Boolean; override;
     procedure AffectedAccounts(list : TList); override;
     //
-    Class Function GetTransactionHashToSign(const trans : TOpTransactionData) : TRawBytes;
-    Class Function DoSignOperation(key : TECPrivateKey; var trans : TOpTransactionData) : Boolean;
-    class function OpType : Byte; override;
-    function OperationAmount : Int64; override;
-    function OperationFee : UInt64; override;
-    function OperationPayload : TRawBytes; override;
-    function SignerAccount : Cardinal; override;
-    function DestinationAccount : Int64; override;
-    function SellerAccount : Int64; override;
-    function N_Operation : Cardinal; override;
-    Property Data : TOpTransactionData read FData;
+    class function GetTransactionHashToSign(const trans : TOpTransactionData) : TRawBytes;
+    class function DoSignOperation(key : TECPrivateKey; var trans : TOpTransactionData) : Boolean;
+    function GetOpType : Byte; override;
+    function GetOperationAmount : Int64; override;
+    function GetOperationFee : UInt64; override;
+    function GetOperationPayload : TRawBytes; override;
+    function GetSignerAccount : Cardinal; override;
+    function GetDestinationAccount : Int64; override;
+    function GetSellerAccount : Int64; override;
+    function GetNumberOfOperations : Cardinal; override;
+    function GetTransactionData(Block: Cardinal;
+      Affected_account_number: Cardinal;
+      var TransactionData: TTransactionData): Boolean; override;
+    property Data : TOpTransactionData read FData;
 
-    Constructor CreateTransaction(sender, n_operation, target: Cardinal; key: TECPrivateKey; amount, fee: UInt64; payload: TRawBytes);
-    Function toString : String; Override;
+    constructor CreateTransaction(sender, n_operation, target: Cardinal; key: TECPrivateKey; amount, fee: UInt64; payload: TRawBytes);
+
+    function ToString : string; override;
   End;
 
   { TOpChangeKey }
 
-  TOpChangeKey = Class(TPCOperation)
+  TOpChangeKey = Class(TTransaction)
   private
     FData : TOpChangeKeyData;
   protected
     procedure InitializeData; override;
-    function SaveOpToStream(Stream: TStream; SaveExtendedData : Boolean): Boolean; override;
-    function LoadOpFromStream(Stream: TStream; LoadExtendedData : Boolean): Boolean; override;
+    function SaveToStream(Stream: TStream; SaveExtendedData : Boolean): Boolean; override;
+    function LoadFromStream(Stream: TStream; LoadExtendedData : Boolean): Boolean; override;
   public
     Class Function GetOperationHashToSign(const op : TOpChangeKeyData) : TRawBytes;
     Class Function DoSignOperation(key : TECPrivateKey; var op : TOpChangeKeyData) : Boolean;
-    class function OpType : Byte; override;
+    function GetOpType : Byte; override;
 
     function GetBufferForOpHash(UseProtocolV2 : Boolean): TRawBytes; override;
     function DoOperation(AccountTransaction : TPCSafeBoxTransaction; var errors : AnsiString) : Boolean; override;
-    function OperationAmount : Int64; override;
-    function OperationFee : UInt64; override;
-    function OperationPayload : TRawBytes; override;
-    function SignerAccount : Cardinal; override;
-    function DestinationAccount : Int64; override;
-    function N_Operation : Cardinal; override;
+    function GetOperationAmount : Int64; override;
+    function GetOperationFee : UInt64; override;
+    function GetOperationPayload : TRawBytes; override;
+    function GetSignerAccount : Cardinal; override;
+    function GetDestinationAccount : Int64; override;
+    function GetNumberOfOperations : Cardinal; override;
     procedure AffectedAccounts(list : TList); override;
     Constructor Create(account_signer, n_operation, account_target: Cardinal; key:TECPrivateKey; new_account_key : TAccountKey; fee: UInt64; payload: TRawBytes);
+    function GetTransactionData(Block: Cardinal;
+      Affected_account_number: Cardinal;
+      var TransactionData: TTransactionData): Boolean; override;
     Property Data : TOpChangeKeyData read FData;
+
+
+
     Function toString : String; Override;
   End;
 
@@ -127,33 +137,40 @@ Type
 
   TOpChangeKeySigned = Class(TOpChangeKey)
   public
-    class function OpType : Byte; override;
+    function GetOpType : Byte; override;
+    function GetTransactionData(Block: Cardinal;
+      Affected_account_number: Cardinal;
+      var TransactionData: TTransactionData): Boolean; override;
   end;
 
 
   { TOpRecoverFounds }
 
-  TOpRecoverFounds = Class(TPCOperation)
+  TOpRecoverFounds = Class(TTransaction)
   private
     FData : TOpRecoverFoundsData;
   protected
     procedure InitializeData; override;
-    function SaveOpToStream(Stream: TStream; SaveExtendedData : Boolean): Boolean; override;
-    function LoadOpFromStream(Stream: TStream; LoadExtendedData : Boolean): Boolean; override;
+    function SaveToStream(Stream: TStream; SaveExtendedData : Boolean): Boolean; override;
+    function LoadFromStream(Stream: TStream; LoadExtendedData : Boolean): Boolean; override;
   public
-    class function OpType : Byte; override;
+    function GetOpType : Byte; override;
 
     function GetBufferForOpHash(UseProtocolV2 : Boolean): TRawBytes; override;
     function DoOperation(AccountTransaction : TPCSafeBoxTransaction; var errors : AnsiString) : Boolean; override;
-    function OperationAmount : Int64; override;
-    function OperationFee : UInt64; override;
-    function OperationPayload : TRawBytes; override;
-    function SignerAccount : Cardinal; override;
-    function N_Operation : Cardinal; override;
+    function GetOperationAmount : Int64; override;
+    function GetOperationFee : UInt64; override;
+    function GetOperationPayload : TRawBytes; override;
+    function GetSignerAccount : Cardinal; override;
+    function GetNumberOfOperations : Cardinal; override;
     procedure AffectedAccounts(list : TList); override;
     Constructor Create(account_number, n_operation: Cardinal; fee: UInt64);
+    function GetTransactionData(Block: Cardinal;
+      Affected_account_number: Cardinal;
+      var TransactionData: TTransactionData): Boolean; override;
     Property Data : TOpRecoverFoundsData read FData;
     Function toString : String; Override;
+
   End;
 
   // NEW OPERATIONS PROTOCOL 2
@@ -200,13 +217,13 @@ Const
 Type
 
   { TOpListAccount }
-  TOpListAccount = Class(TPCOperation)
+  TOpListAccount = Class(TTransaction)
   private
     FData : TOpListAccountData;
   protected
     procedure InitializeData; override;
-    function SaveOpToStream(Stream: TStream; SaveExtendedData : Boolean): Boolean; override;
-    function LoadOpFromStream(Stream: TStream; LoadExtendedData : Boolean): Boolean; override;
+    function SaveToStream(Stream: TStream; SaveExtendedData : Boolean): Boolean; override;
+    function LoadFromStream(Stream: TStream; LoadExtendedData : Boolean): Boolean; override;
   public
     Class Function GetOperationHashToSign(const operation : TOpListAccountData) : TRawBytes;
     Class Function DoSignOperation(key : TECPrivateKey; var operation : TOpListAccountData) : Boolean;
@@ -216,13 +233,13 @@ Type
 
     function GetBufferForOpHash(UseProtocolV2 : Boolean): TRawBytes; override;
     function DoOperation(AccountTransaction : TPCSafeBoxTransaction; var errors : AnsiString) : Boolean; override;
-    function OperationAmount : Int64; override;
-    function OperationFee : UInt64; override;
-    function OperationPayload : TRawBytes; override;
-    function SignerAccount : Cardinal; override;
-    function DestinationAccount : Int64; override;
-    function SellerAccount : Int64; override;
-    function N_Operation : Cardinal; override;
+    function GetOperationAmount : Int64; override;
+    function GetOperationFee : UInt64; override;
+    function GetOperationPayload : TRawBytes; override;
+    function GetSignerAccount : Cardinal; override;
+    function GetDestinationAccount : Int64; override;
+    function GetSellerAccount : Int64; override;
+    function GetNumberOfOperations : Cardinal; override;
     procedure AffectedAccounts(list : TList); override;
     Property Data : TOpListAccountData read FData;
     Function toString : String; Override;
@@ -230,17 +247,25 @@ Type
 
   TOpListAccountForSale = Class(TOpListAccount)
   public
-    class function OpType : Byte; override;
+    function GetOpType : Byte; override;
     Constructor CreateListAccountForSale(account_signer, n_operation, account_target: Cardinal; account_price, fee : UInt64; account_to_pay:Cardinal; new_public_key:TAccountKey; locked_until_block : Cardinal; key:TECPrivateKey; payload: TRawBytes);
     Function IsDelist : Boolean; override;
+    function GetTransactionData(Block: Cardinal;
+      Affected_account_number: Cardinal;
+      var TransactionData: TTransactionData): Boolean; override;
+
+
   End;
 
   TOpDelistAccountForSale = Class(TOpListAccount)
   public
-    class function OpType : Byte; override;
+    function GetOpType : Byte; override;
     Constructor CreateDelistAccountForSale(account_signer, n_operation, account_target: Cardinal; fee: UInt64; key: TECPrivateKey; payload: TRawBytes);
     Function IsDelist : Boolean; override;
-  End;
+    function GetTransactionData(Block: Cardinal;
+      Affected_account_number: Cardinal;
+      var TransactionData: TTransactionData): Boolean; override;
+  end;
 
   { TOpBuyAccount }
 
@@ -248,40 +273,47 @@ Type
   protected
     procedure InitializeData; override;
   public
-    class function OpType : Byte; override;
+    function GetOpType : Byte; override;
     Constructor CreateBuy(account_number, n_operation, account_to_buy, account_to_pay: Cardinal; price, amount, fee : UInt64; new_public_key:TAccountKey; key:TECPrivateKey; payload: TRawBytes);
-  End;
+    function GetTransactionData(Block: Cardinal;
+      Affected_account_number: Cardinal;
+      var TransactionData: TTransactionData): Boolean; override;
+  end;
 
   { TOpChangeAccountInfo }
 
-  TOpChangeAccountInfo = Class(TPCOperation)
+  TOpChangeAccountInfo = Class(TTransaction)
   private
     FData : TOpChangeAccountInfoData;
   protected
     procedure InitializeData; override;
-    function SaveOpToStream(Stream: TStream; SaveExtendedData : Boolean): Boolean; override;
-    function LoadOpFromStream(Stream: TStream; LoadExtendedData : Boolean): Boolean; override;
+    function SaveToStream(Stream: TStream; SaveExtendedData : Boolean): Boolean; override;
+    function LoadFromStream(Stream: TStream; LoadExtendedData : Boolean): Boolean; override;
   public
     Class Function GetOperationHashToSign(const op : TOpChangeAccountInfoData) : TRawBytes;
     Class Function DoSignOperation(key : TECPrivateKey; var op : TOpChangeAccountInfoData) : Boolean;
-    class function OpType : Byte; override;
+    function GetOpType : Byte; override;
 
     function GetBufferForOpHash(UseProtocolV2 : Boolean): TRawBytes; override;
     function DoOperation(AccountTransaction : TPCSafeBoxTransaction; var errors : AnsiString) : Boolean; override;
-    function OperationAmount : Int64; override;
-    function OperationFee : UInt64; override;
-    function OperationPayload : TRawBytes; override;
-    function SignerAccount : Cardinal; override;
-    function DestinationAccount : Int64; override;
-    function N_Operation : Cardinal; override;
+    function GetOperationAmount : Int64; override;
+    function GetOperationFee : UInt64; override;
+    function GetOperationPayload : TRawBytes; override;
+    function GetSignerAccount : Cardinal; override;
+    function GetDestinationAccount : Int64; override;
+    function GetNumberOfOperations : Cardinal; override;
     procedure AffectedAccounts(list : TList); override;
     Constructor CreateChangeAccountInfo(account_signer, n_operation, account_target: Cardinal; key:TECPrivateKey;
       change_key : Boolean; const new_account_key : TAccountKey;
       change_name: Boolean; const new_name : TRawBytes;
       change_type: Boolean; const new_type : Word;
       fee: UInt64; payload: TRawBytes);
+    function GetTransactionData(Block: Cardinal;
+      Affected_account_number: Cardinal;
+      var TransactionData: TTransactionData): Boolean; override;
     Property Data : TOpChangeAccountInfoData read FData;
     Function toString : String; Override;
+
   End;
 
 
@@ -294,14 +326,14 @@ uses
 
 Procedure RegisterOperationsClass;
 Begin
-  TPCOperationsComp.RegisterOperationClass(TOpTransaction);
-  TPCOperationsComp.RegisterOperationClass(TOpChangeKey);
-  TPCOperationsComp.RegisterOperationClass(TOpRecoverFounds);
-  TPCOperationsComp.RegisterOperationClass(TOpListAccountForSale);
-  TPCOperationsComp.RegisterOperationClass(TOpDelistAccountForSale);
-  TPCOperationsComp.RegisterOperationClass(TOpBuyAccount);
-  TPCOperationsComp.RegisterOperationClass(TOpChangeKeySigned);
-  TPCOperationsComp.RegisterOperationClass(TOpChangeAccountInfo);
+  TPCOperationsComp.RegisterOperationClass(TOpTransaction, CT_Op_Transaction);
+  TPCOperationsComp.RegisterOperationClass(TOpChangeKey, CT_Op_Changekey);
+  TPCOperationsComp.RegisterOperationClass(TOpRecoverFounds, CT_Op_Recover);
+  TPCOperationsComp.RegisterOperationClass(TOpListAccountForSale, CT_Op_ListAccountForSale);
+  TPCOperationsComp.RegisterOperationClass(TOpDelistAccountForSale, CT_Op_DelistAccount);
+  TPCOperationsComp.RegisterOperationClass(TOpBuyAccount, CT_Op_BuyAccount);
+  TPCOperationsComp.RegisterOperationClass(TOpChangeKeySigned, CT_Op_ChangeKeySigned);
+  TPCOperationsComp.RegisterOperationClass(TOpChangeAccountInfo, CT_Op_ChangeAccountInfo);
 End;
 
 { TOpChangeAccountInfo }
@@ -312,7 +344,7 @@ begin
   FData := CT_TOpChangeAccountInfoData_NUL;
 end;
 
-function TOpChangeAccountInfo.SaveOpToStream(Stream: TStream; SaveExtendedData: Boolean): Boolean;
+function TOpChangeAccountInfo.SaveToStream(Stream: TStream; SaveExtendedData: Boolean): Boolean;
 var b : byte;
 begin
   Stream.Write(FData.account_signer,Sizeof(FData.account_signer));
@@ -334,7 +366,7 @@ begin
   Result := true;
 end;
 
-function TOpChangeAccountInfo.LoadOpFromStream(Stream: TStream; LoadExtendedData: Boolean): Boolean;
+function TOpChangeAccountInfo.LoadFromStream(Stream: TStream; LoadExtendedData: Boolean): Boolean;
 var b : Byte;
 begin
   Result := False;
@@ -411,7 +443,7 @@ begin
   SetLength(raw,0);
 end;
 
-class function TOpChangeAccountInfo.OpType: Byte;
+function TOpChangeAccountInfo.GetOpType: Byte;
 begin
   Result := CT_Op_ChangeAccountInfo;
 end;
@@ -533,32 +565,78 @@ begin
          FData.fee,errors);
 end;
 
-function TOpChangeAccountInfo.OperationAmount: Int64;
+function TOpChangeAccountInfo.GetOperationAmount: Int64;
 begin
   Result := 0;
 end;
 
-function TOpChangeAccountInfo.OperationFee: UInt64;
+function TOpChangeAccountInfo.GetOperationFee: UInt64;
 begin
   Result := FData.fee;
 end;
 
-function TOpChangeAccountInfo.OperationPayload: TRawBytes;
+function TOpChangeAccountInfo.GetOperationPayload: TRawBytes;
 begin
   Result := FData.payload;
 end;
 
-function TOpChangeAccountInfo.SignerAccount: Cardinal;
+function TOpChangeAccountInfo.GetSignerAccount: Cardinal;
 begin
   Result := FData.account_signer;
 end;
 
-function TOpChangeAccountInfo.DestinationAccount: Int64;
+function TOpChangeAccountInfo.GetTransactionData(Block,
+  Affected_account_number: Cardinal;
+  var TransactionData: TTransactionData): Boolean;
+
+var s : string;
+
+begin
+  TransactionData.DestAccount := GetDestinationAccount;
+  s := '';
+  if (public_key in Data.changes_type)
+  then
+  begin
+    s := 'key';
+  end;
+  if (account_name in Data.changes_type)
+  then
+  begin
+    if s <> '' then
+      s := s + ',';
+    s := s + 'name';
+  end;
+  if (account_type in Data.changes_type)
+  then
+  begin
+    if s <> '' then
+      s := s + ',';
+    s := s + 'type';
+  end;
+  TransactionData.OperationTxt := 'Changed ' + s + ' of account ' +
+    TAccountComp.AccountNumberToAccountTxtNumber
+    (GetDestinationAccount);
+  TransactionData.OpSubtype := CT_OpSubtype_ChangeAccountInfo;
+  Result := true;
+  TransactionData.OriginalPayload := GetOperationPayload;
+  If TCrypto.IsHumanReadable(TransactionData.OriginalPayload) then
+    TransactionData.PrintablePayload := TransactionData.OriginalPayload
+  else
+    TransactionData.PrintablePayload := TCrypto.ToHexaString(TransactionData.OriginalPayload);
+  TransactionData.OperationHash := OperationHashValid(self, Block);
+  if (Block < CT_Protocol_Upgrade_v2_MinBlock) then
+  begin
+    TransactionData.OperationHash_OLD := TTransaction.OperationHash_OLD(self, Block);
+  end;
+  TransactionData.valid := true;
+end;
+
+function TOpChangeAccountInfo.GetDestinationAccount: Int64;
 begin
   Result := FData.account_target;
 end;
 
-function TOpChangeAccountInfo.N_Operation: Cardinal;
+function TOpChangeAccountInfo.GetNumberOfOperations: Cardinal;
 begin
   Result := FData.n_operation;
 end;
@@ -857,6 +935,120 @@ begin
   end;
 end;
 
+function TOpTransaction.GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal;
+  var TransactionData: TTransactionData): Boolean;
+var
+  spayload: AnsiString;
+  s: AnsiString;
+begin
+  TransactionData := TTransactionData.Empty;
+  TransactionData.Block := Block;
+  If self.GetSignerAccount = Affected_account_number then
+  begin
+    TransactionData.Fee := (-1) * Int64(GetOperationFee);
+  end;
+  TransactionData.AffectedAccount := Affected_account_number;
+  TransactionData.OpType := OpType;
+  TransactionData.SignerAccount := GetSignerAccount;
+  Result := false;
+  TransactionData.DestAccount := Data.target;
+  if (Data.opTransactionStyle = transaction_with_auto_buy_account) then
+  begin
+    if Data.Sender = Affected_account_number
+    then
+    begin
+      TransactionData.OpSubtype := CT_OpSubtype_BuyTransactionBuyer;
+      TransactionData.OperationTxt := 'Tx-Out (MCCA ' +
+        TAccountComp.AccountNumberToAccountTxtNumber
+        (Data.target) + ' Purchase) ' +
+        TAccountComp.FormatMoney(TOpTransaction(self).Data.Amount) +
+        ' MCC from ' + TAccountComp.AccountNumberToAccountTxtNumber(Data.Sender) + ' to ' +
+        TAccountComp.AccountNumberToAccountTxtNumber(Data.target);
+      If (Data.Sender = Data.SellerAccount) then
+      begin
+        // Valid calc when sender is the same than seller
+        TransactionData.Amount :=
+          (Int64(Data.Amount) - (Data.AccountPrice)) * (-1);
+      end
+      else
+        TransactionData.Amount := Int64(Data.Amount) * (-1);
+      Result := true;
+    end
+    else if Data.target = Affected_account_number
+    then
+    begin
+      TransactionData.OpSubtype := CT_OpSubtype_BuyTransactionTarget;
+      TransactionData.OperationTxt := 'Tx-In (MCCA ' +
+        TAccountComp.AccountNumberToAccountTxtNumber
+        (Data.target) + ' Purchase) ' +
+        TAccountComp.FormatMoney(Data.Amount) +
+        ' MCC from ' + TAccountComp.AccountNumberToAccountTxtNumber
+        (Data.Sender) + ' to ' +
+        TAccountComp.AccountNumberToAccountTxtNumber
+        (Data.target);
+      TransactionData.Amount :=
+        Int64(Data.Amount) -
+        Int64(Data.AccountPrice);
+      TransactionData.Fee := 0;
+      Result := true;
+    end
+    else if Data.SellerAccount = Affected_account_number
+    then
+    begin
+      TransactionData.OpSubtype := CT_OpSubtype_BuyTransactionSeller;
+      TransactionData.OperationTxt := 'Tx-In Sold account ' +
+      TAccountComp.AccountNumberToAccountTxtNumber(Data.target) + ' price ' +
+      TAccountComp.FormatMoney(Data.AccountPrice) + ' MCC';
+      TransactionData.Amount := Data.AccountPrice;
+      TransactionData.Fee := 0;
+      Result := true;
+    end
+    else
+      exit;
+  end
+  else
+  begin
+    if Data.Sender = Affected_account_number
+    then
+    begin
+      TransactionData.OpSubtype := CT_OpSubtype_TransactionSender;
+      TransactionData.OperationTxt := 'Tx-Out ' + TAccountComp.FormatMoney
+        (Data.Amount) + ' MCC from ' +
+        TAccountComp.AccountNumberToAccountTxtNumber
+        (Data.Sender) + ' to ' +
+        TAccountComp.AccountNumberToAccountTxtNumber
+        (Data.target);
+      TransactionData.Amount :=
+        Int64(Data.Amount) * (-1);
+      Result := true;
+    end
+    else if Data.target = Affected_account_number
+    then
+    begin
+      TransactionData.OpSubtype := CT_OpSubtype_TransactionReceiver;
+      TransactionData.OperationTxt := 'Tx-In ' + TAccountComp.FormatMoney(Data.Amount) + ' MCC from ' +
+        TAccountComp.AccountNumberToAccountTxtNumber(Data.Sender) + ' to ' +
+        TAccountComp.AccountNumberToAccountTxtNumber(Data.target);
+      TransactionData.Amount := Data.Amount;
+      TransactionData.Fee := 0;
+      Result := true;
+    end
+    else
+      exit;
+  end;
+  TransactionData.OriginalPayload := GetOperationPayload;
+  If TCrypto.IsHumanReadable(TransactionData.OriginalPayload) then
+    TransactionData.PrintablePayload := TransactionData.OriginalPayload
+  else
+    TransactionData.PrintablePayload := TCrypto.ToHexaString(TransactionData.OriginalPayload);
+  TransactionData.OperationHash := OperationHashValid(self, Block);
+  if (Block < CT_Protocol_Upgrade_v2_MinBlock) then
+  begin
+    TransactionData.OperationHash_OLD := TTransaction.OperationHash_OLD(self, Block);
+  end;
+  TransactionData.valid := true;
+end;
+
 class function TOpTransaction.GetTransactionHashToSign(const trans: TOpTransactionData): TRawBytes;
 Var ms : TMemoryStream;
   s:string;
@@ -899,7 +1091,7 @@ begin
   FData := CT_TOpTransactionData_NUL;
 end;
 
-function TOpTransaction.LoadOpFromStream(Stream: TStream; LoadExtendedData : Boolean): Boolean;
+function TOpTransaction.LoadFromStream(Stream: TStream; LoadExtendedData : Boolean): Boolean;
 var b : Byte;
 begin
   Result := false;
@@ -939,27 +1131,27 @@ begin
   Result := true;
 end;
 
-function TOpTransaction.OperationAmount: Int64;
+function TOpTransaction.GetOperationAmount: Int64;
 begin
   Result := FData.amount;
 end;
 
-function TOpTransaction.OperationFee: UInt64;
+function TOpTransaction.GetOperationFee: UInt64;
 begin
   Result := FData.fee;
 end;
 
-function TOpTransaction.OperationPayload: TRawBytes;
+function TOpTransaction.GetOperationPayload: TRawBytes;
 begin
   Result := FData.payload;
 end;
 
-class function TOpTransaction.OpType: Byte;
+function TOpTransaction.GetOpType: Byte;
 begin
   Result := CT_Op_Transaction;
 end;
 
-function TOpTransaction.SaveOpToStream(Stream: TStream; SaveExtendedData : Boolean): Boolean;
+function TOpTransaction.SaveToStream(Stream: TStream; SaveExtendedData : Boolean): Boolean;
 Var b : Byte;
 begin
   Stream.Write(FData.sender,Sizeof(FData.sender));
@@ -993,25 +1185,25 @@ begin
   Result := true;
 end;
 
-function TOpTransaction.SignerAccount: Cardinal;
+function TOpTransaction.GetSignerAccount: Cardinal;
 begin
   Result := FData.sender;
 end;
 
-function TOpTransaction.DestinationAccount: Int64;
+function TOpTransaction.GetDestinationAccount: Int64;
 begin
   Result:=FData.target;
 end;
 
-function TOpTransaction.SellerAccount: Int64;
+function TOpTransaction.GetSellerAccount: Int64;
 begin
   Case FData.opTransactionStyle of
     transaction_with_auto_buy_account, buy_account : Result := FData.SellerAccount;
-  else Result:=inherited SellerAccount;
+  else Result:=inherited GetSellerAccount;
   end;
 end;
 
-function TOpTransaction.N_Operation: Cardinal;
+function TOpTransaction.GetNumberOfOperations: Cardinal;
 begin
   Result := FData.n_operation;
 end;
@@ -1258,7 +1450,7 @@ begin
   FData := CT_TOpChangeKeyData_NUL;
 end;
 
-function TOpChangeKey.LoadOpFromStream(Stream: TStream; LoadExtendedData : Boolean): Boolean;
+function TOpChangeKey.LoadFromStream(Stream: TStream; LoadExtendedData : Boolean): Boolean;
 var s : AnsiString;
 begin
   Result := false;
@@ -1282,27 +1474,27 @@ begin
   Result := true;
 end;
 
-function TOpChangeKey.OperationAmount: Int64;
+function TOpChangeKey.GetOperationAmount: Int64;
 begin
   Result := 0;
 end;
 
-function TOpChangeKey.OperationFee: UInt64;
+function TOpChangeKey.GetOperationFee: UInt64;
 begin
   Result := FData.fee;
 end;
 
-function TOpChangeKey.OperationPayload: TRawBytes;
+function TOpChangeKey.GetOperationPayload: TRawBytes;
 begin
   Result := FData.payload;
 end;
 
-class function TOpChangeKey.OpType: Byte;
+function TOpChangeKey.GetOpType: Byte;
 begin
   Result := CT_Op_Changekey;
 end;
 
-function TOpChangeKey.SaveOpToStream(Stream: TStream; SaveExtendedData : Boolean): Boolean;
+function TOpChangeKey.SaveToStream(Stream: TStream; SaveExtendedData : Boolean): Boolean;
 begin
   Stream.Write(FData.account_signer,Sizeof(FData.account_signer));
   If (OpType=CT_Op_ChangeKey) then begin
@@ -1322,17 +1514,40 @@ begin
   Result := true;
 end;
 
-function TOpChangeKey.SignerAccount: Cardinal;
+function TOpChangeKey.GetSignerAccount: Cardinal;
 begin
   Result := FData.account_signer;
 end;
 
-function TOpChangeKey.DestinationAccount: Int64;
+function TOpChangeKey.GetTransactionData(Block,
+  Affected_account_number: Cardinal;
+  var TransactionData: TTransactionData): Boolean;
+begin
+  TransactionData.OpSubtype := CT_OpSubtype_ChangeKey;
+  TransactionData.newKey := Data.new_accountkey;
+  TransactionData.DestAccount := Data.account_target;
+  TransactionData.OperationTxt := 'Change Key to ' +
+  TAccountComp.GetECInfoTxt(TransactionData.newKey.EC_OpenSSL_NID);
+  Result := true;
+  TransactionData.OriginalPayload := GetOperationPayload;
+  If TCrypto.IsHumanReadable(TransactionData.OriginalPayload) then
+    TransactionData.PrintablePayload := TransactionData.OriginalPayload
+  else
+    TransactionData.PrintablePayload := TCrypto.ToHexaString(TransactionData.OriginalPayload);
+  TransactionData.OperationHash := OperationHashValid(self, Block);
+  if (Block < CT_Protocol_Upgrade_v2_MinBlock) then
+  begin
+    TransactionData.OperationHash_OLD := TTransaction.OperationHash_OLD(self, Block);
+  end;
+  TransactionData.valid := true;
+end;
+
+function TOpChangeKey.GetDestinationAccount: Int64;
 begin
   Result := FData.account_target;
 end;
 
-function TOpChangeKey.N_Operation: Cardinal;
+function TOpChangeKey.GetNumberOfOperations: Cardinal;
 begin
   Result := FData.n_operation;
 end;
@@ -1347,9 +1562,33 @@ end;
 
 { TOpChangeKeySigned }
 
-class function TOpChangeKeySigned.OpType: Byte;
+function TOpChangeKeySigned.GetOpType: Byte;
 begin
   Result:=CT_Op_ChangeKeySigned;
+end;
+
+function TOpChangeKeySigned.GetTransactionData(Block,
+  Affected_account_number: Cardinal;
+  var TransactionData: TTransactionData): Boolean;
+begin
+  TransactionData.OpSubtype := CT_OpSubtype_ChangeKeySigned;
+  TransactionData.newKey := Data.new_accountkey;
+  TransactionData.DestAccount := Data.account_target;
+  TransactionData.OperationTxt := 'Change ' +
+  TAccountComp.AccountNumberToAccountTxtNumber(TransactionData.DestAccount) + ' account key to ' +
+  TAccountComp.GetECInfoTxt(TransactionData.newKey.EC_OpenSSL_NID);
+  Result := true;
+  TransactionData.OriginalPayload := GetOperationPayload;
+  If TCrypto.IsHumanReadable(TransactionData.OriginalPayload) then
+    TransactionData.PrintablePayload := TransactionData.OriginalPayload
+  else
+    TransactionData.PrintablePayload := TCrypto.ToHexaString(TransactionData.OriginalPayload);
+  TransactionData.OperationHash := OperationHashValid(self, Block);
+  if (Block < CT_Protocol_Upgrade_v2_MinBlock) then
+  begin
+    TransactionData.OperationHash_OLD := TTransaction.OperationHash_OLD(self, Block);
+  end;
+  TransactionData.valid := true;
 end;
 
 { TOpRecoverFounds }
@@ -1427,7 +1666,7 @@ begin
   FData := CT_TOpRecoverFoundsData_NUL;
 end;
 
-function TOpRecoverFounds.LoadOpFromStream(Stream: TStream; LoadExtendedData : Boolean): Boolean;
+function TOpRecoverFounds.LoadFromStream(Stream: TStream; LoadExtendedData : Boolean): Boolean;
 begin
   Result := false;
   if Stream.Size - Stream.Position<16 then exit;
@@ -1437,27 +1676,27 @@ begin
   Result := true;
 end;
 
-function TOpRecoverFounds.OperationAmount: Int64;
+function TOpRecoverFounds.GetOperationAmount: Int64;
 begin
   Result := 0;
 end;
 
-function TOpRecoverFounds.OperationFee: UInt64;
+function TOpRecoverFounds.GetOperationFee: UInt64;
 begin
   Result := FData.fee;
 end;
 
-function TOpRecoverFounds.OperationPayload: TRawBytes;
+function TOpRecoverFounds.GetOperationPayload: TRawBytes;
 begin
   Result := '';
 end;
 
-class function TOpRecoverFounds.OpType: Byte;
+function TOpRecoverFounds.GetOpType: Byte;
 begin
   Result := CT_Op_Recover;
 end;
 
-function TOpRecoverFounds.SaveOpToStream(Stream: TStream; SaveExtendedData : Boolean): Boolean;
+function TOpRecoverFounds.SaveToStream(Stream: TStream; SaveExtendedData : Boolean): Boolean;
 begin
   Stream.Write(FData.account,Sizeof(FData.account));
   Stream.Write(FData.n_operation,Sizeof(FData.n_operation));
@@ -1465,12 +1704,32 @@ begin
   Result := true;
 end;
 
-function TOpRecoverFounds.SignerAccount: Cardinal;
+function TOpRecoverFounds.GetSignerAccount: Cardinal;
 begin
   Result := FData.account;
 end;
 
-function TOpRecoverFounds.N_Operation: Cardinal;
+function TOpRecoverFounds.GetTransactionData(Block,
+  Affected_account_number: Cardinal;
+  var TransactionData: TTransactionData): Boolean;
+begin
+  TransactionData.OpSubtype := CT_OpSubtype_Recover;
+  TransactionData.OperationTxt := 'Recover founds';
+  Result := true;
+  TransactionData.OriginalPayload := GetOperationPayload;
+  If TCrypto.IsHumanReadable(TransactionData.OriginalPayload) then
+    TransactionData.PrintablePayload := TransactionData.OriginalPayload
+  else
+    TransactionData.PrintablePayload := TCrypto.ToHexaString(TransactionData.OriginalPayload);
+  TransactionData.OperationHash := OperationHashValid(self, Block);
+  if (Block < CT_Protocol_Upgrade_v2_MinBlock) then
+  begin
+    TransactionData.OperationHash_OLD := TTransaction.OperationHash_OLD(self, Block);
+  end;
+  TransactionData.valid := true;
+end;
+
+function TOpRecoverFounds.GetNumberOfOperations: Cardinal;
 begin
   Result := FData.n_operation;
 end;
@@ -1688,7 +1947,7 @@ begin
   Result := (Not IsDelist) And (FData.new_public_key.EC_OpenSSL_NID<>0);
 end;
 
-function TOpListAccount.LoadOpFromStream(Stream: TStream; LoadExtendedData : Boolean): Boolean;
+function TOpListAccount.LoadFromStream(Stream: TStream; LoadExtendedData : Boolean): Boolean;
 var s : AnsiString;
   w : Word;
 begin
@@ -1720,27 +1979,27 @@ begin
   Result := true;
 end;
 
-function TOpListAccount.N_Operation: Cardinal;
+function TOpListAccount.GetNumberOfOperations: Cardinal;
 begin
   Result := FData.n_operation;
 end;
 
-function TOpListAccount.OperationAmount: Int64;
+function TOpListAccount.GetOperationAmount: Int64;
 begin
   Result := 0;
 end;
 
-function TOpListAccount.OperationFee: UInt64;
+function TOpListAccount.GetOperationFee: UInt64;
 begin
   Result := FData.fee;
 end;
 
-function TOpListAccount.OperationPayload: TRawBytes;
+function TOpListAccount.GetOperationPayload: TRawBytes;
 begin
   Result := FData.payload;
 end;
 
-function TOpListAccount.SaveOpToStream(Stream: TStream; SaveExtendedData : Boolean): Boolean;
+function TOpListAccount.SaveToStream(Stream: TStream; SaveExtendedData : Boolean): Boolean;
 Var w : Word;
 begin
   Stream.Write(FData.account_signer,Sizeof(FData.account_signer));
@@ -1768,21 +2027,21 @@ begin
   Result := true;
 end;
 
-function TOpListAccount.SignerAccount: Cardinal;
+function TOpListAccount.GetSignerAccount: Cardinal;
 begin
   Result := FData.account_signer;
 end;
 
-function TOpListAccount.DestinationAccount: Int64;
+function TOpListAccount.GetDestinationAccount: Int64;
 begin
   Result := FData.account_target;
 end;
 
-function TOpListAccount.SellerAccount: Int64;
+function TOpListAccount.GetSellerAccount: Int64;
 begin
   Case FData.operation_type of
     lat_ListForSale : Result := FData.account_to_pay;
-  else Result:=inherited SellerAccount;
+  else Result:=inherited GetSellerAccount;
   end;
 end;
 
@@ -1843,9 +2102,37 @@ begin
   Result := False;
 end;
 
-class function TOpListAccountForSale.OpType: Byte;
+function TOpListAccountForSale.GetOpType: Byte;
 begin
   Result := CT_Op_ListAccountForSale;
+end;
+
+function TOpListAccountForSale.GetTransactionData(Block,
+  Affected_account_number: Cardinal;
+  var TransactionData: TTransactionData): Boolean;
+begin
+  If IsPrivateSale then
+  begin
+    TransactionData.OpSubtype := CT_OpSubtype_ListAccountForPrivateSale;
+    TransactionData.OperationTxt := 'List account ' +
+      TAccountComp.AccountNumberToAccountTxtNumber
+      (Data.account_target) +
+      ' for private sale price ' + TAccountComp.FormatMoney
+      (Data.account_price) + ' MCC pay to ' +
+      TAccountComp.AccountNumberToAccountTxtNumber(Data.account_to_pay);
+  end
+  else
+  begin
+    TransactionData.OpSubtype := CT_OpSubtype_ListAccountForPublicSale;
+    TransactionData.OperationTxt := 'List account ' +
+      TAccountComp.AccountNumberToAccountTxtNumber(Data.account_target) + ' for sale price '
+      + TAccountComp.FormatMoney(Data.account_price) + ' MCC pay to ' +
+      TAccountComp.AccountNumberToAccountTxtNumber(
+      Data.account_to_pay);
+  end;
+  TransactionData.newKey := Data.new_public_key;
+  TransactionData.SellerAccount := GetSellerAccount;
+  Result := true;
 end;
 
 { TOpDelistAccountForSale }
@@ -1870,9 +2157,31 @@ begin
   Result := True;
 end;
 
-class function TOpDelistAccountForSale.OpType: Byte;
+function TOpDelistAccountForSale.GetOpType: Byte;
 begin
   Result := CT_Op_DelistAccount;
+end;
+
+function TOpDelistAccountForSale.GetTransactionData(Block,
+  Affected_account_number: Cardinal;
+  var TransactionData: TTransactionData): Boolean;
+begin
+  TransactionData.OpSubtype := CT_OpSubtype_DelistAccount;
+  TransactionData.OperationTxt := 'Delist account ' +
+    TAccountComp.AccountNumberToAccountTxtNumber(Data.account_target) +
+    ' for sale';
+  Result := true;
+  TransactionData.OriginalPayload := GetOperationPayload;
+  If TCrypto.IsHumanReadable(TransactionData.OriginalPayload) then
+    TransactionData.PrintablePayload := TransactionData.OriginalPayload
+  else
+    TransactionData.PrintablePayload := TCrypto.ToHexaString(TransactionData.OriginalPayload);
+  TransactionData.OperationHash := OperationHashValid(self, Block);
+  if (Block < CT_Protocol_Upgrade_v2_MinBlock) then
+  begin
+    TransactionData.OperationHash_OLD := TTransaction.OperationHash_OLD(self, Block);
+  end;
+  TransactionData.valid := true;
 end;
 
 { TOpBuyAccount }
@@ -1906,9 +2215,68 @@ begin
   FData.opTransactionStyle := buy_account;
 end;
 
-class function TOpBuyAccount.OpType: Byte;
+function TOpBuyAccount.GetOpType: Byte;
 begin
   Result := CT_Op_BuyAccount;
+end;
+
+function TOpBuyAccount.GetTransactionData(Block,
+  Affected_account_number: Cardinal;
+  var TransactionData: TTransactionData): Boolean;
+begin
+  TransactionData.DestAccount := Data.target;
+  if Data.Sender = Affected_account_number then
+  begin
+    TransactionData.OpSubtype := CT_OpSubtype_BuyAccountBuyer;
+    TransactionData.OperationTxt := 'Buy account ' +
+      TAccountComp.AccountNumberToAccountTxtNumber(
+      Data.target) + ' for ' +
+      TAccountComp.FormatMoney(
+      Data.AccountPrice) + ' MCC';
+    TransactionData.Amount :=
+      Int64(Data.Amount) * (-1);
+    Result := true;
+  end
+  else if Data.target = Affected_account_number
+  then
+  begin
+    TransactionData.OpSubtype := CT_OpSubtype_BuyAccountTarget;
+    TransactionData.OperationTxt := 'Purchased account ' +
+      TAccountComp.AccountNumberToAccountTxtNumber
+      (Data.target) + ' by ' +
+      TAccountComp.AccountNumberToAccountTxtNumber
+      (Data.Sender) + ' for ' +
+      TAccountComp.FormatMoney(Data.AccountPrice) + ' MCC';
+    TransactionData.Amount := Int64(Data.Amount)
+      - Int64(Data.AccountPrice);
+    TransactionData.Fee := 0;
+    Result := true;
+  end
+  else if Data.SellerAccount = Affected_account_number
+  then
+  begin
+    TransactionData.OpSubtype := CT_OpSubtype_BuyAccountSeller;
+    TransactionData.OperationTxt := 'Sold account ' +
+      TAccountComp.AccountNumberToAccountTxtNumber
+      (Data.target) + ' by ' +
+      TAccountComp.AccountNumberToAccountTxtNumber
+      (Data.Sender) + ' for ' +
+      TAccountComp.FormatMoney(Data.AccountPrice) + ' MCC';
+    TransactionData.Amount := Data.AccountPrice;
+    TransactionData.Fee := 0;
+    Result := true;
+  end else exit;
+  TransactionData.OriginalPayload := GetOperationPayload;
+  If TCrypto.IsHumanReadable(TransactionData.OriginalPayload) then
+    TransactionData.PrintablePayload := TransactionData.OriginalPayload
+  else
+    TransactionData.PrintablePayload := TCrypto.ToHexaString(TransactionData.OriginalPayload);
+  TransactionData.OperationHash := OperationHashValid(self, Block);
+  if (Block < CT_Protocol_Upgrade_v2_MinBlock) then
+  begin
+    TransactionData.OperationHash_OLD := TTransaction.OperationHash_OLD(self, Block);
+  end;
+  TransactionData.valid := true;
 end;
 
 initialization
