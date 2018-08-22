@@ -22,10 +22,12 @@ interface
 
 Uses UThread, ULog, UConst, UNode, UAccounts, UCrypto, UBlockChain,
   {$ifdef fpc} fpjson,{$else}System.Json,{$endif}
-  UNetProtocol, UOpTransaction, UWalletKeys, UTime, UAES, UECIES, httpsend,
+  UNetProtocol, UWalletKeys, UTime, UAES, UECIES, httpsend,
   UJSONFunctions, classes, blcksock, synsock, IniFiles, Variants, math,
-  MicroCoin.Transaction.TransferMoney, MicroCoin.Transaction.ChangeKey;
-
+  MicroCoin.Transaction.TransferMoney, MicroCoin.Transaction.ChangeKey,
+  MicroCoin.Transaction.ListAccount, MicroCoin.Transaction.ChangeAccountInfo,
+  MicroCoin.Transaction.TransactionList, MicroCoin.Transaction.HashTree,
+  MicroCoin.Common.Lists, MicroCoin.Account.AccountKey;
 Const
   CT_RPC_ErrNum_InternalError = 100;
   CT_RPC_ErrNum_NotImplemented = 101;
@@ -587,7 +589,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
       ob := FNode.Bank.SafeBox.Block(nBlock).blockchainInfo;
 
       jsonObject.GetAsVariant('block').Value:=ob.block;
-      jsonObject.GetAsVariant('enc_pubkey').Value := TCrypto.ToHexaString(TAccountComp.AccountKey2RawString(ob.account_key));
+      jsonObject.GetAsVariant('enc_pubkey').Value := TCrypto.ToHexaString(ob.account_key.ToRawString);
       jsonObject.GetAsVariant('reward').Value:=ToJSONCurrency(ob.reward);
       jsonObject.GetAsVariant('fee').Value:=ToJSONCurrency(ob.fee);
       jsonObject.GetAsVariant('ver').Value:=ob.protocol_version;
@@ -644,7 +646,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
       end;
     end;
     If OPR.newKey.EC_OpenSSL_NID>0 then begin
-      jsonObject.GetAsVariant('enc_pubkey').Value := TCrypto.ToHexaString(TAccountComp.AccountKey2RawString(OPR.newKey));
+      jsonObject.GetAsVariant('enc_pubkey').Value := TCrypto.ToHexaString(OPR.newKey.ToRawString);
     end;
     if (OPR.valid) And (OPR.OperationHash<>'') then begin
       jsonObject.GetAsVariant('ophash').Value := TCrypto.ToHexaString(OPR.OperationHash);
@@ -755,7 +757,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
     Result := Nil;
     i := _RPCServer.FWalletKeys.IndexOfAccountKey(senderAccounKey);
     if i<0 then begin
-      ErrorDesc:='Sender Public Key not found in wallet: '+TAccountComp.AccountPublicKeyExport(senderAccounKey);
+      ErrorDesc:='Sender Public Key not found in wallet: '+(senderAccounKey.AccountPublicKeyExport);
       ErrorNum:=CT_RPC_ErrNum_InvalidPubKey;
       Exit;
     end;
@@ -879,7 +881,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
     Result := Nil;
     i := _RPCServer.FWalletKeys.IndexOfAccountKey(account_pubkey);
     if (i<0) then begin
-      ErrorDesc:='Private key not found in wallet: '+TAccountComp.AccountPublicKeyExport(account_pubkey);
+      ErrorDesc:='Private key not found in wallet: '+(account_pubkey.AccountPublicKeyExport);
       ErrorNum:=CT_RPC_ErrNum_InvalidPubKey;
       Exit;
     end;
@@ -970,7 +972,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
     Result := Nil;
     i := _RPCServer.FWalletKeys.IndexOfAccountKey(account_signer_pubkey);
     if (i<0) then begin
-      ErrorDesc:='Private key not found in wallet: '+TAccountComp.AccountPublicKeyExport(account_signer_pubkey);
+      ErrorDesc:='Private key not found in wallet: '+(account_signer_pubkey.AccountPublicKeyExport);
       ErrorNum:=CT_RPC_ErrNum_InvalidPubKey;
       Exit;
     end;
@@ -1021,7 +1023,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
     Result := Nil;
     i := _RPCServer.FWalletKeys.IndexOfAccountKey(account_signer_pubkey);
     if (i<0) then begin
-      ErrorDesc:='Private key not found in wallet: '+TAccountComp.AccountPublicKeyExport(account_signer_pubkey);
+      ErrorDesc:='Private key not found in wallet: '+(account_signer_pubkey.AccountPublicKeyExport);
       ErrorNum:=CT_RPC_ErrNum_InvalidPubKey;
       Exit;
     end;
@@ -1071,7 +1073,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
     Result := Nil;
     i := _RPCServer.FWalletKeys.IndexOfAccountKey(account_pubkey);
     if (i<0) then begin
-      ErrorDesc:='Private key not found in wallet: '+TAccountComp.AccountPublicKeyExport(account_pubkey);
+      ErrorDesc:='Private key not found in wallet: '+(account_pubkey.AccountPublicKeyExport);
       ErrorNum:=CT_RPC_ErrNum_InvalidPubKey;
       Exit;
     end;
@@ -1109,7 +1111,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
     end;
   End;
 
-  Function GetCardinalsValues(ordinals_coma_separated : String; cardinals : TOrderedCardinalList; var errors : AnsiString) : Boolean;
+  Function GetCardinalsValues(ordinals_coma_separated : String; cardinals : TOrderedList; var errors : AnsiString) : Boolean;
   Var i,istart : Integer;
     ctxt : String;
     an : Cardinal;
@@ -1161,14 +1163,14 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
     i, ian : Integer;
     errors : AnsiString;
     opr : TTransactionData;
-    accountsnumber : TOrderedCardinalList;
+    accountsnumber : TOrderedList;
     operationsht : TTransactionHashTree;
     OperationsResumeList : TTransactionList;
   begin
     FNode.OperationSequenceLock.Acquire;  // Use lock to prevent N_Operation race-condition on concurrent invocations
     try
       Result := false;
-      accountsnumber := TOrderedCardinalList.Create;
+      accountsnumber := TOrderedList.Create;
       try
         if not GetCardinalsValues(accounts_txt,accountsnumber,errors) then begin
           ErrorDesc := 'Error in accounts: '+errors;
@@ -1318,7 +1320,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
   Procedure FillAccountObject(Const account : TAccount; jsonObj : TPCJSONObject);
   Begin
     jsonObj.GetAsVariant('account').Value:=account.account;
-    jsonObj.GetAsVariant('enc_pubkey').Value := TCrypto.ToHexaString(TAccountComp.AccountKey2RawString(account.accountInfo.accountKey));
+    jsonObj.GetAsVariant('enc_pubkey').Value := TCrypto.ToHexaString(account.accountInfo.accountKey.ToRawString);
     jsonObj.GetAsVariant('balance').Value:=ToJSONCurrency(account.balance);
     jsonObj.GetAsVariant('n_operation').Value:=account.n_operation;
     jsonObj.GetAsVariant('updated_b').Value:=account.updated_block;
@@ -1331,7 +1333,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
         jsonObj.GetAsVariant('seller_account').Value:=account.accountInfo.account_to_pay;
         jsonObj.GetAsVariant('private_sale').Value:= (account.accountInfo.new_publicKey.EC_OpenSSL_NID<>0);
         if not (account.accountInfo.new_publicKey.EC_OpenSSL_NID<>0) then begin
-          jsonObj.GetAsVariant('new_enc_pubkey').Value := TCrypto.ToHexaString(TAccountComp.AccountKey2RawString(account.accountInfo.new_publicKey));
+          jsonObj.GetAsVariant('new_enc_pubkey').Value := TCrypto.ToHexaString(account.accountInfo.new_publicKey.ToRawString);
         end;
       end
     else raise Exception.Create('ERROR DEV 20170425-1');
@@ -1345,8 +1347,8 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
     jsonObj.GetAsVariant('ec_nid').Value := PubKey.EC_OpenSSL_NID;
     jsonObj.GetAsVariant('x').Value := TCrypto.ToHexaString(PubKey.x);
     jsonObj.GetAsVariant('y').Value := TCrypto.ToHexaString(PubKey.y);
-    jsonObj.GetAsVariant('enc_pubkey').Value := TCrypto.ToHexaString(TAccountComp.AccountKey2RawString(PubKey));
-    jsonObj.GetAsVariant('b58_pubkey').Value := TAccountComp.AccountPublicKeyExport(PubKey);
+    jsonObj.GetAsVariant('enc_pubkey').Value := TCrypto.ToHexaString(PubKey.ToRawString);
+    jsonObj.GetAsVariant('b58_pubkey').Value := (PubKey.AccountPublicKeyExport);
   End;
 
   Function DoEncrypt(RawPayload : TRawBytes; pub_key : TAccountKey; Const Payload_method, EncodePwd : AnsiString) : Boolean;
@@ -1391,7 +1393,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
           GetResultObject.GetAsVariant('unenc_payload').Value:= decrypted_payload;
           GetResultObject.GetAsVariant('unenc_hexpayload').Value:= TCrypto.ToHexaString(decrypted_payload);
           GetResultObject.GetAsVariant('payload_method').Value:= 'key';
-          GetResultObject.GetAsVariant('enc_pubkey').Value:= TCrypto.ToHexaString(TAccountComp.AccountKey2RawString(pkey.PublicKey));
+          GetResultObject.GetAsVariant('enc_pubkey').Value:= TCrypto.ToHexaString(pkey.PublicKey.ToRawString);
           // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
           Result := true;
           exit;
@@ -1425,13 +1427,13 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
     errortxt := '';
     Result := false;
     if (params.IndexOfName(prefix+'b58_pubkey')>=0) then begin
-      If Not TAccountComp.AccountPublicKeyImport(params.AsString(prefix+'b58_pubkey',''),pubkey,ansistr) then begin
+      If Not TAccountKey.AccountPublicKeyImport(params.AsString(prefix+'b58_pubkey',''),pubkey,ansistr) then begin
         errortxt:= 'Invalid value of param "'+prefix+'b58_pubkey": '+ansistr;
         exit;
       end;
       if (params.IndexOfName(prefix+'enc_pubkey')>=0) then begin
-        auxpubkey := TAccountComp.RawString2Accountkey(TCrypto.HexaToRaw(params.AsString(prefix+'enc_pubkey','')));
-        if (Not TAccountComp.EqualAccountKeys(auxpubkey,pubkey)) then begin
+        auxpubkey := TAccountKey.FromRawString(TCrypto.HexaToRaw(params.AsString(prefix+'enc_pubkey','')));
+        if (Not TAccountKey.EqualAccountKeys(auxpubkey,pubkey)) then begin
           errortxt := 'Params "'+prefix+'b58_pubkey" and "'+prefix+'enc_pubkey" public keys are not the same public key';
           exit;
         end;
@@ -1441,9 +1443,9 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
         errortxt := 'Need param "'+prefix+'enc_pubkey" or "'+prefix+'b58_pubkey"';
         exit;
       end;
-      pubkey := TAccountComp.RawString2Accountkey(TCrypto.HexaToRaw(params.AsString(prefix+'enc_pubkey','')));
+      pubkey := TAccountKey.FromRawString(TCrypto.HexaToRaw(params.AsString(prefix+'enc_pubkey','')));
     end;
-    If Not TAccountComp.IsValidAccountKey(pubkey,ansistr) then begin
+    If Not pubkey.IsValidAccountKey(ansistr) then begin
       errortxt := 'Invalid public key: '+ansistr;
     end else Result := true;
   end;
@@ -1604,7 +1606,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
     Result := Nil;
     i := _RPCServer.FWalletKeys.IndexOfAccountKey(account_signer_pubkey);
     if (i<0) then begin
-      ErrorDesc:='Private key not found in wallet: '+TAccountComp.AccountPublicKeyExport(account_signer_pubkey);
+      ErrorDesc:='Private key not found in wallet: '+(account_signer_pubkey.AccountPublicKeyExport);
       ErrorNum:=CT_RPC_ErrNum_InvalidPubKey;
       Exit;
     end;
@@ -1915,7 +1917,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
           Exit;
         end;
         account_target := FNode.Operations.SafeBoxTransaction.Account(c_account);
-        if (Not TAccountComp.EqualAccountKeys(account_signer.accountInfo.accountKey,account_target.accountInfo.accountKey)) then begin
+        if (Not TAccountKey.EqualAccountKeys(account_signer.accountInfo.accountKey,account_target.accountInfo.accountKey)) then begin
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
           ErrorDesc := 'account_signer and account_target have distinct keys. Cannot sign';
           Exit;
@@ -1974,7 +1976,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
           Exit;
         end;
         account_target := FNode.Operations.SafeBoxTransaction.Account(c_account);
-        if (Not TAccountComp.EqualAccountKeys(account_signer.accountInfo.accountKey,account_target.accountInfo.accountKey)) then begin
+        if (Not TAccountKey.EqualAccountKeys(account_signer.accountInfo.accountKey,account_target.accountInfo.accountKey)) then begin
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
           ErrorDesc := 'account_signer and account_target have distinct keys. Cannot sign';
           Exit;
@@ -2075,7 +2077,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
           Exit;
         end;
         account_target := FNode.Operations.SafeBoxTransaction.Account(c_account);
-        if (Not TAccountComp.EqualAccountKeys(account_signer.accountInfo.accountKey,account_target.accountInfo.accountKey)) then begin
+        if (Not TAccountKey.EqualAccountKeys(account_signer.accountInfo.accountKey,account_target.accountInfo.accountKey)) then begin
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
           ErrorDesc := 'account_signer and account_target have distinct keys. Cannot sign';
           Exit;
@@ -2157,7 +2159,7 @@ function TRPCProcess.ProcessMethod(const method: String; params: TPCJSONObject;
     end else if hasKey then begin
       for i := start to FNode.Bank.AccountsCount - 1 do begin
         account := FNode.Operations.SafeBoxTransaction.Account(i);
-        if TAccountComp.EqualAccountKeys(account.accountInfo.accountKey, pubkey) then begin
+        if TAccountKey.EqualAccountKeys(account.accountInfo.accountKey, pubkey) then begin
           // Found a match
           FillAccountObject(account,output.GetAsObject(output.Count));
           if output.Count>=max then break;
@@ -2188,7 +2190,7 @@ Var c,c2 : Cardinal;
   ecpkey : TECPrivateKey;
   opr : TTransactionData;
   r : TRawBytes;
-  ocl : TOrderedCardinalList;
+  ocl : TOrderedList;
   jsonarr : TPCJSONArray;
   jso : TPCJSONObject;
 begin
@@ -2750,8 +2752,8 @@ begin
       ErrorNum:= CT_RPC_ErrNum_InvalidPubKey;
       exit;
     end;
-    if TAccountComp.IsValidAccountKey(account.accountInfo.accountKey,ansistr) then begin
-      jsonresponse.GetAsVariant('result').Value:=TCrypto.ToHexaString(TAccountComp.AccountKey2RawString(account.accountInfo.accountKey));
+    if account.accountInfo.accountKey.IsValidAccountKey(ansistr) then begin
+      jsonresponse.GetAsVariant('result').Value:=TCrypto.ToHexaString(account.accountInfo.accountKey.ToRawString);
       Result := True;
     end else begin
       ErrorDesc:= ansistr;
@@ -2767,7 +2769,7 @@ begin
       ErrorNum := CT_RPC_ErrNum_InvalidPubKey;
       exit;
     end;
-    if (TAccountComp.IsValidAccountKey(account.accountInfo.accountKey,ansistr)) then begin
+    if (account.accountInfo.accountKey.IsValidAccountKey(ansistr)) then begin
       FillPublicKeyObject(account.accountInfo.accountKey,GetResultObject);
       Result := True;
     end else begin

@@ -32,7 +32,10 @@ unit UNode;
 interface
 
 uses
-  Classes, UBlockChain, UNetProtocol, UAccounts, UCrypto, UThread, SyncObjs, ULog, MicroCoin.Transaction.Base;
+  Classes, UBlockChain, UNetProtocol, UAccounts, UCrypto,
+  UThread, SyncObjs, ULog, MicroCoin.Transaction.Base,
+  MicroCoin.Common.Lists,
+  MicroCoin.Transaction.TransactionList, MicroCoin.Transaction.HashTree;
 
 {$I config.inc}
 
@@ -149,7 +152,7 @@ Type
 
 implementation
 
-Uses UOpTransaction, SysUtils,  UConst, UTime, MicroCoin.Transaction.Transaction;
+Uses SysUtils,  UConst, UTime, MicroCoin.Transaction.Transaction;
 
 var _Node : TNode;
 
@@ -362,7 +365,7 @@ begin
         ActOp := Operations.GetOperation(j);
         If (FOperations.OperationsHashTree.IndexOf(ActOp)<0) And (FSentOperations.GetTag(ActOp.Sha256)=0) then begin
           // Protocol 2 limitation: In order to prevent spam of operations without Fee, will protect it
-          If (ActOp.OperationFee=0) And (Bank.SafeBox.CurrentProtocol>=CT_PROTOCOL_2) And
+          If (ActOp.Fee=0) And (Bank.SafeBox.CurrentProtocol>=CT_PROTOCOL_2) And
              (FOperations.OperationsHashTree.TransactionCountsWithoutFeeBySameSigner(ActOp.SignerAccount)>=CT_MaxAccountOperationsPerBlockWithoutFee) then begin
             e := Format(rsAccountSZero, [
               TAccountComp.AccountNumberToAccountTxtNumber(ActOp.SignerAccount
@@ -467,7 +470,7 @@ begin
   FSentOperations := TOrderedRawList.Create;
   FNodeLog := TLog.Create(Self);
   FNodeLog.ProcessGlobalLogs := false;
-  RegisterOperationsClass;
+//  RegisterOperationsClass;
   if Assigned(_Node) then raise Exception.Create('Duplicate nodes protection');
   TLog.NewLog(ltInfo,ClassName,'TNode.Create');
   inherited;
@@ -784,8 +787,8 @@ begin
       For i:=0 to FOperations.Count-1 do begin
         op := FOperations.Operation[i];
         If (op.SignerAccount=account) then begin
-          opHashValid := TTransaction.OperationHashValid(op,0);
-          opHash_OLD := TTransaction.OperationHash_OLD(op,0);
+          opHashValid := op.TransactionHash(0);
+          opHash_OLD := op.TransactionHash_OLD(0);
           If (opHashValid=OperationHash) or
             ((FBank.BlocksCount<CT_Protocol_Upgrade_v2_MinBlock) And (opHash_OLD=OperationHash)) then begin
             operation_block_index:=i;
@@ -810,16 +813,16 @@ begin
     For i:=OperationComp.Count-1 downto 0 do begin
       op := OperationComp.Operation[i];
       if (op.SignerAccount=account) then begin
-        If (op.NumberOfOperations<n_operation) then exit; // n_operation is greaten than found
-        If (op.NumberOfOperations=n_operation) then begin
+        If (op.NumberOfTransactions<n_operation) then exit; // n_operation is greaten than found
+        If (op.NumberOfTransactions=n_operation) then begin
           // Possible candidate or dead
-          opHashValid := TTransaction.OperationHashValid(op,initial_block);
+          opHashValid := op.TransactionHash(initial_block);
           If (opHashValid=OperationHash) then begin
             operation_block_index:=i;
             Result := true;
             exit;
           end else if (block<CT_Protocol_Upgrade_v2_MinBlock) then begin
-            opHash_OLD := TTransaction.OperationHash_OLD(op,initial_block);
+            opHash_OLD := op.TransactionHash_OLD(initial_block);
             if (opHash_OLD=OperationHash) then begin
               operation_block_index:=i;
               Result := true;

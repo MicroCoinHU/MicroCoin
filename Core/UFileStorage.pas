@@ -23,6 +23,7 @@ interface
 
 uses
   Classes, UBlockChain, SyncObjs, UThread, UAccounts, UCrypto;
+
 {$I config.inc}
 
 Type

@@ -27,7 +27,9 @@ Uses
   {LCLIntf, LCLType, LMessages,}
 {$ENDIF}
   UBlockChain, Classes, SysUtils, UAccounts, UThread,
-  UCrypto, UTCPIP, SyncObjs;
+  UCrypto, UTCPIP, SyncObjs, MicroCoin.Transaction.Manager,
+  MicroCoin.Transaction.TransactionList, MicroCoin.Transaction.HashTree,
+  MicroCoin.Common.Lists, MicroCoin.Account.AccountKey;
 
 {$I config.inc}
 
@@ -992,7 +994,7 @@ begin
   try
     for i := 0 to L.Count - 1 do begin
       Result := TNetConnection( l[i] );
-      If TAccountComp.EqualAccountKeys(Result.FClientPublicKey,Sender.FClientPublicKey) And (Sender<>Result) then exit;
+      If TAccountKey.EqualAccountKeys(Result.FClientPublicKey,Sender.FClientPublicKey) And (Sender<>Result) then exit;
     end;
   finally
     FNetConnections.UnlockList;
@@ -2100,7 +2102,7 @@ begin
     for i := 1 to c do begin
       errors := 'Invalid operation '+inttostr(i)+'/'+inttostr(c);
       if not DataBuffer.Read(optype,1)=1 then exit;
-      opclass := TPCOperationsComp.GetOperationClassByOpType(optype);
+      opclass := TTransactionManager.GetOperationClassByOpType(optype);
       if Not Assigned(opclass) then exit;
       op := opclass.Create;
       Try
@@ -2433,8 +2435,8 @@ Begin
       DisconnectInvalidClient(false,'Invalid data on buffer. No Public key: '+TNetData.HeaderDataToText(HeaderData));
       exit;
     end;
-    FClientPublicKey := TAccountComp.RawString2Accountkey(RawAccountKey);
-    If Not TAccountComp.IsValidAccountKey(FClientPublicKey,errors) then begin
+    FClientPublicKey := TAccountKey.FromRawString(RawAccountKey);
+    If Not FClientPublicKey.IsValidAccountKey(errors) then begin
       DisconnectInvalidClient(false,'Invalid Public key: '+TNetData.HeaderDataToText(HeaderData)+' errors: '+errors);
       exit;
     end;
@@ -2458,7 +2460,7 @@ Begin
     if (connection_has_a_server>0) And (Not SameText(Client.RemoteHost,'localhost')) And (Not SameText(Client.RemoteHost,'127.0.0.1'))
       And (Not SameText('192.168.',Copy(Client.RemoteHost,1,8)))
       And (Not SameText('10.',Copy(Client.RemoteHost,1,3)))
-      And (Not TAccountComp.EqualAccountKeys(FClientPublicKey,TNetData.NetData.FNodePrivateKey.PublicKey)) then begin
+      And (Not TAccountKey.EqualAccountKeys(FClientPublicKey,TNetData.NetData.FNodePrivateKey.PublicKey)) then begin
       nsa := CT_TNodeServerAddress_NUL;
       nsa.ip := Client.RemoteHost;
       nsa.port := connection_has_a_server;
@@ -2502,7 +2504,7 @@ Begin
         if (HeaderData.header_type=ntp_request) then begin
           Send_Hello(ntp_response,HeaderData.request_id);
         end;
-        if (TAccountComp.EqualAccountKeys(FClientPublicKey,TNetData.NetData.FNodePrivateKey.PublicKey)) then begin
+        if (TAccountKey.EqualAccountKeys(FClientPublicKey,TNetData.NetData.FNodePrivateKey.PublicKey)) then begin
           DisconnectInvalidClient(true,'MySelf disconnecting...');
           exit;
         end;
@@ -3093,7 +3095,7 @@ begin
     // Save active server port (2 bytes). 0 = No active server port
     data.Write(w,2);
     // Save My connection public key
-    TStreamOp.WriteAnsiString(data,TAccountComp.AccountKey2RawString(TNetData.NetData.FNodePrivateKey.PublicKey));
+    TStreamOp.WriteAnsiString(data, TNetData.NetData.FNodePrivateKey.PublicKey.ToRawString);
     // Save my Unix timestamp (4 bytes)
     currunixtimestamp := UnivDateTimeToUnix(DateTime2UnivDateTime(now));
     data.Write(currunixtimestamp,4);

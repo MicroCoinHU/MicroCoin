@@ -12,8 +12,10 @@ unit MicroCoin.Transaction.TransferMoney;
 
 interface
 
-uses MicroCoin.Transaction.Base, MicroCoin.Transaction.Transaction,
-Sysutils, classes, UAccounts, UCrypto, ULog, UConst, UBlockChain;
+uses MicroCoin.Transaction.Base,
+MicroCoin.Account.AccountKey,
+MicroCoin.Transaction.Transaction,
+Sysutils, classes, UAccounts, UCrypto, ULog, UConst, MicroCoin.Transaction.Manager;
 
 type
 
@@ -47,7 +49,7 @@ type
       : Boolean; override;
   public
     function GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes; override;
-    function DoOperation(AccountTransaction: TPCSafeBoxTransaction;
+    function ApplyTransaction(AccountTransaction: TPCSafeBoxTransaction;
       var errors: AnsiString): Boolean; override;
     procedure AffectedAccounts(list: TList); override;
     //
@@ -56,13 +58,13 @@ type
     class function DoSignOperation(key: TECPrivateKey;
       var trans: TTransferMoneyTransactionData): Boolean;
     function GetOpType: Byte; override;
-    function GetOperationAmount: Int64; override;
-    function GetOperationFee: UInt64; override;
-    function GetOperationPayload: TRawBytes; override;
+    function GetAmount: Int64; override;
+    function GetFee: UInt64; override;
+    function GetPayload: TRawBytes; override;
     function GetSignerAccount: Cardinal; override;
     function GetDestinationAccount: Int64; override;
     function GetSellerAccount: Int64; override;
-    function GetNumberOfOperations: Cardinal; override;
+    function GetNumberOfTransactions: Cardinal; override;
     function GetTransactionData(Block: Cardinal;
       Affected_account_number: Cardinal; var TransactionData: TTransactionData)
       : Boolean; override;
@@ -123,7 +125,7 @@ begin
     FHasValidSignature := true;
 end;
 
-function TTransferMoneyTransaction.DoOperation(AccountTransaction
+function TTransferMoneyTransaction.ApplyTransaction(AccountTransaction
   : TPCSafeBoxTransaction; var errors: AnsiString): Boolean;
 Var
   s_new, t_new: Int64;
@@ -215,15 +217,14 @@ begin
   end;
   // Build 1.4
   If (FData.public_key.EC_OpenSSL_NID <> CT_TECDSA_Public_Nul.EC_OpenSSL_NID)
-    And (Not TAccountComp.EqualAccountKeys(FData.public_key,
+    And (Not TAccountKey.EqualAccountKeys(FData.public_key,
     sender.accountInfo.accountkey)) then
   begin
     errors := Format
       ('Invalid sender public key for account %d. Distinct from SafeBox public key! %s <> %s',
-      [FData.sender, TCrypto.ToHexaString(TAccountComp.AccountKey2RawString
-      (FData.public_key)),
-      TCrypto.ToHexaString(TAccountComp.AccountKey2RawString
-      (sender.accountInfo.accountkey))]);
+      [FData.sender, TCrypto.ToHexaString(
+      (FData.public_key.ToRawString)),
+      TCrypto.ToHexaString(sender.accountInfo.accountkey.ToRawString)]);
     Exit;
   end;
   // Check signature
@@ -275,7 +276,7 @@ begin
         [FData.AccountPrice, target.accountInfo.price]);
       Exit;
     end;
-    If Not(TAccountComp.IsValidAccountKey(FData.new_accountkey, errors)) then
+    If Not(FData.new_accountkey.IsValidAccountKey(errors)) then
       Exit; // BUG 20171511
     _IsBuyTransaction := true;
     FPrevious_Seller_updated_block := seller.updated_block;
@@ -294,7 +295,7 @@ begin
       errors := 'Tx-Buy account is not allowed on Protocol 1';
       Exit;
     end;
-    If Not(TAccountComp.IsValidAccountKey(FData.new_accountkey, errors)) then
+    If Not(FData.new_accountkey.IsValidAccountKey(errors)) then
       Exit; // BUG 20171511
     _IsBuyTransaction := true; // Automatic buy
     // Fill the purchase data
@@ -343,7 +344,7 @@ begin
   end;
   s := GetTransactionHashToSign(trans);
   Try
-    _sign := TCrypto.ECDSASign(key.PrivateKey, s);
+    _sign := TCrypto.ECDSASign(key, s);
     trans.sign := _sign;
     Result := true;
   Except
@@ -402,7 +403,7 @@ begin
   TransactionData.Block := Block;
   If self.GetSignerAccount = Affected_account_number then
   begin
-    TransactionData.fee := (-1) * Int64(GetOperationFee);
+    TransactionData.fee := (-1) * Int64(GetFee);
   end;
   TransactionData.AffectedAccount := Affected_account_number;
   TransactionData.OpType := OpType;
@@ -481,17 +482,16 @@ begin
     else
       Exit;
   end;
-  TransactionData.OriginalPayload := GetOperationPayload;
+  TransactionData.OriginalPayload := GetPayload;
   If TCrypto.IsHumanReadable(TransactionData.OriginalPayload) then
     TransactionData.PrintablePayload := TransactionData.OriginalPayload
   else
     TransactionData.PrintablePayload :=
       TCrypto.ToHexaString(TransactionData.OriginalPayload);
-  TransactionData.OperationHash := OperationHashValid(self, Block);
+  TransactionData.OperationHash := TransactionHash(Block);
   if (Block < CT_Protocol_Upgrade_v2_MinBlock) then
   begin
-    TransactionData.OperationHash_OLD := TTransaction.OperationHash_OLD
-      (self, Block);
+    TransactionData.OperationHash_OLD := TransactionHash_OLD(Block);
   end;
   TransactionData.valid := true;
 end;
@@ -608,17 +608,17 @@ begin
   Result := true;
 end;
 
-function TTransferMoneyTransaction.GetOperationAmount: Int64;
+function TTransferMoneyTransaction.GetAmount: Int64;
 begin
   Result := FData.amount;
 end;
 
-function TTransferMoneyTransaction.GetOperationFee: UInt64;
+function TTransferMoneyTransaction.GetFee: UInt64;
 begin
   Result := FData.fee;
 end;
 
-function TTransferMoneyTransaction.GetOperationPayload: TRawBytes;
+function TTransferMoneyTransaction.GetPayload: TRawBytes;
 begin
   Result := FData.payload;
 end;
@@ -693,7 +693,7 @@ begin
   end;
 end;
 
-function TTransferMoneyTransaction.GetNumberOfOperations: Cardinal;
+function TTransferMoneyTransaction.GetNumberOfTransactions: Cardinal;
 begin
   Result := FData.n_operation;
 end;
@@ -808,22 +808,20 @@ begin
   end
   else
     Exit;
-  TransactionData.OriginalPayload := GetOperationPayload;
+  TransactionData.OriginalPayload := GetPayload;
   If TCrypto.IsHumanReadable(TransactionData.OriginalPayload) then
     TransactionData.PrintablePayload := TransactionData.OriginalPayload
   else
-    TransactionData.PrintablePayload :=
-      TCrypto.ToHexaString(TransactionData.OriginalPayload);
-  TransactionData.OperationHash := OperationHashValid(self, Block);
+    TransactionData.PrintablePayload := TCrypto.ToHexaString(TransactionData.OriginalPayload);
+  TransactionData.OperationHash := TransactionHash(Block);
   if (Block < CT_Protocol_Upgrade_v2_MinBlock) then
   begin
-    TransactionData.OperationHash_OLD := TTransaction.OperationHash_OLD
-      (self, Block);
+    TransactionData.OperationHash_OLD := TransactionHash_OLD(Block);
   end;
   TransactionData.valid := true;
 end;
 
 initialization
-  TPCOperationsComp.RegisterOperationClass(TTransferMoneyTransaction, CT_Op_Transaction);
-  TPCOperationsComp.RegisterOperationClass(TBuyAccountTransaction, CT_Op_BuyAccount);
+  TTransactionManager.RegisterOperationClass(TTransferMoneyTransaction, CT_Op_Transaction);
+  TTransactionManager.RegisterOperationClass(TBuyAccountTransaction, CT_Op_BuyAccount);
 end.

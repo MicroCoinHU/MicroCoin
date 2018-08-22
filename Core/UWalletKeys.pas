@@ -21,7 +21,7 @@ unit UWalletKeys;
 interface
 
 uses
-  Classes, UBlockChain, UAccounts, UCrypto;
+  Classes, UBlockChain, MicroCoin.Account.AccountKey, UAccounts, UCrypto;
 
 Type
   TWalletKey = Record
@@ -100,20 +100,20 @@ Const
 
 Type PWalletKey = ^TWalletKey;
 
-function TWalletKeys.AddPrivateKey(Const Name : AnsiString; ECPrivateKey: TECPrivateKey): Integer;
+function TWalletKeys.AddPrivateKey(const Name : AnsiString; ECPrivateKey: TECPrivateKey): Integer;
 Var P : PWalletKey;
   s : AnsiString;
 begin
-  if Not Find(ECPrivateKey.PublicKey,Result) then begin
+  if not Find(ECPrivateKey.PublicKey,Result) then begin
     // Result is new position
     New(P);
     P^ := CT_TWalletKey_NUL;
     P^.Name := Name;
     P^.AccountKey := ECPrivateKey.PublicKey;
-    P^.CryptedKey := TAESComp.EVP_Encrypt_AES256(TCrypto.PrivateKey2Hexa(ECPrivateKey.PrivateKey),WalletPassword);
+    P^.CryptedKey := TAESComp.EVP_Encrypt_AES256(TCrypto.PrivateKey2Hexa(ECPrivateKey),WalletPassword);
     P^.PrivateKey := TECPrivateKey.Create;
-    P^.PrivateKey.SetPrivateKeyFromHexa(ECPrivateKey.EC_OpenSSL_NID, TCrypto.PrivateKey2Hexa(ECPrivateKey.PrivateKey));
-    P^.SearchableAccountKey := TAccountComp.AccountKey2RawString(ECPrivateKey.PublicKey);
+    P^.PrivateKey.SetPrivateKeyFromHexa(ECPrivateKey.EC_OpenSSL_NID, TCrypto.PrivateKey2Hexa(ECPrivateKey));
+    P^.SearchableAccountKey := ECPrivateKey.PublicKey.ToRawString;
     FSearchableKeys.Insert(Result,P);
   end else begin
     P := FSearchableKeys[Result];
@@ -133,7 +133,7 @@ begin
     P^.Name := Name;
     P^.AccountKey := ECDSA_Public;
     P^.PrivateKey := Nil;
-    P^.SearchableAccountKey := TAccountComp.AccountKey2RawString(ECDSA_Public);
+    P^.SearchableAccountKey := ECDSA_Public.ToRawString;
     FSearchableKeys.Insert(Result,P);
   end else begin
     P := FSearchableKeys[Result];
@@ -197,7 +197,7 @@ var L, H, I, C: Integer;
   rak : TRawBytes;
 begin
   Result := False;
-  rak := TAccountComp.AccountKey2RawString(AccountKey);
+  rak := AccountKey.ToRawString;
   L := 0;
   H := FSearchableKeys.Count - 1;
   while L <= H do
@@ -368,7 +368,7 @@ begin
   for i := 0 to FSearchableKeys.Count - 1 do begin
     P := FSearchableKeys[i];
     If Assigned(P^.PrivateKey) then begin
-      P^.CryptedKey := TAESComp.EVP_Encrypt_AES256(TCrypto.PrivateKey2Hexa(P^.PrivateKey.PrivateKey),FWalletPassword);
+      P^.CryptedKey := TAESComp.EVP_Encrypt_AES256(TCrypto.PrivateKey2Hexa(P^.PrivateKey),FWalletPassword);
     end else begin
       if FIsValidPassword then begin
         TLog.NewLog(lterror,Classname,Format('Fatal error: Private key not found %d/%d',[i+1,FSearchableKeys.Count]));

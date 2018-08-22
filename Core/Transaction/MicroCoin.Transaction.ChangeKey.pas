@@ -13,7 +13,8 @@ unit MicroCoin.Transaction.ChangeKey;
 interface
 
 uses MicroCoin.Transaction.Base, MicroCoin.Transaction.Transaction,
-Sysutils, classes, UAccounts, UCrypto, ULog, UConst, UBlockChain;
+MicroCoin.Account.AccountKey,
+Sysutils, classes, UAccounts, UCrypto, ULog, UConst, MicroCoin.Transaction.Manager;
 
  type
 
@@ -41,13 +42,13 @@ Sysutils, classes, UAccounts, UCrypto, ULog, UConst, UBlockChain;
     function GetOpType : Byte; override;
 
     function GetBufferForOpHash(UseProtocolV2 : Boolean): TRawBytes; override;
-    function DoOperation(AccountTransaction : TPCSafeBoxTransaction; var errors : AnsiString) : Boolean; override;
-    function GetOperationAmount : Int64; override;
-    function GetOperationFee : UInt64; override;
-    function GetOperationPayload : TRawBytes; override;
+    function ApplyTransaction(AccountTransaction : TPCSafeBoxTransaction; var errors : AnsiString) : Boolean; override;
+    function GetAmount : Int64; override;
+    function GetFee : UInt64; override;
+    function GetPayload : TRawBytes; override;
     function GetSignerAccount : Cardinal; override;
     function GetDestinationAccount : Int64; override;
-    function GetNumberOfOperations : Cardinal; override;
+    function GetNumberOfTransactions : Cardinal; override;
     procedure AffectedAccounts(list : TList); override;
     Constructor Create(account_signer, n_operation, account_target: Cardinal; key:TECPrivateKey; new_account_key : TAccountKey; fee: UInt64; payload: TRawBytes);
     function GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal; var TransactionData: TTransactionData): Boolean; override;
@@ -96,7 +97,7 @@ begin
   end else FHasValidSignature := true;
 end;
 
-function TChangeKeyTransaction.DoOperation(AccountTransaction : TPCSafeBoxTransaction; var errors: AnsiString): Boolean;
+function TChangeKeyTransaction.ApplyTransaction(AccountTransaction : TPCSafeBoxTransaction; var errors: AnsiString): Boolean;
 Var account_signer, account_target : TAccount;
 begin
   Result := false;
@@ -143,22 +144,22 @@ begin
     errors := 'Account signer is currently locked';
     exit;
   end;
-  If Not TAccountComp.IsValidAccountKey( FData.new_accountkey, errors ) then begin
+  If Not FData.new_accountkey.IsValidAccountKey( errors ) then begin
     exit;
   end;
   // NEW v2 protocol protection: Does not allow to change key for same key
   if (AccountTransaction.FreezedSafeBox.CurrentProtocol>=CT_PROTOCOL_2) then begin
-    if (TAccountComp.EqualAccountKeys(account_target.accountInfo.accountKey,FData.new_accountkey)) then begin
+    if (TAccountKey.EqualAccountKeys(account_target.accountInfo.accountKey,FData.new_accountkey)) then begin
       errors := 'New public key is the same public key';
       exit;
     end;
   end;
   // Build 1.4
-  If (FData.public_key.EC_OpenSSL_NID<>CT_TECDSA_Public_Nul.EC_OpenSSL_NID) And (Not TAccountComp.EqualAccountKeys(FData.public_key,account_signer.accountInfo.accountkey)) then begin
+  If (FData.public_key.EC_OpenSSL_NID<>CT_TECDSA_Public_Nul.EC_OpenSSL_NID) And (Not TAccountKey.EqualAccountKeys(FData.public_key,account_signer.accountInfo.accountkey)) then begin
     errors := Format('Invalid public key for account %d. Distinct from SafeBox public key! %s <> %s',[
       FData.account_signer,
-      TCrypto.ToHexaString(TAccountComp.AccountKey2RawString(FData.public_key)),
-      TCrypto.ToHexaString(TAccountComp.AccountKey2RawString(account_signer.accountInfo.accountkey))]);
+      TCrypto.ToHexaString(FData.public_key.ToRawString),
+      TCrypto.ToHexaString(account_signer.accountInfo.accountkey.ToRawString)]);
     exit;
   end;
   If (FData.account_signer<>FData.account_target) then begin
@@ -167,7 +168,7 @@ begin
       exit;
     end;
     // Check have same public key
-    If Not TAccountComp.EqualAccountKeys(account_signer.accountInfo.accountKey,account_target.accountInfo.accountKey) then begin
+    If Not TAccountKey.EqualAccountKeys(account_signer.accountInfo.accountKey,account_target.accountInfo.accountKey) then begin
       errors := 'Signer and target accounts have different public key';
       exit;
     end;
@@ -204,7 +205,7 @@ var s : AnsiString;
 begin
   s := GetOperationHashToSign(op);
   Try
-    _sign := TCrypto.ECDSASign(key.PrivateKey,s);
+    _sign := TCrypto.ECDSASign(key,s);
     op.sign := _sign;
     Result := true;
   Except
@@ -233,7 +234,7 @@ begin
         ms.WriteBuffer(FData.public_key.x[1],length(FData.public_key.x));
       if length(FData.public_key.y)>0 then
         ms.WriteBuffer(FData.public_key.y[1],length(FData.public_key.y));
-      s := TAccountComp.AccountKey2RawString(FData.new_accountkey);
+      s := FData.new_accountkey.ToRawString;
       if length(s)>0 then
         ms.WriteBuffer(s[1],length(s));
       if length(FData.sign.r)>0 then
@@ -266,7 +267,7 @@ begin
       ms.WriteBuffer(op.public_key.x[1],length(op.public_key.x));
     if length(op.public_key.y)>0 then
       ms.WriteBuffer(op.public_key.y[1],length(op.public_key.y));
-    s := TAccountComp.AccountKey2RawString(op.new_accountkey);
+    s := op.new_accountkey.ToRawString;
     if length(s)>0 then
       ms.WriteBuffer(s[1],length(s));
     ms.Position := 0;
@@ -302,23 +303,23 @@ begin
   if TStreamOp.ReadAnsiString(Stream,FData.public_key.x)<0 then exit;
   if TStreamOp.ReadAnsiString(Stream,FData.public_key.y)<0 then exit;
   if TStreamOp.ReadAnsiString(Stream,s)<0 then exit;
-  FData.new_accountkey := TAccountComp.RawString2Accountkey(s);
+  FData.new_accountkey := TAccountKey.FromRawString(s);
   if TStreamOp.ReadAnsiString(Stream,FData.sign.r)<0 then exit;
   if TStreamOp.ReadAnsiString(Stream,FData.sign.s)<0 then exit;
   Result := true;
 end;
 
-function TChangeKeyTransaction.GetOperationAmount: Int64;
+function TChangeKeyTransaction.GetAmount: Int64;
 begin
   Result := 0;
 end;
 
-function TChangeKeyTransaction.GetOperationFee: UInt64;
+function TChangeKeyTransaction.GetFee: UInt64;
 begin
   Result := FData.fee;
 end;
 
-function TChangeKeyTransaction.GetOperationPayload: TRawBytes;
+function TChangeKeyTransaction.GetPayload: TRawBytes;
 begin
   Result := FData.payload;
 end;
@@ -342,7 +343,7 @@ begin
   Stream.Write(FData.public_key.EC_OpenSSL_NID,Sizeof(FData.public_key.EC_OpenSSL_NID));
   TStreamOp.WriteAnsiString(Stream,FData.public_key.x);
   TStreamOp.WriteAnsiString(Stream,FData.public_key.y);
-  TStreamOp.WriteAnsiString(Stream,TAccountComp.AccountKey2RawString(FData.new_accountkey));
+  TStreamOp.WriteAnsiString(Stream,FData.new_accountkey.ToRawString);
   TStreamOp.WriteAnsiString(Stream,FData.sign.r);
   TStreamOp.WriteAnsiString(Stream,FData.sign.s);
   Result := true;
@@ -363,15 +364,15 @@ begin
   TransactionData.OperationTxt := 'Change Key to ' +
   TAccountComp.GetECInfoTxt(TransactionData.newKey.EC_OpenSSL_NID);
   Result := true;
-  TransactionData.OriginalPayload := GetOperationPayload;
+  TransactionData.OriginalPayload := GetPayload;
   If TCrypto.IsHumanReadable(TransactionData.OriginalPayload) then
     TransactionData.PrintablePayload := TransactionData.OriginalPayload
   else
     TransactionData.PrintablePayload := TCrypto.ToHexaString(TransactionData.OriginalPayload);
-  TransactionData.OperationHash := OperationHashValid(self, Block);
+  TransactionData.OperationHash := TransactionHash(Block);
   if (Block < CT_Protocol_Upgrade_v2_MinBlock) then
   begin
-    TransactionData.OperationHash_OLD := TTransaction.OperationHash_OLD(self, Block);
+    TransactionData.OperationHash_OLD := TransactionHash_OLD(Block);
   end;
   TransactionData.valid := true;
 end;
@@ -381,7 +382,7 @@ begin
   Result := FData.account_target;
 end;
 
-function TChangeKeyTransaction.GetNumberOfOperations: Cardinal;
+function TChangeKeyTransaction.GetNumberOfTransactions: Cardinal;
 begin
   Result := FData.n_operation;
 end;
@@ -411,21 +412,21 @@ begin
   TAccountComp.AccountNumberToAccountTxtNumber(TransactionData.DestAccount) + ' account key to ' +
   TAccountComp.GetECInfoTxt(TransactionData.newKey.EC_OpenSSL_NID);
   Result := true;
-  TransactionData.OriginalPayload := GetOperationPayload;
+  TransactionData.OriginalPayload := GetPayload;
   If TCrypto.IsHumanReadable(TransactionData.OriginalPayload) then
     TransactionData.PrintablePayload := TransactionData.OriginalPayload
   else
     TransactionData.PrintablePayload := TCrypto.ToHexaString(TransactionData.OriginalPayload);
-  TransactionData.OperationHash := OperationHashValid(self, Block);
+  TransactionData.OperationHash := TransactionHash(Block);
   if (Block < CT_Protocol_Upgrade_v2_MinBlock) then
   begin
-    TransactionData.OperationHash_OLD := TTransaction.OperationHash_OLD(self, Block);
+    TransactionData.OperationHash_OLD := TransactionHash_OLD(Block);
   end;
   TransactionData.valid := true;
 end;
 
 initialization
 {TODO 'Remove ublockchain dependency'}
-  TPCOperationsComp.RegisterOperationClass(TChangeKeyTransaction, CT_Op_Changekey);
-  TPCOperationsComp.RegisterOperationClass(TChangeKeySignedTransaction, CT_Op_ChangeKeySigned);
+  TTransactionManager.RegisterOperationClass(TChangeKeyTransaction, CT_Op_Changekey);
+  TTransactionManager.RegisterOperationClass(TChangeKeySignedTransaction, CT_Op_ChangeKeySigned);
 end.

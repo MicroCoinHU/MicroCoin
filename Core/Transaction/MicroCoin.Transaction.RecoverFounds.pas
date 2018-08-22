@@ -13,7 +13,7 @@ unit MicroCoin.Transaction.RecoverFounds;
 interface
 
 uses MicroCoin.Transaction.Base, MicroCoin.Transaction.Transaction,
-Sysutils, classes, UAccounts, UCrypto, ULog, UConst, UBlockChain;
+Sysutils, classes, UAccounts, UCrypto, ULog, UConst, MicroCoin.Transaction.Manager;
 
 type
 
@@ -34,12 +34,12 @@ type
     function GetOpType : Byte; override;
 
     function GetBufferForOpHash(UseProtocolV2 : Boolean): TRawBytes; override;
-    function DoOperation(AccountTransaction : TPCSafeBoxTransaction; var errors : AnsiString) : Boolean; override;
-    function GetOperationAmount : Int64; override;
-    function GetOperationFee : UInt64; override;
-    function GetOperationPayload : TRawBytes; override;
+    function ApplyTransaction(AccountTransaction : TPCSafeBoxTransaction; var errors : AnsiString) : Boolean; override;
+    function GetAmount : Int64; override;
+    function GetFee : UInt64; override;
+    function GetPayload : TRawBytes; override;
     function GetSignerAccount : Cardinal; override;
-    function GetNumberOfOperations : Cardinal; override;
+    function GetNumberOfTransactions : Cardinal; override;
     procedure AffectedAccounts(list : TList); override;
     Constructor Create(account_number, n_operation: Cardinal; fee: UInt64);
     function GetTransactionData(Block: Cardinal;
@@ -69,7 +69,7 @@ begin
   FHasValidSignature := true; // Recover founds doesn't need a signature
 end;
 
-function TRecoverFoundsTransaction.DoOperation(AccountTransaction : TPCSafeBoxTransaction; var errors: AnsiString): Boolean;
+function TRecoverFoundsTransaction.ApplyTransaction(AccountTransaction : TPCSafeBoxTransaction; var errors: AnsiString): Boolean;
 Var acc : TAccount;
 begin
   Result := false;
@@ -138,17 +138,17 @@ begin
   Result := true;
 end;
 
-function TRecoverFoundsTransaction.GetOperationAmount: Int64;
+function TRecoverFoundsTransaction.GetAmount: Int64;
 begin
   Result := 0;
 end;
 
-function TRecoverFoundsTransaction.GetOperationFee: UInt64;
+function TRecoverFoundsTransaction.GetFee: UInt64;
 begin
   Result := FData.fee;
 end;
 
-function TRecoverFoundsTransaction.GetOperationPayload: TRawBytes;
+function TRecoverFoundsTransaction.GetPayload: TRawBytes;
 begin
   Result := '';
 end;
@@ -178,20 +178,20 @@ begin
   TransactionData.OpSubtype := CT_OpSubtype_Recover;
   TransactionData.OperationTxt := 'Recover founds';
   Result := true;
-  TransactionData.OriginalPayload := GetOperationPayload;
+  TransactionData.OriginalPayload := GetPayload;
   If TCrypto.IsHumanReadable(TransactionData.OriginalPayload) then
     TransactionData.PrintablePayload := TransactionData.OriginalPayload
   else
     TransactionData.PrintablePayload := TCrypto.ToHexaString(TransactionData.OriginalPayload);
-  TransactionData.OperationHash := OperationHashValid(self, Block);
+  TransactionData.OperationHash := TransactionHash(Block);
   if (Block < CT_Protocol_Upgrade_v2_MinBlock) then
   begin
-    TransactionData.OperationHash_OLD := TTransaction.OperationHash_OLD(self, Block);
+    TransactionData.OperationHash_OLD := TransactionHash_OLD(Block);
   end;
   TransactionData.valid := true;
 end;
 
-function TRecoverFoundsTransaction.GetNumberOfOperations: Cardinal;
+function TRecoverFoundsTransaction.GetNumberOfTransactions: Cardinal;
 begin
   Result := FData.n_operation;
 end;
@@ -204,5 +204,5 @@ begin
 end;
 
 initialization
-  TPCOperationsComp.RegisterOperationClass(TRecoverFoundsTransaction, CT_Op_Recover);
+  TTransactionManager.RegisterOperationClass(TRecoverFoundsTransaction, CT_Op_Recover);
 end.

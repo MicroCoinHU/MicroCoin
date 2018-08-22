@@ -4,14 +4,14 @@ unit UCrypto;
   {$MODE Delphi}
 {$ENDIF}
 
-{ 
+{
   Copyright (c) Albert Molina 2016 - 2018 original code from PascalCoin https://pascalcoin.org/
 
   Distributed under the MIT software license, see the accompanying file LICENSE
   or visit http://www.opensource.org/licenses/mit-license.php.
 
   This unit is a part of Pascal Coin, a P2P crypto currency without need of
-  historical operations.   
+  historical operations.
 
   If you like it, consider a donation using BitCoin:
     16K3HCZRhFUtM8GdWRcfKeaa6KsuyxZaYk
@@ -24,9 +24,11 @@ unit UCrypto;
 interface
 
 uses
-  Classes, SysUtils, UOpenSSL, UOpenSSLdef;
+ Classes, SysUtils, UOpenSSL, UOpenSSLdef;
 
 Type
+
+
   ECryptoException = Class(Exception);
 
   TRawBytes = AnsiString;
@@ -63,25 +65,25 @@ Type
     class function IsValidPublicKey(PubKey : TECDSA_Public) : Boolean;
     Function ExportToRaw : TRawBytes;
     class Function ImportFromRaw(Const raw : TRawBytes) : TECPrivateKey; static;
-  End;
+  end;
 
-  TCrypto = Class
+  TCrypto = class
   private
+    class function ECDSAVerify(EC_OpenSSL_NID : Word; PubKey : EC_POINT; const digest : AnsiString; Signature : TECDSA_SIG) : Boolean; overload;
   public
-    Class function ToHexaString(const raw : TRawBytes) : AnsiString;
-    Class function HexaToRaw(const HexaString : AnsiString) : TRawBytes;
-    Class function DoSha256(p : PAnsiChar; plength : Cardinal) : TRawBytes; overload;
-    Class function DoSha256(const TheMessage : AnsiString) : TRawBytes; overload;
-    Class procedure DoDoubleSha256(p : PAnsiChar; plength : Cardinal; Var ResultSha256 : TRawBytes); overload;
-    Class function DoRipeMD160_HEXASTRING(const TheMessage : AnsiString) : TRawBytes; overload;
-    Class function DoRipeMD160AsRaw(p : PAnsiChar; plength : Cardinal) : TRawBytes; overload;
-    Class function DoRipeMD160AsRaw(const TheMessage : AnsiString) : TRawBytes; overload;
-    Class function PrivateKey2Hexa(Key : PEC_KEY) : AnsiString;
-    Class function ECDSASign(Key : PEC_KEY; const digest : AnsiString) : TECDSA_SIG;
-    Class function ECDSAVerify(EC_OpenSSL_NID : Word; PubKey : EC_POINT; const digest : AnsiString; Signature : TECDSA_SIG) : Boolean; overload;
-    Class function ECDSAVerify(PubKey : TECDSA_Public; const digest : AnsiString; Signature : TECDSA_SIG) : Boolean; overload;
-    Class procedure InitCrypto;
-    Class function IsHumanReadable(Const ReadableText : TRawBytes) : Boolean;
+    class function ToHexaString(const raw : TRawBytes) : AnsiString;
+    class function HexaToRaw(const HexaString : AnsiString) : TRawBytes;
+    class function DoSha256(p : PAnsiChar; plength : Cardinal) : TRawBytes; overload;
+    class function DoSha256(const TheMessage : AnsiString) : TRawBytes; overload;
+    class procedure DoDoubleSha256(p : PAnsiChar; plength : Cardinal; Var ResultSha256 : TRawBytes); overload;
+    class function DoRipeMD160_HEXASTRING(const TheMessage : AnsiString) : TRawBytes; overload;
+    class function DoRipeMD160AsRaw(p : PAnsiChar; plength : Cardinal) : TRawBytes; overload;
+    class function DoRipeMD160AsRaw(const TheMessage : AnsiString) : TRawBytes; overload;
+    class function PrivateKey2Hexa(Key : TECPrivateKey) : AnsiString;
+    class function ECDSASign(Key : TECPrivateKey; const digest : AnsiString) : TECDSA_SIG;
+    class function ECDSAVerify(PubKey : TECDSA_Public; const digest : AnsiString; Signature : TECDSA_SIG) : Boolean; overload;
+    class procedure InitCrypto;
+    class function IsHumanReadable(const ReadableText : TRawBytes) : Boolean;
   End;
 
   TBigNum = Class
@@ -130,7 +132,7 @@ Const
 implementation
 
 uses
-  ULog, UConst, UAccounts;
+  ULog, UConst, UAccounts, MicroCoin.Account.AccountKey;
 
 Var _initialized : Boolean = false;
 
@@ -382,7 +384,7 @@ begin
   SHA256(PAnsiChar(TheMessage),Length(TheMessage),PS);
 end;
 
-class function TCrypto.ECDSASign(Key: PEC_KEY; const digest: AnsiString): TECDSA_SIG;
+class function TCrypto.ECDSASign(Key: TECPrivateKey; const digest: AnsiString): TECDSA_SIG;
 Var PECS : PECDSA_SIG;
   p, pr,ps : PAnsiChar;
   i : Integer;
@@ -391,7 +393,7 @@ Var PECS : PECDSA_SIG;
   bnr,bns : PBIGNUM;
   {$ENDIF}
 begin
-  PECS := ECDSA_do_sign(PAnsiChar(digest),length(digest),Key);
+  PECS := ECDSA_do_sign(PAnsiChar(digest),length(digest),Key.FPrivateKey);
   Try
     if PECS = Nil then raise ECryptoException.Create('Error signing');
 
@@ -515,10 +517,10 @@ Begin
   end;
 end;
 
-class function TCrypto.PrivateKey2Hexa(Key: PEC_KEY): AnsiString;
+class function TCrypto.PrivateKey2Hexa(Key: TECPrivateKey): AnsiString;
 Var p : PAnsiChar;
 begin
-  p := BN_bn2hex(EC_KEY_get0_private_key(Key));
+  p := BN_bn2hex(EC_KEY_get0_private_key(Key.FPrivateKey));
 //  p := BN_bn2hex(Key^.priv_key);
   Result := strpas(p);
   OPENSSL_free(p);

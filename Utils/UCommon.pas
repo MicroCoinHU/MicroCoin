@@ -32,22 +32,7 @@ function String2Hex(const Buffer: AnsiString): AnsiString;
 { Binary-safe StrComp replacement. StrComp will return 0 for when str1 and str2 both start with NUL character. }
 function BinStrComp(const Str1, Str2 : AnsiString): Integer;
 
-{ Language-level tools }
-function IIF(const ACondition: Boolean; const ATrueResult, AFalseResult: Cardinal): Cardinal; overload;
-function IIF(const ACondition: Boolean; const ATrueResult, AFalseResult: Integer): Integer; overload;
-function IIF(const ACondition: Boolean; const ATrueResult, AFalseResult: Int64): Int64; overload;
-function IIF(const ACondition: Boolean; const ATrueResult, AFalseResult: UInt64): UInt64; overload;
-function IIF(const ACondition: Boolean; const ATrueResult, AFalseResult: Double): Double; overload;
-function IIF(const ACondition: Boolean; const ATrueResult, AFalseResult: string): string; overload;
-function IIF(const ACondition: Boolean; const ATrueResult, AFalseResult: variant): variant; overload;
-
-type
-  { TArrayTool }
-  TArrayTool<T> = class
-    public
-      class procedure Swap(var Values : array of T; Item1Index, Item2Index : Integer);
-    end;
-
+//function IIF<T>(const ACondition: Boolean; const ATrueResult, AFalseResult: T): T;
 
 implementation
 
@@ -84,82 +69,7 @@ begin
        end
      end;
    end;
-End;
-
-{%region Language-level tools }
-function IIF(const ACondition: Boolean; const ATrueResult, AFalseResult: Cardinal): Cardinal;
-begin
-  if ACondition then
-    Result := ATrueResult
-  else
-    Result := AFalseResult;
 end;
-
-function IIF(const ACondition: Boolean; const ATrueResult, AFalseResult: Integer): Integer;
-begin
-  if ACondition then
-    Result := ATrueResult
-  else
-    Result := AFalseResult;
-end;
-
-function IIF(const ACondition: Boolean; const ATrueResult, AFalseResult: Int64): Int64;
-begin
-  if ACondition then
-    Result := ATrueResult
-  else
-    Result := AFalseResult;
-end;
-
-function IIF(const ACondition: Boolean; const ATrueResult, AFalseResult: UInt64): UInt64;
-begin
-  if ACondition then
-    Result := ATrueResult
-  else
-    Result := AFalseResult;
-end;
-
-function IIF(const ACondition: Boolean; const ATrueResult, AFalseResult: Double): Double;
-begin
-  if ACondition then
-    Result := ATrueResult
-  else
-    Result := AFalseResult;
-end;
-
-function IIF(const ACondition: Boolean; const ATrueResult, AFalseResult: string): string;
-begin
-  if ACondition then
-    Result := ATrueResult
-  else
-    Result := AFalseResult;
-end;
-
-function IIF(const ACondition: Boolean; const ATrueResult, AFalseResult: variant): variant;
-begin
-  if ACondition then
-    Result := ATrueResult
-  else
-    Result := AFalseResult;
-end;
-{%endregion}
-
-{%region TArrayTool }
-
-class procedure TArrayTool<T>.Swap(var Values : array of T; Item1Index, Item2Index : Integer);
-var temp : T; len, recSize : Integer; itemSize : Integer;
-begin
-  len := Length(Values);
-  recSize := SizeOf(T);
-  if (Item1Index < 0) OR (Item1Index > len) then Raise Exception.Create('Invalid Parameter: Item1Index out of bounds');
-  if (Item2Index < 0) OR (Item2Index > len) then Raise Exception.Create('Invalid Parameter: Item2Index out of bounds');
-  temp := Values[Item1Index];
-  Values[Item1Index] := Values[Item2Index];
-  Values[Item2Index] := temp;
-end;
-
-{%endregion}
-
 
 end.
 

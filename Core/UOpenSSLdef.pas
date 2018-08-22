@@ -3963,34 +3963,34 @@ const
   CRYPTO_LOCK       = 1;
   CRYPTO_UNLOCK     = 2;
   CRYPTO_READ       = 4;
-  CRYPTO_WRITE   =  8;
+  CRYPTO_WRITE      = 8;
 
 const
   HMAC_MAX_MD_CBLOCK     = 128;
 
-    MD4_CBLOCK      = 64;
-    MD4_LBLOCK      = (MD4_CBLOCK div 4);
-    MD4_DIGEST_LENGTH  = 16;
+  MD4_CBLOCK      = 64;
+  MD4_LBLOCK      = (MD4_CBLOCK div 4);
+  MD4_DIGEST_LENGTH  = 16;
 
-    MD5_CBLOCK      = 64;
-    MD5_LBLOCK      = (MD5_CBLOCK div 4);
-    MD5_DIGEST_LENGTH  = 16;
+  MD5_CBLOCK      = 64;
+  MD5_LBLOCK      = (MD5_CBLOCK div 4);
+  MD5_DIGEST_LENGTH  = 16;
 
-    MDC2_BLOCK              = 8;
-    MDC2_DIGEST_LENGTH      = 16;
+  MDC2_BLOCK              = 8;
+  MDC2_DIGEST_LENGTH      = 16;
 
-    RC5_32_BLOCK        = 8;
-    RC5_32_KEY_LENGTH   = 16;
+  RC5_32_BLOCK        = 8;
+  RC5_32_KEY_LENGTH   = 16;
 
-    RC5_8_ROUNDS        = 8;
-    RC5_12_ROUNDS       = 12;
-    RC5_16_ROUNDS       = 16;
+  RC5_8_ROUNDS        = 8;
+  RC5_12_ROUNDS       = 12;
+  RC5_16_ROUNDS       = 16;
 
-    RIPEMD160_CBLOCK    = 64;
-    RIPEMD160_LBLOCK    = (RIPEMD160_CBLOCK div 4);
-    RIPEMD160_DIGEST_LENGTH     = 20;
+  RIPEMD160_CBLOCK    = 64;
+  RIPEMD160_LBLOCK    = (RIPEMD160_CBLOCK div 4);
+  RIPEMD160_DIGEST_LENGTH     = 20;
 
-    PKCS5_SALT_LEN			= 8;
+  PKCS5_SALT_LEN			= 8;
 
   SSL_MAX_SSL_SESSION_ID_LENGTH		= 32;
   SSL_MAX_SID_CTX_LENGTH			    = 32;

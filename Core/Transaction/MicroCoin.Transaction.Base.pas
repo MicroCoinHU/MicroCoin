@@ -1,9 +1,19 @@
 unit MicroCoin.Transaction.Base;
 
+{
+  This unit contains code from PascalCoin:
+
+  Copyright (c) Albert Molina 2016 - 2018 original code from PascalCoin https://pascalcoin.org/
+
+  Distributed under the MIT software license, see the accompanying file LICENSE
+  or visit http://www.opensource.org/licenses/mit-license.php.
+
+}
+
 interface
 
 uses
-  SysUtils, Classes, UAccounts, UCrypto, UConst;
+  SysUtils, Classes, UAccounts, UCrypto, UConst, MicroCoin.Account.AccountKey;
 
 type
 
@@ -33,6 +43,7 @@ type
 
 
   ITransaction = interface
+    ['{54C0B36D-912C-4CC9-B73E-4B8BACB2E053}']
     function SaveToStream(Stream: TStream; SaveExtendedData: Boolean): Boolean;
     function LoadFromStream(Stream: TStream; LoadExtendedData: Boolean) : Boolean;
     function SaveToStorage(Stream: TStream): Boolean;
@@ -42,45 +53,55 @@ type
 
     function GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal; var TransactionData: TTransactionData): Boolean;
 
-    function DoOperation(AccountTransaction: TPCSafeBoxTransaction; var errors: AnsiString): Boolean;
+    function ApplyTransaction(AccountTransaction: TPCSafeBoxTransaction; var errors: AnsiString): Boolean;
 
     function GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes;
 
-    function GetOperationAmount: Int64;
-    function GetOperationFee: UInt64;
-    function GetOperationPayload: TRawBytes;
+    function GetAmount: Int64;
+    function GetFee: UInt64;
+    function GetPayload: TRawBytes;
     function GetSignerAccount: Cardinal;
     function GetDestinationAccount: Int64;
     function GetSellerAccount: Int64;
-    function GetNumberOfOperations: Cardinal;
+    function GetNumberOfTransactions: Cardinal;
     function GetOpType : byte;
 
     function Get_Previous_Signer_updated_block : Cardinal;
     function Get_Previous_Destination_updated_block : Cardinal;
     function Get_Previous_Seller_updated_block : Cardinal;
+
+    procedure Set_Previous_Destination_updated_block(const Value: Cardinal);
+    procedure Set_Previous_Seller_updated_block(const Value: Cardinal);
+    procedure Set_Previous_Signer_updated_block(const Value: Cardinal);
+
     function Get_HasValidSignature : Boolean;
     function GetTag : integer;
+    procedure SetTag(Value : integer);
 
     function Sha256: TRawBytes;
 
+    function TransactionHash(Block: Cardinal) : TRawBytes;
+    function TransactionHash_OLD(Block: Cardinal) : TRawBytes;
+
+    procedure AffectedAccounts(list: TList);
+    procedure InitializeData;
+
     function ToString : string;
 
-    procedure Free;
-
-    property Previous_Signer_updated_block: Cardinal read Get_Previous_Signer_updated_block;
-    property Previous_Destination_updated_block: Cardinal read Get_Previous_Destination_updated_block;
-    property Previous_Seller_updated_block: Cardinal read Get_Previous_Seller_updated_block;
+    property Previous_Signer_updated_block: Cardinal read Get_Previous_Signer_updated_block write Set_Previous_Signer_updated_block;
+    property Previous_Destination_updated_block: Cardinal read Get_Previous_Destination_updated_block write Set_Previous_Destination_updated_block;
+    property Previous_Seller_updated_block: Cardinal read Get_Previous_Seller_updated_block write Set_Previous_Seller_updated_block;
     property HasValidSignature: Boolean read Get_HasValidSignature;
 
-    property OperationFee : UInt64 read GetOperationFee;
-    property OperationAmount : Int64 read GetOperationAmount;
-    property OperationPayload : TRawBytes read GetOperationPayload;
+    property Fee : UInt64 read GetFee;
+    property Amount : Int64 read GetAmount;
+    property Payload : TRawBytes read GetPayload;
     property SignerAccount : Cardinal read GetSignerAccount;
     property DestinationAccount : Int64 read GetDestinationAccount;
     property SellerAccount : Int64 read GetSellerAccount;
-    property NumberOfOperations: Cardinal read GetNumberOfOperations;
+    property NumberOfTransactions: Cardinal read GetNumberOfTransactions;
     property OpType : byte read GetOpType;
-    property Tag : integer read GetTag;
+    property Tag : integer read GetTag write SetTag;
 
   end;
 

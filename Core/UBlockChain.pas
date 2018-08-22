@@ -21,7 +21,9 @@ interface
 
 uses
   Classes, UCrypto, UAccounts, ULog, UThread, SyncObjs,
-  MicroCoin.Transaction.Base, MicroCoin.Transaction.Transaction;
+  MicroCoin.Transaction.Base, MicroCoin.Transaction.Transaction,
+  MicroCoin.Transaction.Manager, MicroCoin.Transaction.HashTree,
+  MicroCoin.Account.AccountKey;
 {$I config.inc}
 {
 
@@ -108,64 +110,6 @@ uses
 Type
   TPCBank = Class;
   TPCBankNotify = Class;
-//  TTransaction = Class;
-
-  TPCOperationClass = Class of TTransaction;
-
-  TTransactionPlugin = record
-    TransactionClass : TPCOperationClass;
-    OpType : byte;
-  end;
-
-  TTransactionList = class
-  private
-    FList: TPCThreadList;
-    function GetTransactionData(index: Integer): TTransactionData;
-  public
-    constructor Create;
-    destructor Destroy; override;
-    procedure Add(Const TransactionData: TTransactionData);
-    function Count: Integer;
-    procedure Delete(index: Integer);
-    procedure Clear;
-    property TransactionData[index: Integer]: TTransactionData
-      read GetTransactionData; default;
-  End;
-
-  { TOperationsHashTree }
-
-  TTransactionHashTree = Class
-  private
-    FHashTreeTransactions: TPCThreadList;
-    FHashTree: TRawBytes;
-    FOnChanged: TNotifyEvent;
-    FTotalAmount: Int64;
-    FTotalFee: Int64;
-    Procedure InternalAddTransactionToHashTree(list: TList; op: ITransaction);
-  public
-    constructor Create;
-    destructor Destroy; Override;
-    procedure AddTransactionToHashTree(op: ITransaction);
-    procedure ClearHastThree;
-    property HashTree: TRawBytes read FHashTree;
-    function OperationsCount: Integer;
-    function GetOperation(index: Integer): ITransaction;
-    function GetTransactionsAffectingAccount(account_number: Cardinal;
-      list: TList): Integer;
-    procedure CopyFromHashTree(Sender: TTransactionHashTree);
-    property TotalAmount: Int64 read FTotalAmount;
-    property TotalFee: Int64 read FTotalFee;
-    function SaveToStream(Stream: TStream;
-      SaveToStorage: Boolean): Boolean;
-    function LoadFromStream(Stream: TStream;
-      LoadingFromStorage, LoadProtocolV2: Boolean;
-      var errors: AnsiString): Boolean;
-    function IndexOf(op: ITransaction): Integer;
-    function TransactionCountsWithoutFeeBySameSigner(account_number
-      : Cardinal): Integer;
-    procedure Delete(index: Integer);
-    property OnChanged: TNotifyEvent read FOnChanged write FOnChanged;
-  End;
 
   { TPCOperationsComp }
 
@@ -241,12 +185,8 @@ Type
     //
     Procedure SanitizeOperations;
 
-    Class Function RegisterOperationClass(OpClass: TPCOperationClass; OpType: byte): Boolean;
-    Class Function IndexOfOperationClass(OpClass: TPCOperationClass): Integer;
-    Class Function IndexOfOperationClassByOpType(OpType: Cardinal): Integer;
-    Class Function GetOperationClassByOpType(OpType: Cardinal) : TPCOperationClass;
-    Class Function GetFirstBlock: TOperationBlock;
-    Class Function EqualsOperationBlock(Const OperationBlock1, OperationBlock2 : TOperationBlock): Boolean;
+    class function GetFirstBlock: TOperationBlock;
+    class function EqualsOperationBlock(Const OperationBlock1, OperationBlock2 : TOperationBlock): Boolean;
     //
     Property SafeBoxTransaction: TPCSafeBoxTransaction read FSafeBoxTransaction;
     Property OperationsHashTree: TTransactionHashTree read FOperationsHashTree;
@@ -384,7 +324,7 @@ uses
   SysUtils, Variants, {Graphics,}
   {Controls, Forms,}
   {StdCtrls,}
-  UTime, UConst, UOpTransaction;
+  UTime, UConst;
 
 { TPCBank }
 
@@ -817,11 +757,7 @@ end;
 
 { TPCOperationsComp }
 
-var
-  _OperationsClass: Array of TTransactionPlugin;
-
-function TPCOperationsComp.AddOperation(Execute: Boolean; op: ITransaction;
-  var errors: AnsiString): Boolean;
+function TPCOperationsComp.AddOperation(Execute: Boolean; op: ITransaction; var errors: AnsiString): Boolean;
 Begin
   Lock;
   Try
@@ -840,14 +776,14 @@ Begin
         exit;
       end;
       // Only process when in current address, prevent do it when reading operations from file
-      Result := op.DoOperation(SafeBoxTransaction, errors);
+      Result := op.ApplyTransaction(SafeBoxTransaction, errors);
     end
     else
       Result := true;
     if Result then
     begin
       FOperationsHashTree.AddTransactionToHashTree(op);
-      FOperationBlock.Fee := FOperationBlock.Fee + op.OperationFee;
+      FOperationBlock.Fee := FOperationBlock.Fee + op.Fee;
       FOperationBlock.operations_hash := FOperationsHashTree.HashTree;
       if FDisableds <= 0 then
         Calc_Digest_Parts;
@@ -1082,7 +1018,7 @@ class function TPCOperationsComp.EqualsOperationBlock(const OperationBlock1,
 begin
 
   Result := (OperationBlock1.Block = OperationBlock2.Block) And
-    (TAccountComp.EqualAccountKeys(OperationBlock1.account_key,
+    (TAccountKey.EqualAccountKeys(OperationBlock1.account_key,
     OperationBlock2.account_key)) And
     (OperationBlock1.reward = OperationBlock2.reward) And
     (OperationBlock1.Fee = OperationBlock2.Fee) And
@@ -1123,44 +1059,12 @@ begin
   Result := FOperationsHashTree.GetOperation(index);
 end;
 
-class function TPCOperationsComp.GetOperationClassByOpType(OpType: Cardinal)
-  : TPCOperationClass;
-Var
-  i: Integer;
-begin
-  i := IndexOfOperationClassByOpType(OpType);
-  if i < 0 then
-    Result := Nil
-  else
-    Result := TPCOperationClass(_OperationsClass[i].TransactionClass);
-end;
 
 function TPCOperationsComp.Gettimestamp: Cardinal;
 begin
   Result := FOperationBlock.timestamp;
 end;
 
-class function TPCOperationsComp.IndexOfOperationClass
-  (OpClass: TPCOperationClass): Integer;
-begin
-  for Result := low(_OperationsClass) to high(_OperationsClass) do
-  begin
-    if (_OperationsClass[Result].TransactionClass = OpClass) then
-      exit;
-  end;
-  Result := -1;
-end;
-
-class function TPCOperationsComp.IndexOfOperationClassByOpType
-  (OpType: Cardinal): Integer;
-begin
-  for Result := low(_OperationsClass) to high(_OperationsClass) do
-  begin
-    if (_OperationsClass[Result].OpType = OpType) then
-      exit;
-  end;
-  Result := -1;
-end;
 
 function TPCOperationsComp.LoadBlockFromStorage(Stream: TStream;
   var errors: AnsiString): Boolean;
@@ -1238,7 +1142,7 @@ begin
 
     if TStreamOp.ReadAnsiString(Stream, m) < 0 then
       exit;
-    FOperationBlock.account_key := TAccountComp.RawString2Accountkey(m);
+    FOperationBlock.account_key := TAccountKey.FromRawString(m);
     if Stream.Read(FOperationBlock.reward, Sizeof(FOperationBlock.reward)) < 0
     then
       exit;
@@ -1322,16 +1226,6 @@ begin
     TCrypto.ToHexaString(OperationBlock.proof_of_work)]);
 end;
 
-class function TPCOperationsComp.RegisterOperationClass(OpClass: TPCOperationClass; OpType: byte): Boolean;
-Var
-  i: Integer;
-begin
-  i := IndexOfOperationClass(OpClass);
-  if i >= 0 then exit;
-  SetLength(_OperationsClass, length(_OperationsClass) + 1);
-  _OperationsClass[high(_OperationsClass)].TransactionClass := OpClass;
-  _OperationsClass[high(_OperationsClass)].OpType := OpType;
-end;
 
 procedure TPCOperationsComp.SanitizeOperations;
 { This function check operationblock with bank and updates itself if necessary
@@ -1389,11 +1283,11 @@ begin
       for i := 0 to lastn - 1 do
       begin
         op := FOperationsHashTree.GetOperation(i);
-        if (op.DoOperation(SafeBoxTransaction, errors)) then
+        if (op.ApplyTransaction(SafeBoxTransaction, errors)) then
         begin
           inc(n);
           aux.AddTransactionToHashTree(op);
-          inc(FOperationBlock.Fee, op.OperationFee);
+          inc(FOperationBlock.Fee, op.Fee);
           TLog.NewLog(ltdebug, Classname, 'Sanitizing (pos:' + Inttostr(i + 1) +
             '/' + Inttostr(lastn) + '): ' + op.ToString);
         end;
@@ -1463,8 +1357,7 @@ begin
     //
     Stream.Write(FOperationBlock.Block, Sizeof(FOperationBlock.Block));
     //
-    TStreamOp.WriteAnsiString(Stream,
-      TAccountComp.AccountKey2RawString(FOperationBlock.account_key));
+    TStreamOp.WriteAnsiString(Stream, FOperationBlock.account_key.ToRawString);
     Stream.Write(FOperationBlock.reward, Sizeof(FOperationBlock.reward));
     Stream.Write(FOperationBlock.Fee, Sizeof(FOperationBlock.Fee));
     Stream.Write(FOperationBlock.timestamp, Sizeof(FOperationBlock.timestamp));
@@ -1510,8 +1403,7 @@ begin
   //
   Stream.Write(OperationBlock.Block, Sizeof(OperationBlock.Block));
   //
-  TStreamOp.WriteAnsiString(Stream,
-    TAccountComp.AccountKey2RawString(OperationBlock.account_key));
+  TStreamOp.WriteAnsiString(Stream, OperationBlock.account_key.ToRawString);
   Stream.Write(OperationBlock.reward, Sizeof(OperationBlock.reward));
   Stream.Write(OperationBlock.Fee, Sizeof(OperationBlock.Fee));
   Stream.Write(OperationBlock.timestamp, Sizeof(OperationBlock.timestamp));
@@ -1529,8 +1421,7 @@ procedure TPCOperationsComp.SetAccountKey(const value: TAccountKey);
 begin
   Lock;
   Try
-    if TAccountComp.AccountKey2RawString(value)
-      = TAccountComp.AccountKey2RawString(FOperationBlock.account_key) then
+    if value.ToRawString = FOperationBlock.account_key.ToRawString then
       exit;
     FOperationBlock.account_key := value;
     Calc_Digest_Parts;
@@ -1657,7 +1548,7 @@ begin
     SafeBoxTransaction.Rollback;
     for i := 0 to Count - 1 do
     begin
-      If Not Operation[i].DoOperation(SafeBoxTransaction, errors) then
+      If Not Operation[i].ApplyTransaction(SafeBoxTransaction, errors) then
       begin
         errors := 'Error executing operation ' + Inttostr(i + 1) + '/' +
           Inttostr(Count) + ': ' + errors;
@@ -1752,358 +1643,6 @@ begin
     FBank.FreeNotification(Self);
     FBank.FNotifyList.Add(Self);
   end;
-end;
-
-{ TOperationsHashTree }
-
-Type
-  TOperationHashTreeReg = Record
-    op: TTransaction;
-  end;
-
-  POperationHashTreeReg = ^TOperationHashTreeReg;
-
-procedure TTransactionHashTree.AddTransactionToHashTree(op: ITransaction);
-Var
-  l: TList;
-begin
-  l := FHashTreeTransactions.LockList;
-  try
-    InternalAddTransactionToHashTree(l, op);
-  finally
-    FHashTreeTransactions.UnlockList;
-  end;
-end;
-
-procedure TTransactionHashTree.ClearHastThree;
-var
-  l: TList;
-  i: Integer;
-  P: POperationHashTreeReg;
-begin
-  l := FHashTreeTransactions.LockList;
-  try
-    FTotalAmount := 0;
-    FTotalFee := 0;
-    Try
-      for i := 0 to l.Count - 1 do
-      begin
-        P := l[i];
-        // P^.op.Free;
-        Dispose(P);
-      end;
-    Finally
-      l.Clear;
-      FHashTree := TCrypto.DoSha256('');
-    End;
-    If Assigned(FOnChanged) then
-      FOnChanged(Self);
-  finally
-    FHashTreeTransactions.UnlockList;
-  end;
-end;
-
-procedure TTransactionHashTree.CopyFromHashTree(Sender: TTransactionHashTree);
-Var
-  i: Integer;
-  lme, lsender: TList;
-  PSender: POperationHashTreeReg;
-  lastNE: TNotifyEvent;
-begin
-  if (Sender = Self) then
-  begin
-    exit;
-  end;
-  ClearHastThree;
-  lme := FHashTreeTransactions.LockList;
-  try
-    lastNE := FOnChanged;
-    FOnChanged := Nil;
-    try
-      lsender := Sender.FHashTreeTransactions.LockList;
-      try
-        for i := 0 to lsender.Count - 1 do
-        begin
-          PSender := lsender[i];
-          InternalAddTransactionToHashTree(lme, PSender^.op);
-        end;
-      finally
-        Sender.FHashTreeTransactions.UnlockList;
-      end;
-    finally
-      FOnChanged := lastNE;
-    end;
-    If Assigned(FOnChanged) then
-      FOnChanged(Self);
-  finally
-    FHashTreeTransactions.UnlockList;
-  end;
-end;
-
-constructor TTransactionHashTree.Create;
-begin
-  FOnChanged := Nil;
-  FTotalAmount := 0;
-  FTotalFee := 0;
-  FHashTree := TCrypto.DoSha256('');
-  FHashTreeTransactions := TPCThreadList.Create
-    ('TOperationsHashTree_HashTreeOperations');
-end;
-
-procedure TTransactionHashTree.Delete(index: Integer);
-Var
-  l: TList;
-  P: POperationHashTreeReg;
-  i: Integer;
-begin
-  l := FHashTreeTransactions.LockList;
-  try
-    P := l[index];
-    l.Delete(index);
-    // P^.op.Free;
-    Dispose(P);
-    // Recalc operations hash
-    FTotalAmount := 0;
-    FTotalFee := 0;
-    FHashTree := '';
-    for i := 0 to l.Count - 1 do
-    begin
-      P := l[i];
-      // Include to hash tree
-      FHashTree := TCrypto.DoSha256(FHashTree + P^.op.Sha256);
-      P^.op.tag := i;
-      inc(FTotalAmount, P^.op.OperationAmount);
-      inc(FTotalFee, P^.op.OperationFee);
-    end;
-    If Assigned(FOnChanged) then
-      FOnChanged(Self);
-  finally
-    FHashTreeTransactions.UnlockList;
-  end;
-end;
-
-destructor TTransactionHashTree.Destroy;
-begin
-  FOnChanged := Nil;
-  ClearHastThree;
-  FreeAndNil(FHashTreeTransactions);
-  SetLength(FHashTree, 0);
-  inherited;
-end;
-
-function TTransactionHashTree.GetOperation(index: Integer): ITransaction;
-Var
-  l: TList;
-begin
-  l := FHashTreeTransactions.LockList;
-  try
-    Result := POperationHashTreeReg(l[index])^.op;
-  finally
-    FHashTreeTransactions.UnlockList;
-  end;
-end;
-
-function TTransactionHashTree.GetTransactionsAffectingAccount(account_number
-  : Cardinal; list: TList): Integer;
-// This function retrieves operations from HashTree that affeccts to an account_number
-Var
-  l, intl: TList;
-  i, j: Integer;
-begin
-  list.Clear;
-  l := FHashTreeTransactions.LockList;
-  try
-    intl := TList.Create;
-    try
-      for i := 0 to l.Count - 1 do
-      begin
-        intl.Clear;
-        POperationHashTreeReg(l[i])^.op.AffectedAccounts(intl);
-        if intl.IndexOf(TObject(account_number)) >= 0 then
-          list.Add(TObject(i));
-      end;
-    finally
-      intl.Free;
-    end;
-    Result := list.Count;
-  finally
-    FHashTreeTransactions.UnlockList;
-  end;
-end;
-
-function TTransactionHashTree.IndexOf(op: ITransaction): Integer;
-Var
-  l: TList;
-  OpSha256: TRawBytes;
-begin
-  OpSha256 := op.Sha256;
-  l := FHashTreeTransactions.LockList;
-  Try
-    for Result := 0 to l.Count - 1 do
-    begin
-      if POperationHashTreeReg(l[Result])^.op.Sha256 = OpSha256 then
-        exit;
-    end;
-    Result := -1;
-  Finally
-    FHashTreeTransactions.UnlockList;
-  End;
-end;
-
-function TTransactionHashTree.TransactionCountsWithoutFeeBySameSigner
-  (account_number: Cardinal): Integer;
-Var
-  l: TList;
-  i: Integer;
-begin
-  Result := 0;
-  l := FHashTreeTransactions.LockList;
-  Try
-    for i := 0 to l.Count - 1 do
-    begin
-      if (POperationHashTreeReg(l[i])^.op.SignerAccount = account_number) And
-        (POperationHashTreeReg(l[i])^.op.OperationFee = 0) then
-        inc(Result);
-    end;
-  Finally
-    FHashTreeTransactions.UnlockList;
-  End;
-end;
-
-procedure TTransactionHashTree.InternalAddTransactionToHashTree(list: TList; op: ITransaction);
-Var
-  msCopy: TMemoryStream;
-  h: TRawBytes;
-  P: POperationHashTreeReg;
-begin
-  msCopy := TMemoryStream.Create;
-  try
-    New(P);
-    P^.op := TTransaction(TObject(op).NewInstance);
-    P^.op.InitializeData;
-    op.SaveToStream(msCopy, true);
-    msCopy.Position := 0;
-    P^.op.LoadFromStream(msCopy, true);
-    P^.op.Previous_Signer_updated_block := op.Previous_Signer_updated_block;
-    P^.op.Previous_Destination_updated_block :=
-      op.Previous_Destination_updated_block;
-    P^.op.Previous_Seller_updated_block := op.Previous_Seller_updated_block;
-    h := op.Sha256;
-    P^.op.tag := list.Count;
-    // Include to hash tree
-    FHashTree := TCrypto.DoSha256(FHashTree + h);
-    list.Add(P);
-  finally
-    msCopy.Free;
-  end;
-  inc(FTotalAmount, op.OperationAmount);
-  inc(FTotalFee, op.OperationFee);
-  If Assigned(FOnChanged) then
-    FOnChanged(Self);
-end;
-
-function TTransactionHashTree.LoadFromStream(Stream: TStream;
-  LoadingFromStorage, LoadProtocolV2: Boolean; var errors: AnsiString): Boolean;
-Var
-  c, i: Cardinal;
-  OpType: Cardinal;
-  bcop: TTransaction;
-  j: Integer;
-  OpClass: TPCOperationClass;
-  lastNE: TNotifyEvent;
-begin
-  Result := false;
-  //
-  If Stream.Read(c, 4) < 4 then
-  begin
-    errors := 'Cannot read operations count';
-    exit;
-  end;
-  lastNE := FOnChanged;
-  FOnChanged := Nil;
-  try
-    // c = operations count
-    for i := 1 to c do
-    begin
-      errors := 'Invalid operation structure ' + Inttostr(i) + '/' +
-        Inttostr(c);
-      if Stream.Size - Stream.Position < 4 then
-        exit;
-      Stream.Read(OpType, 4);
-      j := TPCOperationsComp.IndexOfOperationClassByOpType(OpType);
-      if j >= 0 then
-        OpClass := _OperationsClass[j].TransactionClass
-      else
-        OpClass := Nil;
-      if Not Assigned(OpClass) then
-      begin
-        errors := errors + ' optype not valid:' + InttoHex(OpType, 4);
-        exit;
-      end;
-      errors := 'Invalid operation load from stream ' + Inttostr(i) + '/' +
-        Inttostr(c) + ' Class:' + OpClass.Classname;
-      bcop := OpClass.Create;
-      Try
-        if LoadingFromStorage then
-        begin
-          If not bcop.LoadFromStorage(Stream, LoadProtocolV2) then
-            exit;
-        end
-        else if not bcop.LoadFromNettransfer(Stream) then
-        begin
-          exit;
-        end;
-        AddTransactionToHashTree(bcop);
-      Finally
-       // FreeAndNil(bcop);
-      end;
-    end;
-  finally
-    FOnChanged := lastNE;
-  end;
-  If Assigned(FOnChanged) then
-    FOnChanged(Self);
-  Result := true;
-end;
-
-function TTransactionHashTree.OperationsCount: Integer;
-Var
-  l: TList;
-begin
-  l := FHashTreeTransactions.LockList;
-  try
-    Result := l.Count;
-  finally
-    FHashTreeTransactions.UnlockList;
-  end;
-end;
-
-function TTransactionHashTree.SaveToStream(Stream: TStream;
-  SaveToStorage: Boolean): Boolean;
-Var
-  c, i, OpType: Cardinal;
-  bcop: ITransaction;
-  l: TList;
-begin
-  l := FHashTreeTransactions.LockList;
-  Try
-    c := l.Count;
-    Stream.Write(c, 4);
-    // c = operations count
-    for i := 1 to c do
-    begin
-      bcop := GetOperation(i - 1);
-      OpType := bcop.OpType;
-      Stream.Write(OpType, 4);
-      if SaveToStorage then
-        bcop.SaveToStorage(Stream)
-      else
-        bcop.SaveToNettransfer(Stream);
-    end;
-    Result := true;
-  Finally
-    FHashTreeTransactions.UnlockList;
-  End;
 end;
 
 { TStorage }
@@ -2219,98 +1758,7 @@ begin
 end;
 
 
-{ TOperationsResumeList }
-
-Type
-  POperationResume = ^TTransactionData;
-
-procedure TTransactionList.Add(const TransactionData: TTransactionData);
-Var
-  P: POperationResume;
-begin
-  New(P);
-  P^ := TransactionData;
-  FList.Add(P);
-end;
-
-procedure TTransactionList.Clear;
-Var
-  P: POperationResume;
-  i: Integer;
-  l: TList;
-begin
-  l := FList.LockList;
-  try
-    for i := 0 to l.Count - 1 do
-    begin
-      P := l[i];
-      Dispose(P);
-    end;
-    l.Clear;
-  finally
-    FList.UnlockList;
-  end;
-end;
-
-function TTransactionList.Count: Integer;
-Var
-  l: TList;
-begin
-  l := FList.LockList;
-  Try
-    Result := l.Count;
-  Finally
-    FList.UnlockList;
-  End;
-end;
-
-constructor TTransactionList.Create;
-begin
-  FList := TPCThreadList.Create('TOperationsResumeList_List');
-end;
-
-procedure TTransactionList.Delete(index: Integer);
-Var
-  P: POperationResume;
-  l: TList;
-begin
-  l := FList.LockList;
-  Try
-    P := l[index];
-    l.Delete(index);
-    Dispose(P);
-  Finally
-    FList.UnlockList;
-  End;
-end;
-
-destructor TTransactionList.Destroy;
-begin
-  Clear;
-  FreeAndNil(FList);
-  inherited;
-end;
-
-function TTransactionList.GetTransactionData(index: Integer)
-  : TTransactionData;
-Var
-  l: TList;
-begin
-  l := FList.LockList;
-  try
-    if index < l.Count then
-      Result := POperationResume(l[index])^
-    else
-      Result := TTransactionData.Empty;
-  finally
-    FList.UnlockList;
-  end;
-end;
-
 initialization
-
-SetLength(_OperationsClass, 0);
-RegisterOperationsClass;
 
 finalization
 

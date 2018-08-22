@@ -27,7 +27,8 @@ Uses
   {LCLIntf, LCLType, LMessages,}
 {$ENDIF}
   UTCPIP, SysUtils, UThread, SyncObjs, Classes, UJSONFunctions, UAES, UNode,
-  UCrypto, UAccounts, UConst, UBlockChain;
+  UCrypto, UAccounts, UConst, UBlockChain, MicroCoin.Transaction.HashTree,
+  MicroCoin.Account.AccountKey;
 
 Const
   CT_PoolMining_Method_STATUS = 'status';
@@ -680,7 +681,7 @@ begin
     response_result := TPCJSONObject.Create;
     Try
       response_result.GetAsVariant('block').Value := FNodeNotifyEvents.Node.Bank.LastBlockFound.OperationBlock.block;
-      response_result.GetAsVariant('account_key').Value := TCrypto.ToHexaString( TAccountComp.AccountKey2RawString(FNodeNotifyEvents.Node.Bank.LastBlockFound.OperationBlock.account_key) );
+      response_result.GetAsVariant('account_key').Value := TCrypto.ToHexaString( FNodeNotifyEvents.Node.Bank.LastBlockFound.OperationBlock.account_key.ToRawString );
       response_result.GetAsVariant('reward').Value := FNodeNotifyEvents.Node.Bank.LastBlockFound.OperationBlock.reward;
       response_result.GetAsVariant('fee').Value := FNodeNotifyEvents.Node.Bank.LastBlockFound.OperationBlock.fee;
       response_result.GetAsVariant('p_version').Value := FNodeNotifyEvents.Node.Bank.LastBlockFound.OperationBlock.protocol_version;
@@ -738,7 +739,7 @@ begin
             i := 0;
             while (tree.OperationsCount<MaxOperationsPerBlock) And (i<MasterOp.OperationsHashTree.OperationsCount) do begin
               op := MasterOp.OperationsHashTree.GetOperation(i);
-              if op.OperationFee>0 then begin
+              if op.Fee>0 then begin
                 DoAdd(op,false);
               end;
               inc(i);
@@ -748,7 +749,7 @@ begin
             i := 0;
             while (tree.OperationsCount<MaxOperationsPerBlock) And (i<MasterOp.OperationsHashTree.OperationsCount) And (j<Max0FeeOperationsPerBlock) do begin
               op := MasterOp.OperationsHashTree.GetOperation(i);
-              if op.OperationFee=0 then begin
+              if op.Fee=0 then begin
                 DoAdd(op,True);
                 inc(j);
               end;
@@ -1034,9 +1035,9 @@ end;
 
 procedure TPoolMiningServer.SetMinerAccountKey(const Value: TAccountKey);
 begin
-  if TAccountComp.EqualAccountKeys(FMinerAccountKey,Value) then exit;
+  if TAccountKey.EqualAccountKeys(FMinerAccountKey,Value) then exit;
   FMinerAccountKey := Value;
-  TLog.NewLog(ltdebug,ClassName,'Assigning Miner account key to: '+TCrypto.ToHexaString(TAccountComp.AccountKey2RawString(Value)));
+  TLog.NewLog(ltdebug,ClassName,'Assigning Miner account key to: '+TCrypto.ToHexaString(Value.ToRawString));
   CaptureNewJobAndSendToMiners;
 end;
 
@@ -1051,7 +1052,7 @@ procedure TPoolMiningServer.UpdateAccountAndPayload(
   AMinerAccountKey: TAccountKey; AMinerPayload: TRawBytes);
 begin
   FMinerAccountKey := AMinerAccountKey;
-  TLog.NewLog(ltdebug,ClassName,'Assigning Miner account key to: '+TCrypto.ToHexaString(TAccountComp.AccountKey2RawString(AMinerAccountKey)));
+  TLog.NewLog(ltdebug,ClassName,'Assigning Miner account key to: '+TCrypto.ToHexaString(AMinerAccountKey.ToRawString));
   FMinerPayload := AMinerPayload;
   TLog.NewLog(ltdebug,ClassName,'Assigning Miner new Payload: '+TCrypto.ToHexaString(AMinerPayload));
   CaptureNewJobAndSendToMiners;

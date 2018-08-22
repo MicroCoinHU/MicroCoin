@@ -22,7 +22,7 @@ unit UAppParams;
 interface
 
 uses
-  Classes;
+  Classes, MicroCoin.Account.AccountKey;
 
 Type
   TAppParamType = (ptString, ptInteger, ptLongWord, ptInt64, ptBoolean, ptStream);

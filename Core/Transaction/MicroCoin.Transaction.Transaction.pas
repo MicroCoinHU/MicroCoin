@@ -22,27 +22,31 @@ type
     function Get_Previous_Destination_updated_block: Cardinal;
     function Get_Previous_Seller_updated_block: Cardinal;
     function Get_Previous_Signer_updated_block: Cardinal;
+    procedure Set_Previous_Destination_updated_block(const Value: Cardinal);
+    procedure Set_Previous_Seller_updated_block(const Value: Cardinal);
+    procedure Set_Previous_Signer_updated_block(const Value: Cardinal);
   protected
     FPrevious_Signer_updated_block: Cardinal;
     FPrevious_Destination_updated_block: Cardinal;
     FPrevious_Seller_updated_block: Cardinal;
     FHasValidSignature: Boolean;
     FBufferedSha256: TRawBytes;
-    function GetOperationAmount: Int64; virtual; abstract;
-    function GetOperationFee: UInt64; virtual; abstract;
-    function GetOperationPayload: TRawBytes; virtual; abstract;
+    function GetAmount: Int64; virtual; abstract;
+    function GetFee: UInt64; virtual; abstract;
+    function GetPayload: TRawBytes; virtual; abstract;
     function GetSignerAccount: Cardinal; virtual; abstract;
     function GetDestinationAccount: Int64; virtual;
     function GetSellerAccount: Int64; virtual;
-    function GetNumberOfOperations: Cardinal; virtual; abstract;
+    function GetNumberOfTransactions: Cardinal; virtual; abstract;
   public
     constructor Create; virtual;
     procedure InitializeData; virtual;
     function GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes; virtual;
-    function DoOperation(AccountTransaction: TPCSafeBoxTransaction; var errors: AnsiString): Boolean; virtual; abstract;
+    function ApplyTransaction(AccountTransaction: TPCSafeBoxTransaction; var errors: AnsiString): Boolean; virtual; abstract;
     procedure AffectedAccounts(list: TList); virtual; abstract;
     function GetOpType: Byte; virtual; abstract;
     function GetTag : integer;
+    procedure SetTag(Value : integer);
     function GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal; var TransactionData: TTransactionData): Boolean; virtual; abstract;
 
     function SaveToStream(Stream: TStream; SaveExtendedData: Boolean): Boolean; virtual; abstract;
@@ -52,28 +56,27 @@ type
     function SaveToStorage(Stream: TStream): Boolean;
     function LoadFromStorage(Stream: TStream; LoadProtocolV2: Boolean): Boolean;
 
-    class function OperationHash_OLD(op: ITransaction; Block: Cardinal) : TRawBytes;
-    class function OperationHashValid(op: ITransaction; Block: Cardinal) : TRawBytes;
+    function TransactionHash_OLD(Block: Cardinal) : TRawBytes;
+    function TransactionHash(Block: Cardinal) : TRawBytes;
     class function DecodeOperationHash(const OperationHash: TRawBytes; var Block, account, N_Operation: Cardinal): Boolean;
     class function FinalOperationHashAsHexa(const OperationHash: TRawBytes) : AnsiString;
 
     function Sha256: TRawBytes;
 
-    property Previous_Signer_updated_block: Cardinal read Get_Previous_Signer_updated_block write FPrevious_Signer_updated_block;
-    property Previous_Destination_updated_block: Cardinal read Get_Previous_Destination_updated_block write FPrevious_Destination_updated_block;
-    property Previous_Seller_updated_block: Cardinal read Get_Previous_Seller_updated_block write FPrevious_Seller_updated_block;
+    property Previous_Signer_updated_block: Cardinal read Get_Previous_Signer_updated_block write Set_Previous_Signer_updated_block;
+    property Previous_Destination_updated_block: Cardinal read Get_Previous_Destination_updated_block write Set_Previous_Destination_updated_block;
+    property Previous_Seller_updated_block: Cardinal read Get_Previous_Seller_updated_block write Set_Previous_Seller_updated_block;
     property HasValidSignature: Boolean read Get_HasValidSignature;
 
-    property OperationFee : UInt64 read GetOperationFee;
-    property OperationAmount : Int64 read GetOperationAmount;
-    property OperationPayload : TRawBytes read GetOperationPayload;
+    property Fee : UInt64 read GetFee;
+    property Amount : Int64 read GetAmount;
+    property Payload : TRawBytes read GetPayload;
     property SignerAccount : Cardinal read GetSignerAccount;
     property DestinationAccount : Int64 read GetDestinationAccount;
     property SellerAccount : Int64 read GetSellerAccount;
-    property NumberOfOperations: Cardinal read GetNumberOfOperations;
+    property NumberOfTransactions: Cardinal read GetNumberOfTransactions;
     property Tag: Integer read Ftag Write Ftag;
     property OpType : byte read GetOpType;
-    // class property TransactionType : byte read
   end;
 
 implementation
@@ -169,8 +172,7 @@ begin
   end;
 end;
 
-class function TTransaction.OperationHash_OLD(op: ITransaction; Block: Cardinal)
-  : TRawBytes;
+function TTransaction.TransactionHash_OLD(Block: Cardinal): TRawBytes;
 { OperationHash is a 32 bytes value.
   First 4 bytes (0..3) are Block in little endian
   Next 4 bytes (4..7) are Account in little endian
@@ -188,15 +190,14 @@ begin
   ms := TMemoryStream.Create;
   try
     ms.Write(Block, 4);
-    _a := op.GetSignerAccount;
-    _o := op.GetNumberOfOperations;
+    _a := GetSignerAccount;
+    _o := GetNumberOfTransactions;
     ms.Write(_a, 4);
     ms.Write(_o, 4);
     // BUG IN PREVIOUS VERSIONS: (1.5.5 and prior)
     // Function DoRipeMD160 returned a 40 bytes value, because data was converted in hexa string!
     // So, here we used only first 20 bytes, and WHERE HEXA values, so only 16 diff values per 2 byte!
-    ms.WriteBuffer(TCrypto.DoRipeMD160_HEXASTRING
-      (op.GetBufferForOpHash(false))[1], 20);
+    ms.WriteBuffer(TCrypto.DoRipeMD160_HEXASTRING(GetBufferForOpHash(false))[1], 20);
     SetLength(Result, ms.Size);
     ms.Position := 0;
     ms.Read(Result[1], ms.Size);
@@ -207,8 +208,7 @@ begin
   end;
 end;
 
-class function TTransaction.OperationHashValid(op: ITransaction;
-  Block: Cardinal): TRawBytes;
+function TTransaction.TransactionHash(Block: Cardinal): TRawBytes;
 { OperationHash is a 32 bytes value.
   First 4 bytes (0..3) are Block in little endian
   Next 4 bytes (4..7) are Account in little endian
@@ -225,11 +225,11 @@ begin
   ms := TMemoryStream.Create;
   try
     ms.Write(Block, 4); // Save block (4 bytes)
-    _a := op.GetSignerAccount;
-    _o := op.GetNumberOfOperations;
+    _a := GetSignerAccount;
+    _o := GetNumberOfTransactions;
     ms.Write(_a, 4); // Save Account (4 bytes)
     ms.Write(_o, 4); // Save N_Operation (4 bytes)
-    ms.WriteBuffer(TCrypto.DoRipeMD160AsRaw(op.GetBufferForOpHash(true))[1],
+    ms.WriteBuffer(TCrypto.DoRipeMD160AsRaw(GetBufferForOpHash(true))[1],
       20); // Calling GetBufferForOpHash(TRUE) is the same than data used for Sha256
     SetLength(Result, ms.Size);
     ms.Position := 0;
@@ -289,6 +289,27 @@ begin
   Stream.Write(FPrevious_Seller_updated_block,
     Sizeof(FPrevious_Seller_updated_block));
   Result := true;
+end;
+
+procedure TTransaction.SetTag(Value: integer);
+begin
+  FTag := Value;
+end;
+
+procedure TTransaction.Set_Previous_Destination_updated_block(
+  const Value: Cardinal);
+begin
+ FPrevious_Destination_updated_block := Value;
+end;
+
+procedure TTransaction.Set_Previous_Seller_updated_block(const Value: Cardinal);
+begin
+  FPrevious_Seller_updated_block := Value;
+end;
+
+procedure TTransaction.Set_Previous_Signer_updated_block(const Value: Cardinal);
+begin
+  FPrevious_Signer_updated_block := Value;
 end;
 
 function TTransaction.Sha256: TRawBytes;
