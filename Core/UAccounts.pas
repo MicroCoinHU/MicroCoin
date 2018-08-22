@@ -2211,7 +2211,7 @@ begin
   if checkSafeBoxHash then
   begin
     // TODO: Can use FSafeBoxHash instead of CalcSafeBoxHash ???? Quick speed if possible
-    if (newOperationBlock.initial_safe_box_hash <> CalcSafeBoxHash) then
+    if (newOperationBlock.initial_safe_box_hash <> FSafeBoxHash) then
     begin
       errors := 'BlockChain Safe box hash invalid: ' + TCrypto.ToHexaString(newOperationBlock.initial_safe_box_hash) + ' var: ' +
         TCrypto.ToHexaString(FSafeBoxHash) +

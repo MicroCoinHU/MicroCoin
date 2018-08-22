@@ -25,6 +25,13 @@ unit UCommon;
 
 interface
 
+type
+
+  TArrayTool<T> = class
+    public
+      class procedure Swap(var Values : array of T; Item1Index, Item2Index : Integer);
+    end;
+
 
 { Converts a string to hexidecimal format }
 function String2Hex(const Buffer: AnsiString): AnsiString;
@@ -32,7 +39,6 @@ function String2Hex(const Buffer: AnsiString): AnsiString;
 { Binary-safe StrComp replacement. StrComp will return 0 for when str1 and str2 both start with NUL character. }
 function BinStrComp(const Str1, Str2 : AnsiString): Integer;
 
-//function IIF<T>(const ACondition: Boolean; const ATrueResult, AFalseResult: T): T;
 
 implementation
 
@@ -70,6 +76,19 @@ begin
      end;
    end;
 end;
+
+class procedure TArrayTool<T>.Swap(var Values : array of T; Item1Index, Item2Index : Integer);
+var temp : T; len, recSize : Integer; itemSize : Integer;
+begin
+  len := Length(Values);
+  recSize := SizeOf(T);
+  if (Item1Index < 0) OR (Item1Index > len) then Raise Exception.Create('Invalid Parameter: Item1Index out of bounds');
+  if (Item2Index < 0) OR (Item2Index > len) then Raise Exception.Create('Invalid Parameter: Item2Index out of bounds');
+  temp := Values[Item1Index];
+  Values[Item1Index] := Values[Item2Index];
+  Values[Item2Index] := temp;
+end;
+
 
 end.
 

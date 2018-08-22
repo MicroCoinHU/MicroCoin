@@ -9,11 +9,11 @@ unit MicroCoin.Transaction.HashTree;
   or visit http://www.opensource.org/licenses/mit-license.php.
 
 }
-
+
 interface
 
 uses SysUtils, UCrypto, Classes, MicroCoin.Transaction.Base, UThread,
-     MicroCoin.Transaction.Manager;
+     MicroCoin.Transaction.Manager, MicroCoin.Transaction.Transaction;
 type
     TTransactionHashTree = Class
   private
@@ -22,7 +22,7 @@ type
     FOnChanged: TNotifyEvent;
     FTotalAmount: Int64;
     FTotalFee: Int64;
-    Procedure InternalAddTransactionToHashTree(list: TList; op: ITransaction);
+    Procedure InternalAddTransactionToHashTree(list: TList; op: TTransaction);
   public
     constructor Create;
     destructor Destroy; Override;
@@ -49,8 +49,8 @@ type
   end;
 
 Type
-  TOperationHashTreeReg = Record
-    op: ITransaction;
+  TOperationHashTreeReg = record
+    op: TTransaction;
   end;
 
   POperationHashTreeReg = ^TOperationHashTreeReg;
@@ -63,7 +63,7 @@ Var
 begin
   l := FHashTreeTransactions.LockList;
   try
-    InternalAddTransactionToHashTree(l, op);
+    InternalAddTransactionToHashTree(l, TTransaction(op));
   finally
     FHashTreeTransactions.UnlockList;
   end;
@@ -119,7 +119,7 @@ begin
         for i := 0 to lsender.Count - 1 do
         begin
           PSender := lsender[i];
-          InternalAddTransactionToHashTree(lme, PSender^.op);
+          InternalAddTransactionToHashTree(lme, TTransaction(PSender^.op));
         end;
       finally
         Sender.FHashTreeTransactions.UnlockList;
@@ -264,7 +264,7 @@ begin
   End;
 end;
 
-procedure TTransactionHashTree.InternalAddTransactionToHashTree(list: TList; op: ITransaction);
+procedure TTransactionHashTree.InternalAddTransactionToHashTree(list: TList; op: TTransaction);
 Var
   msCopy: TMemoryStream;
   h: TRawBytes;
@@ -273,7 +273,11 @@ begin
   msCopy := TMemoryStream.Create;
   try
     New(P);
-    Supports(TInterfacedObject(op).NewInstance, ITransaction, P^.op);
+    {$IFNDEF FPC}
+      Supports(TInterfacedObject(op).NewInstance, ITransaction, P^.op);
+    {$ELSE}
+      P^.op := TTransaction.Create;
+    {$endif}
     //P^.op := TInterFacedObject() as ITransaction;
     P^.op.InitializeData;
     op.SaveToStream(msCopy, true);

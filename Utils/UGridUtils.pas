@@ -4,14 +4,14 @@ unit UGridUtils;
   {$MODE Delphi}
 {$ENDIF}
 
-{ 
+{
   Copyright (c) Albert Molina 2016 - 2018 original code from PascalCoin https://pascalcoin.org/
 
   Distributed under the MIT software license, see the accompanying file LICENSE
   or visit http://www.opensource.org/licenses/mit-license.php.
 
   This unit is a part of Pascal Coin, a P2P crypto currency without need of
-  historical operations.   
+  historical operations.
 
   If you like it, consider a donation using BitCoin:
     16K3HCZRhFUtM8GdWRcfKeaa6KsuyxZaYk
@@ -28,7 +28,8 @@ uses
   LCLIntf, LCLType, LMessages,
 {$ENDIF}
   Classes, Grids, UNode, UAccounts, UBlockChain, UAppParams,
-  UWalletKeys, UCrypto, MicroCoin.Transaction.Base;
+  UWalletKeys, UCrypto, MicroCoin.Transaction.Base, MicroCoin.Common.Lists,
+  MicroCoin.Transaction.TransactionList, MicroCoin.Account.AccountKey;
 
 Type
   // TAccountsGrid implements a visual integration of TDrawGrid
@@ -42,7 +43,7 @@ Type
   TAccountsGrid = Class(TComponent)
   private
     FAccountsBalance : Int64;
-    FAccountsList : TOrderedCardinalList;
+    FAccountsList : TOrderedList;
     FColumns : Array of TAccountColumn;
     FDrawGrid : TDrawGrid;
     FNodeNotifyEvents : TNodeNotifyEvents;
@@ -64,7 +65,7 @@ Type
     Constructor Create(AOwner : TComponent); override;
     Destructor Destroy; override;
     Property DrawGrid : TDrawGrid read FDrawGrid write SetDrawGrid;
-    Function LockAccountsList : TOrderedCardinalList;
+    Function LockAccountsList : TOrderedList;
     Procedure UnlockAccountsList;
     Property Node : TNode read GetNode write SetNode;
     Function AccountNumber(GridRow : Integer) : Int64;
@@ -76,7 +77,7 @@ Type
     Function MoveRowToAccount(nAccount : Cardinal) : Boolean;
     Property OnUpdated : TNotifyEvent read FOnUpdated write FOnUpdated;
     Property AllowMultiSelect : Boolean read FAllowMultiSelect write SetAllowMultiSelect;
-    Function SelectedAccounts(accounts : TOrderedCardinalList) : Integer;
+    Function SelectedAccounts(accounts : TOrderedList) : Integer;
   End;
 
   TOperationsGrid = Class(TComponent)
@@ -253,7 +254,7 @@ begin
   FAccountsBalance := 0;
   FAccountsCount := 0;
   FShowAllAccounts := false;
-  FAccountsList := TOrderedCardinalList.Create;
+  FAccountsList := TOrderedList.Create;
   FDrawGrid := Nil;
   SetLength(FColumns,5);
   FColumns[0].ColumnType := act_account_number;
@@ -341,13 +342,13 @@ begin
   If Assigned(FDrawGrid) then FDrawGrid.Height := j;
 end;
 
-function TAccountsGrid.LockAccountsList: TOrderedCardinalList;
+function TAccountsGrid.LockAccountsList: TOrderedList;
 begin
   Result := FAccountsList;
 end;
 
 function TAccountsGrid.MoveRowToAccount(nAccount: Cardinal): Boolean;
-Var oal : TOrderedCardinalList;
+Var oal : TOrderedList;
   idx : Integer;
 begin
   Result := false;
@@ -488,7 +489,7 @@ begin
           Canvas_TextRect(DrawGrid.Canvas,Rect,s,State,[tfRight,tfVerticalCenter,tfSingleLine]);
         End;
         act_account_key : Begin
-          s := Tcrypto.ToHexaString(TAccountComp.AccountKey2RawString(account.accountInfo.accountKey));
+          s := Tcrypto.ToHexaString(account.accountInfo.accountKey.ToRawString);
           Canvas_TextRect(DrawGrid.Canvas,Rect,s,State,[tfLeft,tfVerticalCenter,tfSingleLine]);
         End;
         act_balance : Begin
@@ -513,11 +514,11 @@ begin
           Canvas_TextRect(DrawGrid.Canvas,Rect,s,State,[tfRight,tfVerticalCenter,tfSingleLine]);
         End;
         act_updated_state : Begin
-          if TAccountComp.IsAccountForSale(account.accountInfo) then begin
+          if Account.accountInfo.IsAccountForSale then begin
             // Show price for sale
             s := TAccountComp.FormatMoney(account.accountInfo.price);
-            if TAccountComp.IsAccountForSaleAcceptingTransactions(account.accountInfo) then begin
-              if TAccountComp.IsAccountLocked(account.accountInfo,Node.Bank.BlocksCount) then begin
+            if account.accountInfo.IsAccountForSaleAcceptingTransactions then begin
+              if account.accountInfo.IsLocked(Node.Bank.BlocksCount) then begin
                 DrawGrid.Canvas.Font.Color := clNavy;
               end else begin
                 DrawGrid.Canvas.Font.Color := clRed;
@@ -579,7 +580,7 @@ begin
   Stream.Write(j,sizeof(j));
 end;
 
-function TAccountsGrid.SelectedAccounts(accounts: TOrderedCardinalList): Integer;
+function TAccountsGrid.SelectedAccounts(accounts: TOrderedList): Integer;
 var i64 : Int64;
   i : Integer;
 begin
