@@ -13,16 +13,17 @@ unit MicroCoin.Transaction.TransferMoney;
 interface
 
 uses MicroCoin.Transaction.Base,
-MicroCoin.Account.AccountKey,
-MicroCoin.Transaction.Transaction,
-Sysutils, classes, UAccounts, UCrypto, ULog, UConst, MicroCoin.Transaction.Manager;
+  MicroCoin.Account.AccountKey,
+  MicroCoin.Transaction.Transaction,
+  Sysutils, classes, UAccounts, UCrypto, ULog, UConst, MicroCoin.Transaction.Manager;
 
 type
 
-  TTransferMoneyTransactionStyle = (transaction, transaction_with_auto_buy_account, buy_account);
-  TTransferMoneyTransactionData = Record
+  TTransferMoneyTransactionStyle = (Transaction, transaction_with_auto_buy_account, buy_account);
+
+  TTransferMoneyTransactionData = record
     sender: Cardinal;
-    n_operation : Cardinal;
+    n_operation: Cardinal;
     target: Cardinal;
     amount: UInt64;
     fee: UInt64;
@@ -31,14 +32,13 @@ type
     sign: TECDSA_SIG;
     // Protocol 2
     // Next values will only be filled after this operation is executed
-    opTransactionStyle : TTransferMoneyTransactionStyle;
-    AccountPrice : UInt64;
-    SellerAccount : Cardinal;
-    new_accountkey : TAccountKey;
-  End;
+    opTransactionStyle: TTransferMoneyTransactionStyle;
+    AccountPrice: UInt64;
+    SellerAccount: Cardinal;
+    new_accountkey: TAccountKey;
+  end;
 
-
-  TTransferMoneyTransaction = Class(TTransaction)
+  TTransferMoneyTransaction = class(TTransaction)
   private
     FData: TTransferMoneyTransactionData;
   protected
@@ -74,12 +74,12 @@ type
     function ToString: string; override;
   end;
 
-  TBuyAccountTransaction = Class(TTransferMoneyTransaction)
+  TBuyAccountTransaction = class(TTransferMoneyTransaction)
   protected
     procedure InitializeData; override;
   public
     function GetOpType: Byte; override;
-    Constructor CreateBuy(account_number, n_operation, account_to_buy,
+    constructor CreateBuy(account_number, n_operation, account_to_buy,
       account_to_pay: Cardinal; price, amount, fee: UInt64;
       new_public_key: TAccountKey; key: TECPrivateKey; payload: TRawBytes);
     function GetTransactionData(Block: Cardinal;
@@ -88,7 +88,8 @@ type
   end;
 
 const
-  CT_TOpTransactionData_NUL : TTransferMoneyTransactionData = (sender:0;n_operation:0;target:0;amount:0;fee:0;payload:'';public_key:(EC_OpenSSL_NID:0;x:'';y:'');sign:(r:'';s:'');opTransactionStyle:transaction;AccountPrice:0;SellerAccount:0;new_accountkey:(EC_OpenSSL_NID:0;x:'';y:''));
+  CT_TOpTransactionData_NUL: TTransferMoneyTransactionData = (sender: 0; n_operation: 0; target: 0; amount: 0; fee: 0; payload: ''; public_key: (EC_OpenSSL_NID: 0; x: ''; y: ''); sign: (r: ''; s: '');
+    opTransactionStyle: Transaction; AccountPrice: 0; SellerAccount: 0; new_accountkey: (EC_OpenSSL_NID: 0; x: ''; y: ''));
 
 implementation
 
@@ -116,7 +117,7 @@ begin
   FData.payload := payload;
   // V2: No need to store public key because it's at safebox. Saving at least 64 bytes!
   // FData.public_key := key.PublicKey;
-  If Not DoSignOperation(key, FData) then
+  if not DoSignOperation(key, FData) then
   begin
     TLog.NewLog(lterror, Classname, 'Error signing a new Transaction');
     FHasValidSignature := false;
@@ -127,7 +128,7 @@ end;
 
 function TTransferMoneyTransaction.ApplyTransaction(AccountTransaction
   : TPCSafeBoxTransaction; var errors: AnsiString): Boolean;
-Var
+var
   s_new, t_new: Int64;
   totalamount: Cardinal;
   sender, target, seller: TAccount;
@@ -164,13 +165,13 @@ begin
     errors := Format('target (%d) is blocked for protocol', [FData.target]);
     Exit;
   end;
-  if (FData.amount <= 0) Or (FData.amount > CT_MaxTransactionAmount) then
+  if (FData.amount <= 0) or (FData.amount > CT_MaxTransactionAmount) then
   begin
     errors := Format('Invalid amount %d (0 or max: %d)',
       [FData.amount, CT_MaxTransactionAmount]);
     Exit;
   end;
-  if (FData.fee < 0) Or (FData.fee > CT_MaxTransactionFee) then
+  if (FData.fee < 0) or (FData.fee > CT_MaxTransactionFee) then
   begin
     errors := Format('Invalid fee %d (max %d)',
       [FData.fee, CT_MaxTransactionFee]);
@@ -180,7 +181,7 @@ begin
   begin
     errors := 'Invalid Payload size:' + inttostr(length(FData.payload)) +
       ' (Max: ' + inttostr(CT_MaxPayloadSize) + ')';
-    If (AccountTransaction.FreezedSafeBox.CurrentProtocol >= CT_PROTOCOL_2) then
+    if (AccountTransaction.FreezedSafeBox.CurrentProtocol >= CT_PROTOCOL_2) then
     begin
       Exit; // BUG from protocol 1
     end;
@@ -209,27 +210,26 @@ begin
     Exit;
   end;
   // Is locked? Protocol 2 check
-  if (TAccountComp.IsAccountLocked(sender.accountInfo,
-    AccountTransaction.FreezedSafeBox.BlocksCount)) then
+  if (sender.accountInfo.IsLocked(AccountTransaction.FreezedSafeBox.BlocksCount)) then
   begin
     errors := 'Sender Account is currently locked';
     Exit;
   end;
   // Build 1.4
-  If (FData.public_key.EC_OpenSSL_NID <> CT_TECDSA_Public_Nul.EC_OpenSSL_NID)
-    And (Not TAccountKey.EqualAccountKeys(FData.public_key,
-    sender.accountInfo.accountkey)) then
+  if (FData.public_key.EC_OpenSSL_NID <> CT_TECDSA_Public_Nul.EC_OpenSSL_NID)
+    and (not TAccountKey.EqualAccountKeys(FData.public_key,
+    sender.accountInfo.AccountKey)) then
   begin
     errors := Format
       ('Invalid sender public key for account %d. Distinct from SafeBox public key! %s <> %s',
       [FData.sender, TCrypto.ToHexaString(
       (FData.public_key.ToRawString)),
-      TCrypto.ToHexaString(sender.accountInfo.accountkey.ToRawString)]);
+      TCrypto.ToHexaString(sender.accountInfo.AccountKey.ToRawString)]);
     Exit;
   end;
   // Check signature
   _h := GetTransactionHashToSign(FData);
-  if (Not TCrypto.ECDSAVerify(sender.accountInfo.accountkey, _h, FData.sign))
+  if (not TCrypto.ECDSAVerify(sender.accountInfo.AccountKey, _h, FData.sign))
   then
   begin
     errors := 'Invalid sign';
@@ -250,13 +250,13 @@ begin
       Exit;
     end;
     seller := AccountTransaction.Account(FData.SellerAccount);
-    if Not(TAccountComp.IsAccountForSale(target.accountInfo)) then
+    if not(target.accountInfo.IsAccountForSale) then
     begin
       errors := Format('%d is not for sale', [target.Account]);
       Exit;
     end;
     // Check that seller is the expected seller
-    If (target.accountInfo.account_to_pay <> seller.Account) then
+    if (target.accountInfo.account_to_pay <> seller.Account) then
     begin
       errors := Format('Seller account %d is not expected account %d',
         [FData.SellerAccount, target.accountInfo.account_to_pay]);
@@ -276,18 +276,18 @@ begin
         [FData.AccountPrice, target.accountInfo.price]);
       Exit;
     end;
-    If Not(FData.new_accountkey.IsValidAccountKey(errors)) then
+    if not(FData.new_accountkey.IsValidAccountKey(errors)) then
       Exit; // BUG 20171511
     _IsBuyTransaction := true;
     FPrevious_Seller_updated_block := seller.updated_block;
   end
   else if
   // Is automatic buy account?
-    (FData.opTransactionStyle = transaction_with_auto_buy_account) Or
+    (FData.opTransactionStyle = transaction_with_auto_buy_account) or
   // New automatic buy ?
-    ((AccountTransaction.FreezedSafeBox.CurrentProtocol >= CT_PROTOCOL_2) And
-    (FData.opTransactionStyle = Transaction) And
-    (TAccountComp.IsAccountForSaleAcceptingTransactions(target.accountInfo)) And
+    ((AccountTransaction.FreezedSafeBox.CurrentProtocol >= CT_PROTOCOL_2) and
+    (FData.opTransactionStyle = Transaction) and
+    (target.accountInfo.IsAccountForSaleAcceptingTransactions) and
     (target.balance + FData.amount >= target.accountInfo.price)) then
   begin
     if (AccountTransaction.FreezedSafeBox.CurrentProtocol < CT_PROTOCOL_2) then
@@ -295,7 +295,7 @@ begin
       errors := 'Tx-Buy account is not allowed on Protocol 1';
       Exit;
     end;
-    If Not(FData.new_accountkey.IsValidAccountKey(errors)) then
+    if not(FData.new_accountkey.IsValidAccountKey(errors)) then
       Exit; // BUG 20171511
     _IsBuyTransaction := true; // Automatic buy
     // Fill the purchase data
@@ -335,7 +335,7 @@ var
   s: AnsiString;
   _sign: TECDSA_SIG;
 begin
-  If Not Assigned(key.PrivateKey) then
+  if not Assigned(key.PrivateKey) then
   begin
     Result := false;
     trans.sign.r := '';
@@ -343,24 +343,24 @@ begin
     Exit;
   end;
   s := GetTransactionHashToSign(trans);
-  Try
+  try
     _sign := TCrypto.ECDSASign(key, s);
     trans.sign := _sign;
     Result := true;
-  Except
+  except
     trans.sign.r := '';
     trans.sign.s := '';
     Result := false;
-  End;
+  end;
   SetLength(s, 0);
 end;
 
 function TTransferMoneyTransaction.GetBufferForOpHash(UseProtocolV2: Boolean)
   : TRawBytes;
-Var
+var
   ms: TMemoryStream;
 begin
-  If UseProtocolV2 then
+  if UseProtocolV2 then
     Result := inherited GetBufferForOpHash(UseProtocolV2)
   else
   begin
@@ -401,7 +401,7 @@ var
 begin
   TransactionData := TTransactionData.Empty;
   TransactionData.Block := Block;
-  If self.GetSignerAccount = Affected_account_number then
+  if self.GetSignerAccount = Affected_account_number then
   begin
     TransactionData.fee := (-1) * Int64(GetFee);
   end;
@@ -421,7 +421,7 @@ begin
         .Data.amount) + ' MCC from ' +
         TAccountComp.AccountNumberToAccountTxtNumber(Data.sender) + ' to ' +
         TAccountComp.AccountNumberToAccountTxtNumber(Data.target);
-      If (Data.sender = Data.SellerAccount) then
+      if (Data.sender = Data.SellerAccount) then
       begin
         // Valid calc when sender is the same than seller
         TransactionData.amount :=
@@ -483,7 +483,7 @@ begin
       Exit;
   end;
   TransactionData.OriginalPayload := GetPayload;
-  If TCrypto.IsHumanReadable(TransactionData.OriginalPayload) then
+  if TCrypto.IsHumanReadable(TransactionData.OriginalPayload) then
     TransactionData.PrintablePayload := TransactionData.OriginalPayload
   else
     TransactionData.PrintablePayload :=
@@ -498,7 +498,7 @@ end;
 
 class function TTransferMoneyTransaction.GetTransactionHashToSign
   (const trans: TTransferMoneyTransactionData): TRawBytes;
-Var
+var
   ms: TMemoryStream;
   s: string;
 begin
@@ -567,9 +567,9 @@ begin
     Exit;
   if TStreamOp.ReadAnsiString(Stream, FData.public_key.y) < 0 then
     Exit;
-  if ((LoadExtendedData) Or (self is TBuyAccountTransaction)) then
+  if ((LoadExtendedData) or (self is TBuyAccountTransaction)) then
   begin
-    If Stream.Read(b, 1) <> 1 then
+    if Stream.Read(b, 1) <> 1 then
     begin
       Exit;
     end;
@@ -579,11 +579,11 @@ begin
       1:
         FData.opTransactionStyle := transaction_with_auto_buy_account;
       2:
-        Begin
+        begin
           FData.opTransactionStyle := buy_account;
-          if (Not(self is TBuyAccountTransaction)) then
+          if (not(self is TBuyAccountTransaction)) then
             Exit;
-        End
+        end
     else
       Exit;
     end;
@@ -630,7 +630,7 @@ end;
 
 function TTransferMoneyTransaction.SaveToStream(Stream: TStream;
   SaveExtendedData: Boolean): Boolean;
-Var
+var
   b: Byte;
 begin
   Stream.Write(FData.sender, Sizeof(FData.sender));
@@ -643,7 +643,7 @@ begin
     Sizeof(FData.public_key.EC_OpenSSL_NID));
   TStreamOp.WriteAnsiString(Stream, FData.public_key.x);
   TStreamOp.WriteAnsiString(Stream, FData.public_key.y);
-  if ((SaveExtendedData) Or (self is TBuyAccountTransaction)) then
+  if ((SaveExtendedData) or (self is TBuyAccountTransaction)) then
   begin
     case FData.opTransactionStyle of
       Transaction:
@@ -685,7 +685,7 @@ end;
 
 function TTransferMoneyTransaction.GetSellerAccount: Int64;
 begin
-  Case FData.opTransactionStyle of
+  case FData.opTransactionStyle of
     transaction_with_auto_buy_account, buy_account:
       Result := FData.SellerAccount;
   else
@@ -698,7 +698,7 @@ begin
   Result := FData.n_operation;
 end;
 
-function TTransferMoneyTransaction.ToString: String;
+function TTransferMoneyTransaction.ToString: string;
 begin
   case FData.opTransactionStyle of
     Transaction:
@@ -751,7 +751,7 @@ begin
   FData.AccountPrice := price;
   FData.SellerAccount := account_to_pay;
   FData.new_accountkey := new_public_key;
-  If Not DoSignOperation(key, FData) then
+  if not DoSignOperation(key, FData) then
   begin
     TLog.NewLog(lterror, Classname, 'Error signing a new Buy operation');
     FHasValidSignature := false;
@@ -809,7 +809,7 @@ begin
   else
     Exit;
   TransactionData.OriginalPayload := GetPayload;
-  If TCrypto.IsHumanReadable(TransactionData.OriginalPayload) then
+  if TCrypto.IsHumanReadable(TransactionData.OriginalPayload) then
     TransactionData.PrintablePayload := TransactionData.OriginalPayload
   else
     TransactionData.PrintablePayload := TCrypto.ToHexaString(TransactionData.OriginalPayload);
@@ -822,6 +822,8 @@ begin
 end;
 
 initialization
-  TTransactionManager.RegisterOperationClass(TTransferMoneyTransaction, CT_Op_Transaction);
-  TTransactionManager.RegisterOperationClass(TBuyAccountTransaction, CT_Op_BuyAccount);
+
+TTransactionManager.RegisterOperationClass(TTransferMoneyTransaction, CT_Op_Transaction);
+TTransactionManager.RegisterOperationClass(TBuyAccountTransaction, CT_Op_BuyAccount);
+
 end.

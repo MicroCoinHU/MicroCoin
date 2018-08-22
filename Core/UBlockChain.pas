@@ -21,7 +21,7 @@ interface
 
 uses
   Classes, UCrypto, UAccounts, ULog, UThread, SyncObjs,
-  MicroCoin.Transaction.Base, MicroCoin.Transaction.Transaction,
+  MicroCoin.Transaction.Base,
   MicroCoin.Transaction.Manager, MicroCoin.Transaction.HashTree,
   MicroCoin.Account.AccountKey;
 {$I config.inc}

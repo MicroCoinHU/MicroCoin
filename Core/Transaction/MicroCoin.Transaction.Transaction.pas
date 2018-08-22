@@ -107,8 +107,7 @@ begin
     Raise Exception.Create('ERROR DEV 20170426-1');
 end;
 
-class function TTransaction.DecodeOperationHash(const OperationHash: TRawBytes;
-  var Block, account, N_Operation: Cardinal): Boolean;
+class function TTransaction.DecodeOperationHash(const OperationHash: TRawBytes; var Block, account, N_Operation: Cardinal): Boolean;
 var
   ms: TMemoryStream;
 begin
