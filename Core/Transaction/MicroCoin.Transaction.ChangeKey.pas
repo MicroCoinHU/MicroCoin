@@ -14,6 +14,7 @@ interface
 
 uses MicroCoin.Transaction.Base, MicroCoin.Transaction.Transaction,
   MicroCoin.Account.AccountKey,
+  MicroCoin.Common, MicroCoin.Account,
   Sysutils, classes, UAccounts, UCrypto, ULog, UConst, MicroCoin.Transaction.Manager;
 
 type
@@ -42,7 +43,7 @@ type
     function GetOpType: Byte; override;
 
     function GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes; override;
-    function ApplyTransaction(AccountTransaction: TPCSafeBoxTransaction; var errors: AnsiString): Boolean; override;
+    function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean; override;
     function GetAmount: Int64; override;
     function GetFee: UInt64; override;
     function GetPayload: TRawBytes; override;
@@ -108,29 +109,29 @@ begin
     FHasValidSignature := true;
 end;
 
-function TChangeKeyTransaction.ApplyTransaction(AccountTransaction: TPCSafeBoxTransaction; var errors: AnsiString): Boolean;
+function TChangeKeyTransaction.ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean;
 var
   account_signer, account_target: TAccount;
 begin
   Result := false;
-  if (FData.account_signer >= AccountTransaction.FreezedSafeBox.AccountsCount) then
+  if (FData.account_signer >= AccountTransaction.FreezedAccountStorage.AccountsCount) then
   begin
     errors := 'Invalid account number';
     Exit;
   end;
-  if TAccountComp.IsAccountBlockedByProtocol(FData.account_signer, AccountTransaction.FreezedSafeBox.BlocksCount) then
+  if TAccount.IsAccountBlockedByProtocol(FData.account_signer, AccountTransaction.FreezedAccountStorage.BlocksCount) then
   begin
     errors := 'account is blocked for protocol';
     Exit;
   end;
   if (FData.account_signer <> FData.account_target) then
   begin
-    if (FData.account_target >= AccountTransaction.FreezedSafeBox.AccountsCount) then
+    if (FData.account_target >= AccountTransaction.FreezedAccountStorage.AccountsCount) then
     begin
       errors := 'Invalid account target number';
       Exit;
     end;
-    if TAccountComp.IsAccountBlockedByProtocol(FData.account_target, AccountTransaction.FreezedSafeBox.BlocksCount) then
+    if TAccount.IsAccountBlockedByProtocol(FData.account_target, AccountTransaction.FreezedAccountStorage.BlocksCount) then
     begin
       errors := 'Target account is blocked for protocol';
       Exit;
@@ -156,13 +157,13 @@ begin
   if (length(FData.payload) > CT_MaxPayloadSize) then
   begin
     errors := 'Invalid Payload size:' + Inttostr(length(FData.payload)) + ' (Max: ' + Inttostr(CT_MaxPayloadSize) + ')';
-    if (AccountTransaction.FreezedSafeBox.CurrentProtocol >= CT_PROTOCOL_2) then
+    if (AccountTransaction.FreezedAccountStorage.CurrentProtocol >= CT_PROTOCOL_2) then
     begin
       Exit; // BUG from protocol 1
     end;
   end;
   // Is locked? Protocol 2 check
-  if (account_signer.accountInfo.IsLocked(AccountTransaction.FreezedSafeBox.BlocksCount)) then
+  if (account_signer.accountInfo.IsLocked(AccountTransaction.FreezedAccountStorage.BlocksCount)) then
   begin
     errors := 'Account signer is currently locked';
     Exit;
@@ -172,7 +173,7 @@ begin
     Exit;
   end;
   // NEW v2 protocol protection: Does not allow to change key for same key
-  if (AccountTransaction.FreezedSafeBox.CurrentProtocol >= CT_PROTOCOL_2) then
+  if (AccountTransaction.FreezedAccountStorage.CurrentProtocol >= CT_PROTOCOL_2) then
   begin
     if (TAccountKey.EqualAccountKeys(account_target.accountInfo.AccountKey, FData.new_accountkey)) then
     begin
@@ -191,7 +192,7 @@ begin
   end;
   if (FData.account_signer <> FData.account_target) then
   begin
-    if (account_target.accountInfo.IsLocked(AccountTransaction.FreezedSafeBox.BlocksCount)) then
+    if (account_target.accountInfo.IsLocked(AccountTransaction.FreezedAccountStorage.BlocksCount)) then
     begin
       errors := 'Account target is currently locked';
       Exit;
@@ -202,7 +203,7 @@ begin
       errors := 'Signer and target accounts have different public key';
       Exit;
     end;
-    if (AccountTransaction.FreezedSafeBox.CurrentProtocol < CT_PROTOCOL_2) then
+    if (AccountTransaction.FreezedAccountStorage.CurrentProtocol < CT_PROTOCOL_2) then
     begin
       errors := 'NOT ALLOWED ON PROTOCOL 1';
       Exit;
@@ -422,7 +423,7 @@ begin
   TransactionData.newKey := Data.new_accountkey;
   TransactionData.DestAccount := Data.account_target;
   TransactionData.OperationTxt := 'Change Key to ' +
-    TAccountComp.GetECInfoTxt(TransactionData.newKey.EC_OpenSSL_NID);
+    TAccountKey.GetECInfoTxt(TransactionData.newKey.EC_OpenSSL_NID);
   Result := true;
   TransactionData.OriginalPayload := GetPayload;
   if TCrypto.IsHumanReadable(TransactionData.OriginalPayload) then
@@ -450,9 +451,9 @@ end;
 function TChangeKeyTransaction.toString: string;
 begin
   Result := Format('Change key of %s to new key: %s fee:%s (n_op:%d) payload size:%d', [
-    TAccountComp.AccountNumberToAccountTxtNumber(FData.account_target),
-    TAccountComp.GetECInfoTxt(FData.new_accountkey.EC_OpenSSL_NID),
-    TAccountComp.FormatMoney(FData.fee), FData.n_operation, length(FData.payload)]);
+    TAccount.AccountNumberToAccountTxtNumber(FData.account_target),
+    TAccountKey.GetECInfoTxt(FData.new_accountkey.EC_OpenSSL_NID),
+    TCurrencyUtils.FormatMoney(FData.fee), FData.n_operation, length(FData.payload)]);
 end;
 
 function TChangeKeySignedTransaction.GetOpType: Byte;
@@ -468,8 +469,8 @@ begin
   TransactionData.newKey := Data.new_accountkey;
   TransactionData.DestAccount := Data.account_target;
   TransactionData.OperationTxt := 'Change ' +
-    TAccountComp.AccountNumberToAccountTxtNumber(TransactionData.DestAccount) + ' account key to ' +
-    TAccountComp.GetECInfoTxt(TransactionData.newKey.EC_OpenSSL_NID);
+    TAccount.AccountNumberToAccountTxtNumber(TransactionData.DestAccount) + ' account key to ' +
+    TAccountKey.GetECInfoTxt(TransactionData.newKey.EC_OpenSSL_NID);
   Result := true;
   TransactionData.OriginalPayload := GetPayload;
   if TCrypto.IsHumanReadable(TransactionData.OriginalPayload) then
@@ -487,7 +488,7 @@ end;
 initialization
 
 { TODO 'Remove ublockchain dependency' }
-TTransactionManager.RegisterOperationClass(TChangeKeyTransaction, CT_Op_Changekey);
-TTransactionManager.RegisterOperationClass(TChangeKeySignedTransaction, CT_Op_ChangeKeySigned);
+TTransactionManager.RegisterTransactionPlugin(TChangeKeyTransaction, CT_Op_Changekey);
+TTransactionManager.RegisterTransactionPlugin(TChangeKeySignedTransaction, CT_Op_ChangeKeySigned);
 
 end.

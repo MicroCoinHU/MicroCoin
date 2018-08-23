@@ -22,7 +22,7 @@ type
     FOnChanged: TNotifyEvent;
     FTotalAmount: Int64;
     FTotalFee: Int64;
-    Procedure InternalAddTransactionToHashTree(list: TList; op: TTransaction);
+    Procedure InternalAddTransactionToHashTree(list: TList; op: ITransaction);
   public
     constructor Create;
     destructor Destroy; Override;
@@ -50,7 +50,7 @@ type
 
 Type
   TOperationHashTreeReg = record
-    op: TTransaction;
+    op: ITransaction;
   end;
 
   POperationHashTreeReg = ^TOperationHashTreeReg;
@@ -63,7 +63,7 @@ Var
 begin
   l := FHashTreeTransactions.LockList;
   try
-    InternalAddTransactionToHashTree(l, TTransaction(op));
+    InternalAddTransactionToHashTree(l, ITransaction(op));
   finally
     FHashTreeTransactions.UnlockList;
   end;
@@ -119,7 +119,7 @@ begin
         for i := 0 to lsender.Count - 1 do
         begin
           PSender := lsender[i];
-          InternalAddTransactionToHashTree(lme, TTransaction(PSender^.op));
+          InternalAddTransactionToHashTree(lme, ITransaction(PSender^.op));
         end;
       finally
         Sender.FHashTreeTransactions.UnlockList;
@@ -264,7 +264,7 @@ begin
   End;
 end;
 
-procedure TTransactionHashTree.InternalAddTransactionToHashTree(list: TList; op: TTransaction);
+procedure TTransactionHashTree.InternalAddTransactionToHashTree(list: TList; op: ITransaction);
 Var
   msCopy: TMemoryStream;
   h: TRawBytes;
@@ -276,7 +276,7 @@ begin
     {$IFNDEF FPC}
       Supports(TInterfacedObject(op).NewInstance, ITransaction, P^.op);
     {$ELSE}
-      P^.op := TTransaction.Create;
+      P^.op := op.NewInstance;
     {$endif}
     //P^.op := TInterFacedObject() as ITransaction;
     P^.op.InitializeData;
@@ -328,7 +328,7 @@ begin
       if Stream.Size - Stream.Position < 4 then
         exit;
       Stream.Read(OpType, 4);
-      OpClass := TTransactionManager.GetOperationClassByOpType(OpType);
+      OpClass := TTransactionManager.GetTransactionPluginByOpType(OpType);
       if Not Assigned(OpClass) then
       begin
         errors := errors + ' optype not valid:' + InttoHex(OpType, 4);

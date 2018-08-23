@@ -53,7 +53,7 @@ type
 
     function GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal; var TransactionData: TTransactionData): Boolean;
 
-    function ApplyTransaction(AccountTransaction: TPCSafeBoxTransaction; var errors: AnsiString): Boolean;
+    function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean;
 
     function GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes;
 

@@ -25,56 +25,56 @@ type
 
   TTransactionManager = class
   private
-    class var _OperationsClass : array of TTransactionPlugin;
+    class var FTransactionPluginList : array of TTransactionPlugin;
   public
-    class function RegisterOperationClass(OpClass: TPCOperationClass; OpType: byte): Boolean; static;
-    class function IndexOfOperationClass(OpClass: TPCOperationClass): Integer; static;
-    class function IndexOfOperationClassByOpType(OpType: Cardinal): Integer; static;
-    class function GetOperationClassByOpType(OpType: Cardinal) : TPCOperationClass; static;
+    class function RegisterTransactionPlugin(OpClass: TPCOperationClass; OpType: byte): Boolean; static;
+    class function IndexOfTransactionPlugin(OpClass: TPCOperationClass): Integer; static;
+    class function IndexOfTransactionPluginByOpType(OpType: Cardinal): Integer; static;
+    class function GetTransactionPluginByOpType(OpType: Cardinal) : TPCOperationClass; static;
   end;
 
 implementation
 
-class function TTransactionManager.RegisterOperationClass(OpClass: TPCOperationClass; OpType: byte): Boolean;
+class function TTransactionManager.RegisterTransactionPlugin(OpClass: TPCOperationClass; OpType: byte): Boolean;
 var
   i: Integer;
 begin
-  i := IndexOfOperationClass(OpClass);
+  i := IndexOfTransactionPlugin(OpClass);
   if i >= 0 then exit;
-  SetLength(_OperationsClass, length(_OperationsClass) + 1);
-  _OperationsClass[high(_OperationsClass)].TransactionClass := OpClass;
-  _OperationsClass[high(_OperationsClass)].OpType := OpType;
+  SetLength(FTransactionPluginList, length(FTransactionPluginList) + 1);
+  FTransactionPluginList[high(FTransactionPluginList)].TransactionClass := OpClass;
+  FTransactionPluginList[high(FTransactionPluginList)].OpType := OpType;
 end;
 
-class function TTransactionManager.IndexOfOperationClass(OpClass: TPCOperationClass): Integer;
+class function TTransactionManager.IndexOfTransactionPlugin(OpClass: TPCOperationClass): Integer;
 begin
-  for Result := low(_OperationsClass) to high(_OperationsClass) do
+  for Result := low(FTransactionPluginList) to high(FTransactionPluginList) do
   begin
-    if (_OperationsClass[Result].TransactionClass = OpClass) then
+    if (FTransactionPluginList[Result].TransactionClass = OpClass) then
       exit;
   end;
   Result := -1;
 end;
 
-class function TTransactionManager.IndexOfOperationClassByOpType(OpType: Cardinal): Integer;
+class function TTransactionManager.IndexOfTransactionPluginByOpType(OpType: Cardinal): Integer;
 begin
-  for Result := low(_OperationsClass) to high(_OperationsClass) do
+  for Result := low(FTransactionPluginList) to high(FTransactionPluginList) do
   begin
-    if (_OperationsClass[Result].OpType = OpType) then
+    if (FTransactionPluginList[Result].OpType = OpType) then
       exit;
   end;
   Result := -1;
 end;
 
-class function TTransactionManager.GetOperationClassByOpType(OpType: Cardinal) : TPCOperationClass;
+class function TTransactionManager.GetTransactionPluginByOpType(OpType: Cardinal) : TPCOperationClass;
 Var
   i: Integer;
 begin
-  i := IndexOfOperationClassByOpType(OpType);
+  i := IndexOfTransactionPluginByOpType(OpType);
   if i < 0 then
     Result := Nil
   else
-    Result := TPCOperationClass(_OperationsClass[i].TransactionClass);
+    Result := TPCOperationClass(FTransactionPluginList[i].TransactionClass);
 end;
 
 

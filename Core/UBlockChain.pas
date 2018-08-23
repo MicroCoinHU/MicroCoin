@@ -23,7 +23,8 @@ uses
   Classes, UCrypto, UAccounts, ULog, UThread, SyncObjs,
   MicroCoin.Transaction.Base,
   MicroCoin.Transaction.Manager, MicroCoin.Transaction.HashTree,
-  MicroCoin.Account.AccountKey;
+  MicroCoin.Account.AccountKey, MicroCoin.BlockChain.BlockHeader,
+  MicroCoin.Account.Storage;
 {$I config.inc}
 {
 
@@ -116,8 +117,8 @@ Type
   TPCOperationsComp = Class(TComponent)
   private
     FBank: TPCBank;
-    FSafeBoxTransaction: TPCSafeBoxTransaction;
-    FOperationBlock: TOperationBlock;
+    FSafeBoxTransaction: TAccountTransaction;
+    FOperationBlock: TBlockHeader;
     FOperationsHashTree: TTransactionHashTree;
     FDigest_Part1: TRawBytes;
     FDigest_Part2_Payload: TRawBytes;
@@ -160,11 +161,11 @@ Type
     Property bank: TPCBank read FBank write SetBank;
     Procedure Clear(DeleteOperations: Boolean);
     Function Count: Integer;
-    Property OperationBlock: TOperationBlock read FOperationBlock;
-    Class Function OperationBlockToText(OperationBlock: TOperationBlock)
+    Property OperationBlock: TBlockHeader read FOperationBlock;
+    Class Function OperationBlockToText(OperationBlock: TBlockHeader)
       : AnsiString;
     Class Function SaveOperationBlockToStream(Const OperationBlock
-      : TOperationBlock; Stream: TStream): Boolean;
+      : TBlockHeader; Stream: TStream): Boolean;
     Property AccountKey: TAccountKey read GetAccountKey write SetAccountKey;
     Property nonce: Cardinal read GetnOnce write SetnOnce;
     Property timestamp: Cardinal read Gettimestamp write Settimestamp;
@@ -185,10 +186,10 @@ Type
     //
     Procedure SanitizeOperations;
 
-    class function GetFirstBlock: TOperationBlock;
-    class function EqualsOperationBlock(Const OperationBlock1, OperationBlock2 : TOperationBlock): Boolean;
+    class function GetFirstBlock: TBlockHeader;
+    class function EqualsOperationBlock(Const OperationBlock1, OperationBlock2 : TBlockHeader): Boolean;
     //
-    Property SafeBoxTransaction: TPCSafeBoxTransaction read FSafeBoxTransaction;
+    Property SafeBoxTransaction: TAccountTransaction read FSafeBoxTransaction;
     Property OperationsHashTree: TTransactionHashTree read FOperationsHashTree;
     Property PoW_Digest_Part1: TRawBytes read FDigest_Part1;
     Property PoW_Digest_Part2_Payload: TRawBytes read FDigest_Part2_Payload;
@@ -274,9 +275,9 @@ Type
   TPCBank = Class(TComponent)
   private
     FStorage: TStorage;
-    FSafeBox: TPCSafeBox;
+    FSafeBox: TAccountStorage;
     FLastBlockCache: TPCOperationsComp;
-    FLastOperationBlock: TOperationBlock;
+    FLastOperationBlock: TBlockHeader;
     FIsRestoringFromFile: Boolean;
     FUpgradingToV2: Boolean;
     FOnLog: TPCBankLog;
@@ -298,15 +299,15 @@ Type
     Procedure Clear;
     Function LoadOperations(Operations: TPCOperationsComp;
       Block: Cardinal): Boolean;
-    Property SafeBox: TPCSafeBox read FSafeBox;
+    Property SafeBox: TAccountStorage read FSafeBox;
     Function AddNewBlockChainBlock(Operations: TPCOperationsComp;
-      MaxAllowedTimestamp: Cardinal; var newBlock: TBlockAccount;
+      MaxAllowedTimestamp: Cardinal; var newBlock: TAccountStorageEntry;
       var errors: AnsiString): Boolean;
     Procedure DiskRestoreFromOperations(max_block: Int64);
     Procedure NewLog(Operations: TPCOperationsComp; Logtype: TLogType;
       Logtxt: AnsiString);
     Property OnLog: TPCBankLog read FOnLog write FOnLog;
-    Property LastOperationBlock: TOperationBlock read FLastOperationBlock;
+    Property LastOperationBlock: TBlockHeader read FLastOperationBlock;
     // TODO: Use
     Property Storage: TStorage read GetStorage;
     Property StorageClass: TStorageClass read FStorageClass
@@ -334,7 +335,7 @@ begin
 end;
 
 function TPCBank.AddNewBlockChainBlock(Operations: TPCOperationsComp;
-  MaxAllowedTimestamp: Cardinal; var newBlock: TBlockAccount;
+  MaxAllowedTimestamp: Cardinal; var newBlock: TAccountStorageEntry;
   var errors: AnsiString): Boolean;
 Var
   buffer, PoW: AnsiString;
@@ -383,7 +384,7 @@ begin
         Operations.SafeBoxTransaction.TotalBalance,
         TCrypto.ToHexaString(Operations.OperationBlock.proof_of_work),
         TCrypto.ToHexaString(Operations.OperationBlock.initial_safe_box_hash),
-        TCrypto.ToHexaString(SafeBox.SafeBoxHash)]));
+        TCrypto.ToHexaString(SafeBox.AccountStorageHash)]));
       // Save Operations to disk
       if Not FIsRestoringFromFile then
       begin
@@ -452,7 +453,7 @@ begin
   FBankLock := TPCCriticalSection.Create('TPCBank_BANKLOCK');
   FIsRestoringFromFile := false;
   FOnLog := Nil;
-  FSafeBox := TPCSafeBox.Create;
+  FSafeBox := TAccountStorage.Create;
   FNotifyList := TList.Create;
   FLastBlockCache := TPCOperationsComp.Create(Nil);
   FIsRestoringFromFile := false;
@@ -492,7 +493,7 @@ end;
 procedure TPCBank.DiskRestoreFromOperations(max_block: Int64);
 Var
   errors: AnsiString;
-  newBlock: TBlockAccount;
+  newBlock: TAccountStorageEntry;
   Operations: TPCOperationsComp;
   n: Int64;
 begin
@@ -586,13 +587,13 @@ Var
 begin
   if BlocksCount > BackBlocks then
   begin
-    ts1 := SafeBox.Block(BlocksCount - 1).blockchainInfo.timestamp;
-    ts2 := SafeBox.Block(BlocksCount - BackBlocks - 1).blockchainInfo.timestamp;
+    ts1 := SafeBox.Block(BlocksCount - 1).Blockheader.timestamp;
+    ts2 := SafeBox.Block(BlocksCount - BackBlocks - 1).Blockheader.timestamp;
   end
   else if (BlocksCount > 1) then
   begin
-    ts1 := SafeBox.Block(BlocksCount - 1).blockchainInfo.timestamp;
-    ts2 := SafeBox.Block(0).blockchainInfo.timestamp;
+    ts1 := SafeBox.Block(BlocksCount - 1).Blockheader.timestamp;
+    ts2 := SafeBox.Block(0).Blockheader.timestamp;
     BackBlocks := BlocksCount - 1;
   end
   else
@@ -614,13 +615,13 @@ begin
   end;
   if FromBlock > BackBlocks then
   begin
-    ts1 := SafeBox.Block(FromBlock - 1).blockchainInfo.timestamp;
-    ts2 := SafeBox.Block(FromBlock - BackBlocks - 1).blockchainInfo.timestamp;
+    ts1 := SafeBox.Block(FromBlock - 1).Blockheader.timestamp;
+    ts2 := SafeBox.Block(FromBlock - BackBlocks - 1).Blockheader.timestamp;
   end
   else if (FromBlock > 1) then
   begin
-    ts1 := SafeBox.Block(FromBlock - 1).blockchainInfo.timestamp;
-    ts2 := SafeBox.Block(0).blockchainInfo.timestamp;
+    ts1 := SafeBox.Block(FromBlock - 1).Blockheader.timestamp;
+    ts2 := SafeBox.Block(0).Blockheader.timestamp;
     BackBlocks := FromBlock - 1;
   end
   else
@@ -661,17 +662,17 @@ end;
 function TPCBank.LoadBankFromStream(Stream: TStream; useSecureLoad: Boolean;
   var errors: AnsiString): Boolean;
 Var
-  LastReadBlock: TBlockAccount;
+  LastReadBlock: TAccountStorageEntry;
   i: Integer;
-  auxSB: TPCSafeBox;
+  auxSB: TAccountStorage;
 begin
   auxSB := Nil;
   Try
     If useSecureLoad then
     begin
       // When on secure load will load Stream in a separate SafeBox, changing only real SafeBox if successfully
-      auxSB := TPCSafeBox.Create;
-      Result := auxSB.LoadSafeBoxFromStream(Stream, true,
+      auxSB := TAccountStorage.Create;
+      Result := auxSB.LoadFromStream(Stream, true,
         LastReadBlock, errors);
       If Not Result then
         exit;
@@ -684,14 +685,14 @@ begin
       end
       else
       begin
-        Result := SafeBox.LoadSafeBoxFromStream(Stream, false,
+        Result := SafeBox.LoadFromStream(Stream, false,
           LastReadBlock, errors);
       end;
       If Not Result then
         exit;
       If SafeBox.BlocksCount > 0 then
         FLastOperationBlock := SafeBox.Block(SafeBox.BlocksCount - 1)
-          .blockchainInfo
+          .Blockheader
       else
       begin
         FLastOperationBlock := TPCOperationsComp.GetFirstBlock;
@@ -888,7 +889,7 @@ begin
         (bank.BlocksCount);
       FOperationBlock.compact_target := bank.SafeBox.GetActualCompactTargetHash
         (FOperationBlock.protocol_version = CT_PROTOCOL_2);
-      FOperationBlock.initial_safe_box_hash := bank.SafeBox.SafeBoxHash;
+      FOperationBlock.initial_safe_box_hash := bank.SafeBox.AccountStorageHash;
       If bank.LastOperationBlock.timestamp > FOperationBlock.timestamp then
         FOperationBlock.timestamp := bank.LastOperationBlock.timestamp;
     end
@@ -944,7 +945,7 @@ end;
 procedure TPCOperationsComp.CopyFromExceptAddressKey
   (Operations: TPCOperationsComp);
 var
-  lastopb: TOperationBlock;
+  lastopb: TBlockHeader;
 begin
   Lock;
   Try
@@ -1014,7 +1015,7 @@ begin
 end;
 
 class function TPCOperationsComp.EqualsOperationBlock(const OperationBlock1,
-  OperationBlock2: TOperationBlock): Boolean;
+  OperationBlock2: TBlockHeader): Boolean;
 begin
 
   Result := (OperationBlock1.Block = OperationBlock2.Block) And
@@ -1044,7 +1045,7 @@ begin
   Result := FOperationBlock.block_payload;
 end;
 
-class function TPCOperationsComp.GetFirstBlock: TOperationBlock;
+class function TPCOperationsComp.GetFirstBlock: TBlockHeader;
 begin
   Result := CT_OperationBlock_NUL;
 end;
@@ -1218,7 +1219,7 @@ begin
 end;
 
 class function TPCOperationsComp.OperationBlockToText(OperationBlock
-  : TOperationBlock): AnsiString;
+  : TBlockHeader): AnsiString;
 begin
   Result := Format('Block:%d Timestamp:%d Reward:%d Fee:%d Target:%d PoW:%s',
     [OperationBlock.Block, OperationBlock.timestamp, OperationBlock.reward,
@@ -1257,7 +1258,7 @@ begin
         (bank.BlocksCount);
       FOperationBlock.compact_target := bank.SafeBox.GetActualCompactTargetHash
         (FOperationBlock.protocol_version = CT_PROTOCOL_2);
-      FOperationBlock.initial_safe_box_hash := bank.SafeBox.SafeBoxHash;
+      FOperationBlock.initial_safe_box_hash := bank.SafeBox.AccountStorageHash;
       If bank.LastOperationBlock.timestamp > FOperationBlock.timestamp then
         FOperationBlock.timestamp := bank.LastOperationBlock.timestamp;
     end
@@ -1390,7 +1391,7 @@ begin
 end;
 
 class function TPCOperationsComp.SaveOperationBlockToStream(const OperationBlock
-  : TOperationBlock; Stream: TStream): Boolean;
+  : TBlockHeader; Stream: TStream): Boolean;
 Var
   soob: Byte;
 begin
@@ -1442,7 +1443,7 @@ begin
   if Assigned(value) then
   begin
     value.FreeNotification(Self);
-    FSafeBoxTransaction := TPCSafeBoxTransaction.Create(FBank.SafeBox);
+    FSafeBoxTransaction := TAccountTransaction.Create(FBank.SafeBox);
   end;
   Clear(true);
 end;
@@ -1535,13 +1536,13 @@ begin
       errors := 'ERROR DEV 20170523-1';
       exit;
     end;
-    If Not Assigned(SafeBoxTransaction.FreezedSafeBox) then
+    If Not Assigned(SafeBoxTransaction.FreezedAccountStorage) then
     begin
       errors := 'ERROR DEV 20170523-2';
       exit;
     end;
     // Check OperationBlock info:
-    If not SafeBoxTransaction.FreezedSafeBox.IsValidNewOperationsBlock
+    If not SafeBoxTransaction.FreezedAccountStorage.IsValidNewBlockHeader
       (OperationBlock, true, errors) then
       exit;
     // Execute SafeBoxTransaction operations:
@@ -1564,12 +1565,12 @@ begin
       exit;
     end;
     // Check OperationBlock with SafeBox info:
-    if (SafeBoxTransaction.FreezedSafeBox.TotalBalance <>
+    if (SafeBoxTransaction.FreezedAccountStorage.TotalBalance <>
       (SafeBoxTransaction.TotalBalance + SafeBoxTransaction.TotalFee)) then
     begin
       errors := Format
         ('Invalid integrity balance at SafeBox. Actual Balance:%d  New Balance:(%d + fee %d = %d)',
-        [SafeBoxTransaction.FreezedSafeBox.TotalBalance,
+        [SafeBoxTransaction.FreezedAccountStorage.TotalBalance,
         SafeBoxTransaction.TotalBalance, SafeBoxTransaction.TotalFee,
         SafeBoxTransaction.TotalBalance + SafeBoxTransaction.TotalFee]);
       exit;
@@ -1713,7 +1714,7 @@ end;
 function TStorage.SaveBank: Boolean;
 begin
   Result := true;
-  if Not TPCSafeBox.MustSafeBoxBeSaved(bank.BlocksCount) then
+  if Not TAccountStorage.MustSaved(bank.BlocksCount) then
     exit; // No save
   Try
     Result := DoSaveBank;

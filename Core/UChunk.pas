@@ -33,7 +33,7 @@ type
   private
   public
     class function SaveSafeBoxChunkFromSafeBox(SafeBoxStream, DestStream : TStream; fromBlock, toBlock : Cardinal; var errors : AnsiString) : Boolean;
-    class function LoadSafeBoxFromChunk(Chunk, DestStream : TStream; var safeBoxHeader : TPCSafeBoxHeader; var errors : AnsiString) : Boolean;
+    class function LoadSafeBoxFromChunk(Chunk, DestStream : TStream; var safeBoxHeader : TAccountStorageHeader; var errors : AnsiString) : Boolean;
   end;
 
 implementation
@@ -47,7 +47,7 @@ Var
   auxStream : TStream;
   iPosSize, iAux : Int64;
   initialSbPos : Int64;
-  sbHeader : TPCSafeBoxHeader;
+  sbHeader : TAccountStorageHeader;
 begin
   Result := false; errors := '';
   // Chunk struct:
@@ -60,7 +60,7 @@ begin
   //   - Compressed data using ZLib
   initialSbPos :=SafeBoxStream.Position;
   Try
-    If Not TPCSafeBox.LoadSafeBoxStreamHeader(SafeBoxStream,sbHeader) then begin
+    If Not TAccountStorage.LoadHeaderFromStream(SafeBoxStream,sbHeader) then begin
       errors := 'SafeBoxStream is not a valid SafeBox!';
       exit;
     end;
@@ -71,13 +71,13 @@ begin
     TLog.NewLog(ltDebug,ClassName,Format('Saving safebox chunk from %d to %d (current blockscount: %d)',[FromBlock,ToBlock,sbHeader.blocksCount]));
 
     // Header:
-    TStreamOp.WriteAnsiString(DestStream,CT_SafeBoxChunkIdentificator);
-    DestStream.Write(CT_SafeBoxBankVersion,SizeOf(CT_SafeBoxBankVersion));
+    TStreamOp.WriteAnsiString(DestStream,CT_AccountChunkIdentificator);
+    DestStream.Write(CT_AccountStorageVersion,SizeOf(CT_AccountStorageVersion));
     //
     auxStream := TMemoryStream.Create;
     try
       SafeBoxStream.Position:=initialSbPos;
-      If Not TPCSafeBox.CopySafeBoxStream(SafeBoxStream,auxStream,fromBlock,toBlock,errors) then exit;
+      If Not TAccountStorage.CopyChunk(SafeBoxStream,auxStream,fromBlock,toBlock,errors) then exit;
       auxStream.Position:=0;
       // Save uncompressed size
       c := auxStream.Size;
@@ -109,7 +109,7 @@ begin
   end;
 end;
 
-class function TPCChunk.LoadSafeBoxFromChunk(Chunk, DestStream: TStream; var safeBoxHeader : TPCSafeBoxHeader; var errors: AnsiString): Boolean;
+class function TPCChunk.LoadSafeBoxFromChunk(Chunk, DestStream: TStream; var safeBoxHeader : TAccountStorageHeader; var errors: AnsiString): Boolean;
 var s : AnsiString;
   w : Word;
   cUncompressed, cCompressed : Cardinal;
@@ -119,15 +119,15 @@ var s : AnsiString;
   destInitialPos, auxPos : Int64;
 begin
   Result := false;
-  safeBoxHeader := CT_PCSafeBoxHeader_NUL;
+  safeBoxHeader := CT_AccountStorageHeader_NUL;
   // Header:
   errors := 'Invalid stream header';
   TStreamOp.ReadAnsiString(Chunk,s);
-  If (s<>CT_SafeBoxChunkIdentificator) then begin
+  If (s<>CT_AccountChunkIdentificator) then begin
     exit;
   end;
   Chunk.Read(w,sizeof(w));
-  if (w<>CT_SafeBoxBankVersion) then begin
+  if (w<>CT_AccountStorageVersion) then begin
     errors := errors + ' Invalid version '+IntToStr(w);
     exit;
   end;
@@ -159,7 +159,7 @@ begin
 
   auxPos := DestStream.Position;
   DestStream.Position:=destInitialPos;
-  If Not TPCSafeBox.LoadSafeBoxStreamHeader(DestStream,safeBoxHeader) then begin
+  If Not TAccountStorage.LoadHeaderFromStream(DestStream,safeBoxHeader) then begin
     errors:= 'Invalid extracted stream!';
     exit;
   end;

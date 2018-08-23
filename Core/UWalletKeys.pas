@@ -21,7 +21,8 @@ unit UWalletKeys;
 interface
 
 uses
-  Classes, UBlockChain, MicroCoin.Account.AccountKey, UAccounts, UCrypto;
+  Classes, UBlockChain, MicroCoin.Account.AccountKey, UAccounts, UCrypto,
+  MicroCoin.Account.Storage, MicroCoin.BlockChain.BlockHeader;
 
 Type
   TWalletKey = Record
@@ -70,8 +71,8 @@ Type
   TWalletKeysExt = Class(TWalletKeys)
   private
     FOrderedAccountKeysList : TOrderedAccountKeysList;
-    procedure SetSafeBox(const Value: TPCSafeBox);
-    function GetSafeBox: TPCSafeBox;
+    procedure SetSafeBox(const Value: TAccountStorage);
+    function GetSafeBox: TAccountStorage;
   public
     Constructor Create(AOwner : TComponent); override;
     Destructor destroy; override;
@@ -81,7 +82,7 @@ Type
     Procedure Clear; override;
     //
     Property AccountsKeyList : TOrderedAccountKeysList read FOrderedAccountKeysList;
-    Property SafeBox : TPCSafeBox read GetSafeBox write SetSafeBox;
+    Property SafeBox : TAccountStorage read GetSafeBox write SetSafeBox;
   End;
 
 
@@ -430,19 +431,19 @@ begin
   inherited;
 end;
 
-function TWalletKeysExt.GetSafeBox: TPCSafeBox;
+function TWalletKeysExt.GetSafeBox: TAccountStorage;
 begin
   Result := Nil;
   if Assigned(FOrderedAccountKeysList) then begin
-    Result := FOrderedAccountKeysList.SafeBox;
+    Result := FOrderedAccountKeysList.AccountStorage;
   end;
 end;
 
-procedure TWalletKeysExt.SetSafeBox(const Value: TPCSafeBox);
+procedure TWalletKeysExt.SetSafeBox(const Value: TAccountStorage);
 Var i : Integer;
 begin
   if Assigned(FOrderedAccountKeysList) then begin
-    if FOrderedAccountKeysList.SafeBox<>Value then FreeAndNil(FOrderedAccountKeysList)
+    if FOrderedAccountKeysList.AccountStorage<>Value then FreeAndNil(FOrderedAccountKeysList)
     else exit;
   end;
   if Assigned(Value) then begin

@@ -28,7 +28,7 @@ Uses
 {$ENDIF}
   UTCPIP, SysUtils, UThread, SyncObjs, Classes, UJSONFunctions, UAES, UNode,
   UCrypto, UAccounts, UConst, UBlockChain, MicroCoin.Transaction.HashTree,
-  MicroCoin.Account.AccountKey;
+  MicroCoin.Account.AccountKey,MicroCoin.Account.Storage, MicroCoin.BlockChain.BlockHeader;
 
 Const
   CT_PoolMining_Method_STATUS = 'status';
@@ -528,7 +528,7 @@ Var P, PToDelete : PPoolJob;
   l : TList;
   doAdd : Boolean;
   params : TPCJSONObject;
-  OpB : TOperationBlock;
+  OpB : TBlockHeader;
 begin
   if Not Active then exit;
   if FClientsCount<=0 then exit;
@@ -785,7 +785,7 @@ function TPoolMiningServer.MinerSubmit(Client: TJSONRPCTcpIpClient; params: TPCJ
 Var s : String;
   nbOperations : TPCOperationsComp;
   errors, sJobInfo : AnsiString;
-  nba : TBlockAccount;
+  nba : TAccountStorageEntry;
   json : TPCJSONObject;
   p1,p2,p3 : TRawBytes;
   P : PPoolJob;

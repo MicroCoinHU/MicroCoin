@@ -13,6 +13,8 @@ unit MicroCoin.Transaction.ListAccount;
 interface
 
 uses MicroCoin.Transaction.Base,
+  MicroCoin.Common,
+  MicroCoin.Account,
   MicroCoin.Account.AccountKey,
   MicroCoin.Transaction.Transaction,
   Sysutils, classes, UAccounts, UCrypto,
@@ -54,7 +56,7 @@ type
     function IsPrivateSale: Boolean;
     function IsDelist: Boolean; virtual; abstract;
     function GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes; override;
-    function ApplyTransaction(AccountTransaction: TPCSafeBoxTransaction;
+    function ApplyTransaction(AccountTransaction: TAccountTransaction;
       var errors: AnsiString): Boolean; override;
     function GetAmount: Int64; override;
     function GetFee: UInt64; override;
@@ -107,43 +109,43 @@ begin
 end;
 
 function TOpListAccount.ApplyTransaction(AccountTransaction
-  : TPCSafeBoxTransaction; var errors: AnsiString): Boolean;
+  : TAccountTransaction; var errors: AnsiString): Boolean;
 var
   account_signer, account_target: TAccount;
 begin
   Result := false;
-  if (AccountTransaction.FreezedSafeBox.CurrentProtocol < CT_PROTOCOL_2) then
+  if (AccountTransaction.FreezedAccountStorage.CurrentProtocol < CT_PROTOCOL_2) then
   begin
     errors := 'List/Delist Account is not allowed on Protocol 1';
     exit;
   end;
-  if (FData.account_signer >= AccountTransaction.FreezedSafeBox.AccountsCount)
+  if (FData.account_signer >= AccountTransaction.FreezedAccountStorage.AccountsCount)
   then
   begin
     errors := 'Invalid signer account number';
     exit;
   end;
-  if (FData.account_target >= AccountTransaction.FreezedSafeBox.AccountsCount)
+  if (FData.account_target >= AccountTransaction.FreezedAccountStorage.AccountsCount)
   then
   begin
     errors := 'Invalid target account number';
     exit;
   end;
-  if TAccountComp.IsAccountBlockedByProtocol(FData.account_signer,
-    AccountTransaction.FreezedSafeBox.BlocksCount) then
+  if TAccount.IsAccountBlockedByProtocol(FData.account_signer,
+    AccountTransaction.FreezedAccountStorage.BlocksCount) then
   begin
     errors := 'Signer account is blocked for protocol';
     exit;
   end;
-  if TAccountComp.IsAccountBlockedByProtocol(FData.account_target,
-    AccountTransaction.FreezedSafeBox.BlocksCount) then
+  if TAccount.IsAccountBlockedByProtocol(FData.account_target,
+    AccountTransaction.FreezedAccountStorage.BlocksCount) then
   begin
     errors := 'Target account is blocked for protocol';
     exit;
   end;
   if not IsDelist then
   begin
-    if (FData.account_to_pay >= AccountTransaction.FreezedSafeBox.AccountsCount)
+    if (FData.account_to_pay >= AccountTransaction.FreezedAccountStorage.AccountsCount)
     then
     begin
       errors := 'Invalid account to pay number';
@@ -154,8 +156,8 @@ begin
       errors := 'Account to pay is itself';
       exit;
     end;
-    if TAccountComp.IsAccountBlockedByProtocol(FData.account_to_pay,
-      AccountTransaction.FreezedSafeBox.BlocksCount) then
+    if TAccount.IsAccountBlockedByProtocol(FData.account_to_pay,
+      AccountTransaction.FreezedAccountStorage.BlocksCount) then
     begin
       errors := 'Account to pay is blocked for protocol';
       exit;
@@ -166,11 +168,11 @@ begin
       exit;
     end;
     if (FData.locked_until_block >
-      (AccountTransaction.FreezedSafeBox.BlocksCount +
+      (AccountTransaction.FreezedAccountStorage.BlocksCount +
       CT_MaxFutureBlocksLockedAccount)) then
     begin
       errors := 'Invalid locked block: Current block ' +
-        Inttostr(AccountTransaction.FreezedSafeBox.BlocksCount) +
+        Inttostr(AccountTransaction.FreezedAccountStorage.BlocksCount) +
         ' cannot lock to block ' + Inttostr(FData.locked_until_block);
       exit;
     end;
@@ -217,12 +219,12 @@ begin
     exit;
   end;
   // Is locked?
-  if (account_signer.accountInfo.IsLocked(AccountTransaction.FreezedSafeBox.BlocksCount)) then
+  if (account_signer.accountInfo.IsLocked(AccountTransaction.FreezedAccountStorage.BlocksCount)) then
   begin
     errors := 'Signer account is currently locked';
     exit;
   end;
-  if (account_target.accountInfo.IsLocked(AccountTransaction.FreezedSafeBox.BlocksCount)) then
+  if (account_target.accountInfo.IsLocked(AccountTransaction.FreezedAccountStorage.BlocksCount)) then
   begin
     errors := 'Target account is currently locked';
     exit;
@@ -489,19 +491,19 @@ begin
         begin
           Result := Format
             ('List account %s for sale price %s locked until block:%d fee:%s (n_op:%d) payload size:%d',
-            [TAccountComp.AccountNumberToAccountTxtNumber(FData.account_target),
-            TAccountComp.FormatMoney(FData.account_price),
-            FData.locked_until_block, TAccountComp.FormatMoney(FData.fee),
+            [TAccount.AccountNumberToAccountTxtNumber(FData.account_target),
+            TCurrencyUtils.FormatMoney(FData.account_price),
+            FData.locked_until_block, TCurrencyUtils.FormatMoney(FData.fee),
             FData.n_operation, length(FData.payload)])
         end
         else
         begin
           Result := Format
             ('List account %s for private sale price %s reserved for %s locked until block:%d fee:%s (n_op:%d) payload size:%d',
-            [TAccountComp.AccountNumberToAccountTxtNumber(FData.account_target),
-            TAccountComp.FormatMoney(FData.account_price),
-            TAccountComp.GetECInfoTxt(FData.new_public_key.EC_OpenSSL_NID),
-            FData.locked_until_block, TAccountComp.FormatMoney(FData.fee),
+            [TAccount.AccountNumberToAccountTxtNumber(FData.account_target),
+            TCurrencyUtils.FormatMoney(FData.account_price),
+            TAccountKey.GetECInfoTxt(FData.new_public_key.EC_OpenSSL_NID),
+            FData.locked_until_block, TCurrencyUtils.FormatMoney(FData.fee),
             FData.n_operation, length(FData.payload)])
         end;
       end;
@@ -509,8 +511,8 @@ begin
       begin
         Result := Format
           ('Delist account %s for sale fee:%s (n_op:%d) payload size:%d',
-          [TAccountComp.AccountNumberToAccountTxtNumber(FData.account_target),
-          TAccountComp.FormatMoney(FData.fee), FData.n_operation,
+          [TAccount.AccountNumberToAccountTxtNumber(FData.account_target),
+          TCurrencyUtils.FormatMoney(FData.fee), FData.n_operation,
           length(FData.payload)])
       end;
   else
@@ -563,18 +565,18 @@ begin
   begin
     TransactionData.OpSubtype := CT_OpSubtype_ListAccountForPrivateSale;
     TransactionData.OperationTxt := 'List account ' +
-      TAccountComp.AccountNumberToAccountTxtNumber(Data.account_target) +
-      ' for private sale price ' + TAccountComp.FormatMoney(Data.account_price)
-      + ' MCC pay to ' + TAccountComp.AccountNumberToAccountTxtNumber
+      TAccount.AccountNumberToAccountTxtNumber(Data.account_target) +
+      ' for private sale price ' + TCurrencyUtils.FormatMoney(Data.account_price)
+      + ' MCC pay to ' + TAccount.AccountNumberToAccountTxtNumber
       (Data.account_to_pay);
   end
   else
   begin
     TransactionData.OpSubtype := CT_OpSubtype_ListAccountForPublicSale;
     TransactionData.OperationTxt := 'List account ' +
-      TAccountComp.AccountNumberToAccountTxtNumber(Data.account_target) +
-      ' for sale price ' + TAccountComp.FormatMoney(Data.account_price) +
-      ' MCC pay to ' + TAccountComp.AccountNumberToAccountTxtNumber
+      TAccount.AccountNumberToAccountTxtNumber(Data.account_target) +
+      ' for sale price ' + TCurrencyUtils.FormatMoney(Data.account_price) +
+      ' MCC pay to ' + TAccount.AccountNumberToAccountTxtNumber
       (Data.account_to_pay);
   end;
   TransactionData.newKey := Data.new_public_key;
@@ -618,7 +620,7 @@ function TOpDelistAccountForSale.GetTransactionData(Block,
 begin
   TransactionData.OpSubtype := CT_OpSubtype_DelistAccount;
   TransactionData.OperationTxt := 'Delist account ' +
-    TAccountComp.AccountNumberToAccountTxtNumber(Data.account_target) +
+    TAccount.AccountNumberToAccountTxtNumber(Data.account_target) +
     ' for sale';
   Result := true;
   TransactionData.OriginalPayload := GetPayload;
@@ -637,7 +639,7 @@ end;
 
 initialization
 
-TTransactionManager.RegisterOperationClass(TOpListAccountForSale, CT_Op_ListAccountForSale);
-TTransactionManager.RegisterOperationClass(TOpDelistAccountForSale, CT_Op_DelistAccount);
+TTransactionManager.RegisterTransactionPlugin(TOpListAccountForSale, CT_Op_ListAccountForSale);
+TTransactionManager.RegisterTransactionPlugin(TOpDelistAccountForSale, CT_Op_DelistAccount);
 
 end.

@@ -28,8 +28,8 @@ Uses
 {$ENDIF}
   UBlockChain, Classes, SysUtils, UAccounts, UThread,
   UCrypto, UTCPIP, SyncObjs, MicroCoin.Transaction.Manager,
-  MicroCoin.Transaction.TransactionList, MicroCoin.Transaction.HashTree,
-  MicroCoin.Common.Lists, MicroCoin.Account.AccountKey;
+  MicroCoin.Transaction.TransactionList, MicroCoin.Transaction.HashTree, MicroCoin.Account.Storage,
+  MicroCoin.Common.Lists, MicroCoin.Account.AccountKey, MicroCoin.BlockChain.BlockHeader;
 
 {$I config.inc}
 
@@ -112,7 +112,7 @@ Type
   PNodeServerAddress = ^TNodeServerAddress;
 
   TNetMessage_Hello = Record
-     last_operation : TOperationBlock;
+     last_operation : TBlockHeader;
      servers_address : Array of TNodeServerAddress;
   end;
 
@@ -213,7 +213,7 @@ Type
     FOnReceivedHelloMessage: TNotifyEvent;
     FNetStatistics: TNetStatistics;
     FOnStatisticsChanged: TNotifyEvent;
-    FMaxRemoteOperationBlock : TOperationBlock;
+    FMaxRemoteOperationBlock : TBlockHeader;
     FFixedServers : TNodeServerAddressArray;
     FNetClientsDestroyThread : TNetClientsDestroyThread;
     FNetConnectionsActive: Boolean;
@@ -266,7 +266,7 @@ Type
     Property NetStatistics : TNetStatistics read FNetStatistics;
     Property IsDiscoveringServers : Boolean read FIsDiscoveringServers;
     Property IsGettingNewBlockChainFromClient : Boolean read FIsGettingNewBlockChainFromClient;
-    Property MaxRemoteOperationBlock : TOperationBlock read FMaxRemoteOperationBlock;
+    Property MaxRemoteOperationBlock : TBlockHeader read FMaxRemoteOperationBlock;
     Property NodePrivateKey : TECPrivateKey read FNodePrivateKey;
     Function GetValidNodeServers(OnlyWhereIConnected : Boolean; Max : Integer): TNodeServerAddressArray;
     procedure CleanNodeServersList;
@@ -291,7 +291,7 @@ Type
   private
     FIsConnecting: Boolean;
     FTcpIpClient : TNetTcpIpClient;
-    FRemoteOperationBlock : TOperationBlock;
+    FRemoteOperationBlock : TBlockHeader;
     FRemoteAccumulatedWork : UInt64;
     FLastDataReceivedTS : Cardinal;
     FLastDataSendedTS : Cardinal;
@@ -350,7 +350,7 @@ Type
     Property Client : TNetTcpIpClient read GetClient;
     Function ClientRemoteAddr : AnsiString;
     property TimestampDiff : Integer read FTimestampDiff;
-    property RemoteOperationBlock : TOperationBlock read FRemoteOperationBlock;
+    property RemoteOperationBlock : TBlockHeader read FRemoteOperationBlock;
     //
     Property NetProtocolVersion : TNetProtocolVersion read FNetProtocolVersion;
     //
@@ -1073,7 +1073,7 @@ Const CT_LogSender = 'GetNewBlockChainFromClient';
     end;
   end;
 
-  function Do_GetOperationBlock(block, MaxWaitMilliseconds : Cardinal; var OperationBlock : TOperationBlock) : Boolean;
+  function Do_GetOperationBlock(block, MaxWaitMilliseconds : Cardinal; var OperationBlock : TBlockHeader) : Boolean;
   Var BlocksList : TList;
     i : Integer;
   begin
@@ -1090,10 +1090,10 @@ Const CT_LogSender = 'GetNewBlockChainFromClient';
     end;
   end;
 
-  Function FindLastSameBlockByOperationsBlock(min,max : Cardinal; var OperationBlock : TOperationBlock) : Boolean;
+  Function FindLastSameBlockByOperationsBlock(min,max : Cardinal; var OperationBlock : TBlockHeader) : Boolean;
   var i : Integer;
     ant_nblock : Int64;
-    auxBlock, sbBlock : TOperationBlock;
+    auxBlock, sbBlock : TBlockHeader;
     distinctmax,distinctmin : Cardinal;
     BlocksList : TList;
   Begin
@@ -1115,7 +1115,7 @@ Const CT_LogSender = 'GetNewBlockChainFromClient';
           end;
           ant_nblock := auxBlock.block;
           //
-          sbBlock := TNode.Node.Bank.SafeBox.Block(auxBlock.block).blockchainInfo;
+          sbBlock := TNode.Node.Bank.SafeBox.Block(auxBlock.block).Blockheader;
           if TPCOperationsComp.EqualsOperationBlock(sbBlock,auxBlock) then begin
             distinctmin := auxBlock.block;
             OperationBlock := auxBlock;
@@ -1143,7 +1143,7 @@ Const CT_LogSender = 'GetNewBlockChainFromClient';
     OpComp,OpExecute : TPCOperationsComp;
     oldBlockchainOperations : TTransactionHashTree;
     opsResume : TTransactionList;
-    newBlock : TBlockAccount;
+    newBlock : TAccountStorageEntry;
     errors : AnsiString;
     start,start_c : Cardinal;
     finished : Boolean;
@@ -1276,7 +1276,7 @@ Const CT_LogSender = 'GetNewBlockChainFromClient';
   End;
 
   Function DownloadSafeBoxChunk(safebox_blockscount : Cardinal; Const sbh : TRawBytes; from_block, to_block : Cardinal; receivedDataUnzipped : TStream;
-    var safeBoxHeader : TPCSafeBoxHeader; var errors : AnsiString) : Boolean;
+    var safeBoxHeader : TAccountStorageHeader; var errors : AnsiString) : Boolean;
   Var sendData,receiveData : TStream;
     headerdata : TNetHeaderData;
     request_id : Cardinal;
@@ -1305,12 +1305,12 @@ Const CT_LogSender = 'GetNewBlockChainFromClient';
           Connection.DisconnectInvalidClient(false,'Invalid received chunk: '+errors);
           exit;
         end;
-        If (safeBoxHeader.safeBoxHash<>sbh) or (safeBoxHeader.startBlock<>from_block) or (safeBoxHeader.endBlock<>c) or
+        If (safeBoxHeader.AccountStorageHash<>sbh) or (safeBoxHeader.startBlock<>from_block) or (safeBoxHeader.endBlock<>c) or
           (safeBoxHeader.blocksCount<>safebox_blockscount) or (safeBoxHeader.protocol<CT_PROTOCOL_2) or
           (safeBoxHeader.protocol>CT_BlockChain_Protocol_Available) then begin
           errors := Format('Invalid received chunk based on call: Blockscount:%d %d - from:%d %d to %d %d - SafeboxHash:%s %s',
               [safeBoxHeader.blocksCount,safebox_blockscount,safeBoxHeader.startBlock,from_block,safeBoxHeader.endBlock,c,
-               TCrypto.ToHexaString(safeBoxHeader.safeBoxHash),TCrypto.ToHexaString(sbh)]);
+               TCrypto.ToHexaString(safeBoxHeader.AccountStorageHash),TCrypto.ToHexaString(sbh)]);
           Connection.DisconnectInvalidClient(false,'Invalid received chunk: '+errors);
           exit;
         end;
@@ -1323,15 +1323,15 @@ Const CT_LogSender = 'GetNewBlockChainFromClient';
   end;
 
   Type TSafeBoxChunkData = Record
-    safeBoxHeader : TPCSafeBoxHeader;
+    safeBoxHeader : TAccountStorageHeader;
     chunkStream : TStream;
   end;
 
   Function DownloadSafeBox(IsMyBlockchainValid : Boolean) : Boolean;
   Var _blockcount,request_id : Cardinal;
     receiveData, receiveChunk, chunk1 : TStream;
-    op : TOperationBlock;
-    safeBoxHeader : TPCSafeBoxHeader;
+    op : TBlockHeader;
+    safeBoxHeader : TAccountStorageHeader;
     errors : AnsiString;
     chunks : Array of TSafeBoxChunkData;
     i : Integer;
@@ -1367,7 +1367,7 @@ Const CT_LogSender = 'GetNewBlockChainFromClient';
             receiveData.Size:=0;
             chunk1.Position:=0;
             chunks[i].chunkStream.Position:=0;
-            If Not TPCSafeBox.ConcatSafeBoxStream(chunk1,chunks[i].chunkStream,receiveData,errors) then begin
+            If Not TAccountStorage.ConcatStream(chunk1,chunks[i].chunkStream,receiveData,errors) then begin
               TLog.NewLog(ltError,CT_LogSender,errors);
               exit;
             end;
@@ -1412,7 +1412,7 @@ Const CT_LogSender = 'GetNewBlockChainFromClient';
   end;
 
 var rid : Cardinal;
-  my_op, client_op : TOperationBlock;
+  my_op, client_op : TBlockHeader;
 begin
   // Protection against discovering servers...
   if FIsDiscoveringServers then begin
@@ -2102,7 +2102,7 @@ begin
     for i := 1 to c do begin
       errors := 'Invalid operation '+inttostr(i)+'/'+inttostr(c);
       if not DataBuffer.Read(optype,1)=1 then exit;
-      opclass := TTransactionManager.GetOperationClassByOpType(optype);
+      opclass := TTransactionManager.GetTransactionPluginByOpType(optype);
       if Not Assigned(opclass) then exit;
       op := opclass.Create;
       Try
@@ -2215,7 +2215,7 @@ end;
 procedure TNetConnection.DoProcess_GetBlocks_Response(HeaderData: TNetHeaderData; DataBuffer: TStream);
   var op : TPCOperationsComp;
     opcount,i : Cardinal;
-    newBlockAccount : TBlockAccount;
+    newBlockAccount : TAccountStorageEntry;
   errors : AnsiString;
   DoDisconnect : Boolean;
 begin
@@ -2253,7 +2253,7 @@ begin
             // Is not a valid entry????
             // Perhaps an orphan blockchain: Me or Client!
             TLog.NewLog(ltinfo,Classname,'Distinct operation block found! My:'+
-                TPCOperationsComp.OperationBlockToText(TNode.Node.Bank.SafeBox.Block(TNode.Node.Bank.BlocksCount-1).blockchainInfo)+
+                TPCOperationsComp.OperationBlockToText(TNode.Node.Bank.SafeBox.Block(TNode.Node.Bank.BlocksCount-1).Blockheader)+
                 ' remote:'+TPCOperationsComp.OperationBlockToText(op.OperationBlock)+' Errors: '+errors);
           end;
         end else begin
@@ -2284,7 +2284,7 @@ Var inc_b,b,b_start,b_end, total_b:Cardinal;
   db,msops : TMemoryStream;
   errors, blocksstr : AnsiString;
   DoDisconnect : Boolean;
-  ob : TOperationBlock;
+  ob : TBlockHeader;
 begin
   blocksstr := '';
   DoDisconnect := true;
@@ -2324,7 +2324,7 @@ begin
       b := b_start;
       total_b := 0;
       repeat
-        ob := TNode.Node.Bank.SafeBox.Block(b).blockchainInfo;
+        ob := TNode.Node.Bank.SafeBox.Block(b).Blockheader;
         If TPCOperationsComp.SaveOperationBlockToStream(ob,msops) then begin
           blocksstr := blocksstr + inttostr(b)+',';
           b := b + inc_b;
@@ -2361,7 +2361,7 @@ Var _blockcount : Cardinal;
   sbStream : TStream;
   responseStream : TStream;
   antPos : Int64;
-  sbHeader : TPCSafeBoxHeader;
+  sbHeader : TAccountStorageHeader;
   errors : AnsiString;
 begin
   {
@@ -2390,9 +2390,9 @@ begin
         exit;
       end;
       antPos := sbStream.Position;
-      TPCSafeBox.LoadSafeBoxStreamHeader(sbStream,sbHeader);
-      If sbHeader.safeBoxHash<>_safeboxHash then begin
-        DisconnectInvalidClient(false,Format('Invalid safeboxhash on GetSafeBox request (Real:%s > Requested:%s)',[TCrypto.ToHexaString(sbHeader.safeBoxHash),TCrypto.ToHexaString(_safeboxHash)]));
+      TAccountStorage.LoadHeaderFromStream(sbStream,sbHeader);
+      If sbHeader.AccountStorageHash<>_safeboxHash then begin
+        DisconnectInvalidClient(false,Format('Invalid safeboxhash on GetSafeBox request (Real:%s > Requested:%s)',[TCrypto.ToHexaString(sbHeader.AccountStorageHash),TCrypto.ToHexaString(_safeboxHash)]));
         exit;
       end;
       // Response:
@@ -2567,7 +2567,7 @@ begin
 end;
 
 procedure TNetConnection.DoProcess_NewBlock(HeaderData: TNetHeaderData; DataBuffer: TStream);
-var bacc : TBlockAccount;
+var bacc : TAccountStorageEntry;
     op : TPCOperationsComp;
   errors : AnsiString;
   DoDisconnect : Boolean;
@@ -3442,7 +3442,7 @@ Var i,j, iMax : Integer;
   maxWork : UInt64;
   nsa : TNodeServerAddress;
   candidates : TList;
-  lop : TOperationBlock;
+  lop : TBlockHeader;
   nc : TNetConnection;
 begin
   // Search better candidates:

@@ -42,7 +42,7 @@ type
     constructor Create; virtual;
     procedure InitializeData; virtual;
     function GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes; virtual;
-    function ApplyTransaction(AccountTransaction: TPCSafeBoxTransaction; var errors: AnsiString): Boolean; virtual; abstract;
+    function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean; virtual; abstract;
     procedure AffectedAccounts(list: TList); virtual; abstract;
     function GetOpType: Byte; virtual; abstract;
     function GetTag : integer;

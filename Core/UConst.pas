@@ -106,7 +106,7 @@ Const
 
   CT_MaxAccountOperationsPerBlockWithoutFee = 1;
 
-  CT_SafeBoxBankVersion : Word = 3; // Protocol 2 upgraded safebox version from 2 to 3
+  CT_AccountStorageVersion : Word = 3; // Protocol 2 upgraded safebox version from 2 to 3
 
   CT_MagicIdentificator: AnsiString = {$IFDEF PRODUCTION}'MicroCoin'{$ELSE}'MicroCoinTESTNET'{$ENDIF}; //
 

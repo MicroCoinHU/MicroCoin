@@ -30,7 +30,9 @@ type
     function AccountPublicKeyExport : AnsiString;
     class function AccountPublicKeyImport(Const HumanReadable : AnsiString; var account : TAccountKey; var errors : AnsiString) : Boolean; static;
     class function EqualAccountKeys(const account1,account2 : TAccountKey) : Boolean; static;
-  end;
+    class function GetECInfoTxt(const EC_OpenSSL_NID: Word): AnsiString; static;
+    class procedure ValidsEC_OpenSSL_NID(list: TList); static;
+ end;
 
   TStreamOp = Class
   public
@@ -44,6 +46,39 @@ const CT_Base58 : AnsiString = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnop
 
 
 implementation
+
+class procedure TAccountKeyHelper.ValidsEC_OpenSSL_NID(list: TList);
+begin
+  list.Clear;
+  list.Add(TObject(CT_NID_secp256k1)); // = 714
+  list.Add(TObject(CT_NID_secp384r1)); // = 715
+  list.Add(TObject(CT_NID_sect283k1)); // = 729
+  list.Add(TObject(CT_NID_secp521r1)); // = 716
+end;
+
+class function TAccountKeyHelper.GetECInfoTxt(const EC_OpenSSL_NID: Word): AnsiString;
+begin
+  case EC_OpenSSL_NID of
+    CT_NID_secp256k1:
+      begin
+        Result := 'secp256k1';
+      end;
+    CT_NID_secp384r1:
+      begin
+        Result := 'secp384r1';
+      end;
+    CT_NID_sect283k1:
+      begin
+        Result := 'secp283k1';
+      end;
+    CT_NID_secp521r1:
+      begin
+        Result := 'secp521r1';
+      end
+  else
+    Result := '(Unknown ID:' + inttostr(EC_OpenSSL_NID) + ')';
+  end;
+end;
 
 function TAccountKeyHelper.ToRawString: TRawBytes;
 begin

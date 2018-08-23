@@ -13,7 +13,8 @@ unit MicroCoin.Transaction.ChangeAccountInfo;
 interface
 
 uses uaccounts, ucrypto, MicroCoin.Transaction.Transaction, SysUtils,
-  Classes, MicroCoin.Account.AccountKey, MicroCoin.Transaction.Base, UConst, ULog, MicroCoin.Transaction.Manager;
+  MicroCoin.Account,MicroCoin.Account.Storage, MicroCoin.BlockChain.BlockHeader,
+  MicroCoin.Common, Classes, MicroCoin.Account.AccountKey, MicroCoin.Transaction.Base, UConst, ULog, MicroCoin.Transaction.Manager;
 
 type
 
@@ -51,7 +52,7 @@ type
       var op: TOpChangeAccountInfoData): Boolean;
     function GetOpType: Byte; override;
     function GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes; override;
-    function ApplyTransaction(AccountTransaction: TPCSafeBoxTransaction;
+    function ApplyTransaction(AccountTransaction: TAccountTransaction;
       var errors: AnsiString): Boolean; override;
     function GetAmount: Int64; override;
     function GetFee: UInt64; override;
@@ -217,29 +218,29 @@ begin
   Result := inherited GetBufferForOpHash(true);
 end;
 
-function TOpChangeAccountInfo.ApplyTransaction(AccountTransaction: TPCSafeBoxTransaction; var errors: AnsiString): Boolean;
+function TOpChangeAccountInfo.ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean;
 var
   account_signer, account_target: TAccount;
 begin
   Result := False;
-  if (FData.account_signer >= AccountTransaction.FreezedSafeBox.AccountsCount) then
+  if (FData.account_signer >= AccountTransaction.FreezedAccountStorage.AccountsCount) then
   begin
     errors := 'Invalid account number';
     exit;
   end;
-  if TAccountComp.IsAccountBlockedByProtocol(FData.account_signer, AccountTransaction.FreezedSafeBox.BlocksCount) then
+  if TAccount.IsAccountBlockedByProtocol(FData.account_signer, AccountTransaction.FreezedAccountStorage.BlocksCount) then
   begin
     errors := 'account is blocked for protocol';
     exit;
   end;
   if (FData.account_signer <> FData.account_target) then
   begin
-    if (FData.account_target >= AccountTransaction.FreezedSafeBox.AccountsCount) then
+    if (FData.account_target >= AccountTransaction.FreezedAccountStorage.AccountsCount) then
     begin
       errors := 'Invalid account target number';
       exit;
     end;
-    if TAccountComp.IsAccountBlockedByProtocol(FData.account_target, AccountTransaction.FreezedSafeBox.BlocksCount) then
+    if TAccount.IsAccountBlockedByProtocol(FData.account_target, AccountTransaction.FreezedAccountStorage.BlocksCount) then
     begin
       errors := 'Target account is blocked for protocol';
       exit;
@@ -265,18 +266,18 @@ begin
   if (length(FData.payload) > CT_MaxPayloadSize) then
   begin
     errors := 'Invalid Payload size:' + Inttostr(length(FData.payload)) + ' (Max: ' + Inttostr(CT_MaxPayloadSize) + ')';
-    if (AccountTransaction.FreezedSafeBox.CurrentProtocol >= CT_PROTOCOL_2) then
+    if (AccountTransaction.FreezedAccountStorage.CurrentProtocol >= CT_PROTOCOL_2) then
     begin
       exit; // BUG from protocol 1
     end;
   end;
   // Is locked? Protocol 2 check
-  if (account_signer.accountInfo.IsLocked(AccountTransaction.FreezedSafeBox.BlocksCount)) then
+  if (account_signer.accountInfo.IsLocked(AccountTransaction.FreezedAccountStorage.BlocksCount)) then
   begin
     errors := 'Account signer is currently locked';
     exit;
   end;
-  if (AccountTransaction.FreezedSafeBox.CurrentProtocol < CT_PROTOCOL_2) then
+  if (AccountTransaction.FreezedAccountStorage.CurrentProtocol < CT_PROTOCOL_2) then
   begin
     errors := 'NOT ALLOWED ON PROTOCOL 1';
     exit;
@@ -292,7 +293,7 @@ begin
   begin
     if (FData.new_name <> '') then
     begin
-      if not TPCSafeBox.ValidAccountName(FData.new_name, errors) then
+      if not TAccountStorage.AccountNameIsValid(FData.new_name, errors) then
         exit;
     end;
   end
@@ -319,7 +320,7 @@ begin
   end;
   if (FData.account_signer <> FData.account_target) then
   begin
-    if (account_target.accountInfo.IsLocked(AccountTransaction.FreezedSafeBox.BlocksCount)) then
+    if (account_target.accountInfo.IsLocked(AccountTransaction.FreezedAccountStorage.BlocksCount)) then
     begin
       errors := 'Account target is currently locked';
       exit;
@@ -411,7 +412,7 @@ begin
     s := s + 'type';
   end;
   TransactionData.OperationTxt := 'Changed ' + s + ' of account ' +
-    TAccountComp.AccountNumberToAccountTxtNumber
+    TAccount.AccountNumberToAccountTxtNumber
     (GetDestinationAccount);
   TransactionData.OpSubtype := CT_OpSubtype_ChangeAccountInfo;
   Result := true;
@@ -490,7 +491,7 @@ var
 begin
   s := '';
   if (public_key in FData.changes_type) then
-    s := 'new public key ' + TAccountComp.GetECInfoTxt(FData.new_accountkey.EC_OpenSSL_NID);
+    s := 'new public key ' + TAccountKey.GetECInfoTxt(FData.new_accountkey.EC_OpenSSL_NID);
   if (account_name in FData.changes_type) then
   begin
     if s <> '' then
@@ -504,13 +505,13 @@ begin
     s := s + 'new type to ' + Inttostr(FData.new_type);
   end;
   Result := Format('Change account %s info: %s fee:%s (n_op:%d) payload size:%d', [
-    TAccountComp.AccountNumberToAccountTxtNumber(FData.account_target),
+    TAccount.AccountNumberToAccountTxtNumber(FData.account_target),
     s,
-    TAccountComp.FormatMoney(FData.fee), FData.n_operation, length(FData.payload)]);
+    TCurrencyUtils.FormatMoney(FData.fee), FData.n_operation, length(FData.payload)]);
 end;
 
 initialization
 
-TTransactionManager.RegisterOperationClass(TOpChangeAccountInfo, CT_Op_ChangeAccountInfo);
+TTransactionManager.RegisterTransactionPlugin(TOpChangeAccountInfo, CT_Op_ChangeAccountInfo);
 
 end.

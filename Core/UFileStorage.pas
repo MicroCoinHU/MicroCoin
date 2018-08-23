@@ -22,7 +22,7 @@ unit UFileStorage;
 interface
 
 uses
-  Classes, UBlockChain, SyncObjs, UThread, UAccounts, UCrypto;
+  Classes, UBlockChain, SyncObjs, UThread, UAccounts, UCrypto, MicroCoin.Account.Storage;
 
 {$I config.inc}
 
@@ -67,7 +67,7 @@ Type
     Function BlockExists(Block : Cardinal) : Boolean; override;
     Function LockBlockChainStream : TFileStream;
     Procedure UnlockBlockChainStream;
-    Function LoadBankFileInfo(Const Filename : AnsiString; var safeBoxHeader : TPCSafeBoxHeader) : Boolean;
+    Function LoadBankFileInfo(Const Filename : AnsiString; var safeBoxHeader : TAccountStorageHeader) : Boolean;
     function GetFirstBlockNumber: Int64; override;
     function GetLastBlockNumber: Int64; override;
     function DoInitialize : Boolean; override;
@@ -379,7 +379,7 @@ var
     ms : TMemoryStream;
     errors : AnsiString;
     blockscount : Cardinal;
-    sbHeader : TPCSafeBoxHeader;
+    sbHeader : TAccountStorageHeader;
 begin
   LockBlockChainStream;
   Try
@@ -440,7 +440,7 @@ begin
       fs.Size := 0;
       ms := TMemoryStream.Create;
       try
-        Bank.SafeBox.SaveSafeBoxToAStream(ms,0,Bank.SafeBox.BlocksCount-1);
+        Bank.SafeBox.SaveToStream(ms,0,Bank.SafeBox.BlocksCount-1);
         ms.Position := 0;
         fs.Position := 0;
         fs.CopyFrom(ms,0);
@@ -599,16 +599,16 @@ begin
   Result := FStreamLastBlockNumber;
 end;
 
-function TFileStorage.LoadBankFileInfo(const Filename: AnsiString; var safeBoxHeader : TPCSafeBoxHeader) : Boolean;
+function TFileStorage.LoadBankFileInfo(const Filename: AnsiString; var safeBoxHeader : TAccountStorageHeader) : Boolean;
 var fs: TFileStream;
 begin
   Result := false;
-  safeBoxHeader := CT_PCSafeBoxHeader_NUL;
+  safeBoxHeader := CT_AccountStorageHeader_NUL;
   If Not FileExists(Filename) then exit;
   fs := TFileStream.Create(Filename,fmOpenRead);
   try
     fs.Position:=0;
-    Result := Bank.SafeBox.LoadSafeBoxStreamHeader(fs,safeBoxHeader);
+    Result := Bank.SafeBox.LoadHeaderFromStream(fs,safeBoxHeader);
   finally
     fs.Free;
   end;
