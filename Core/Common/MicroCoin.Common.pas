@@ -23,7 +23,7 @@ type
   TCurrencyUtils = class
   public
     class function FormatMoney(Money: Int64): AnsiString;
-    class function TxtToMoney(const moneytxt: AnsiString): TResult<Int64>;
+    class function TxtToMoney(const moneytxt : AnsiString; var money : Int64) : Boolean;
   end;
 
 implementation
@@ -33,14 +33,14 @@ begin
   Result := FormatFloat('#,###0.0000', (Money / 10000));
 end;
 
-class function TCurrencyUtils.TxtToMoney(const moneytxt: AnsiString): TResult<Int64>;
+class function TCurrencyUtils.TxtToMoney(Const moneytxt : AnsiString; var money : Int64) : Boolean;
 var
   s: AnsiString;
 begin
-  Result.Payload := 0;
+  money := 0;
   if trim(moneytxt) = '' then
   begin
-    Result.IsSuccess := true;
+    Result := true;
     exit;
   end;
   try
@@ -52,11 +52,10 @@ begin
     begin
       s := StringReplace(moneytxt, FormatSettings.ThousandSeparator, '', [rfReplaceAll]);
     end;
-    Result.Payload := Round(StrToFloat(s) * 10000);
-    Result.IsSuccess := true;
+    money := Round(StrToFloat(s) * 10000);
+    Result := true;
   except on E:Exception do begin
-      Result.IsSuccess := false;
-      Result.OriginalException := E;
+      Result := false;
     end;
   end;
 end;

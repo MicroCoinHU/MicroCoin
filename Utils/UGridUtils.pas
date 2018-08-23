@@ -29,7 +29,8 @@ uses
 {$ENDIF}
   Classes, Grids, UNode, UAccounts, UBlockChain, UAppParams,
   UWalletKeys, UCrypto, MicroCoin.Transaction.Base, MicroCoin.Common.Lists,
-  MicroCoin.Transaction.TransactionList, MicroCoin.Account.AccountKey;
+  MicroCoin.Transaction.TransactionList, MicroCoin.Account.AccountKey,
+  MicroCoin.BlockChain.BlockHeader;
 
 Type
   // TAccountsGrid implements a visual integration of TDrawGrid
@@ -193,7 +194,7 @@ implementation
 
 uses
   Graphics, SysUtils, UTime, UOpTransaction, UConst,
-  UFRMPayloadDecoder, ULog;
+  UFRMPayloadDecoder, ULog, MicroCoin.Account, MicroCoin.Common;
 
 resourcestring
   rsAccountN = 'Account N.';
@@ -485,7 +486,7 @@ begin
       InflateRect(Rect,-2,-1);
       case C.ColumnType of
         act_account_number : Begin
-          s := TAccountComp.AccountNumberToAccountTxtNumber(n_acc);
+          s := TAccount.AccountNumberToAccountTxtNumber(n_acc);
           Canvas_TextRect(DrawGrid.Canvas,Rect,s,State,[tfRight,tfVerticalCenter,tfSingleLine]);
         End;
         act_account_key : Begin
@@ -496,9 +497,9 @@ begin
           if ndiff=0 then begin
             // Pending operation... showing final balance
             DrawGrid.Canvas.Font.Color := clBlue;
-            s := '('+TAccountComp.FormatMoney(account.balance)+')';
+            s := '('+TCurrencyUtils.FormatMoney(account.balance)+')';
           end else begin
-            s := TAccountComp.FormatMoney(account.balance);
+            s := TCurrencyUtils.FormatMoney(account.balance);
             if account.balance>0 then DrawGrid.Canvas.Font.Color := ClGreen
             else if account.balance=0 then DrawGrid.Canvas.Font.Color := clGrayText
             else DrawGrid.Canvas.Font.Color := clRed;
@@ -516,7 +517,7 @@ begin
         act_updated_state : Begin
           if Account.accountInfo.IsAccountForSale then begin
             // Show price for sale
-            s := TAccountComp.FormatMoney(account.accountInfo.price);
+            s := TCurrencyUtils.FormatMoney(account.accountInfo.price);
             if account.accountInfo.IsAccountForSaleAcceptingTransactions then begin
               if account.accountInfo.IsLocked(Node.Bank.BlocksCount) then begin
                 DrawGrid.Canvas.Font.Color := clNavy;
@@ -528,7 +529,7 @@ begin
             end;
             Canvas_TextRect(DrawGrid.Canvas,Rect,s,State,[tfRight,tfVerticalCenter,tfSingleLine]);
           end else begin
-            if TAccountComp.IsAccountBlockedByProtocol(account.account,Node.Bank.BlocksCount) then begin
+            if TAccount.IsAccountBlockedByProtocol(account.account,Node.Bank.BlocksCount) then begin
               DrawGrid.Canvas.Brush.Color := clRed;
             end else if ndiff=0 then begin
               DrawGrid.Canvas.Brush.Color := RGB(255,128,0);
@@ -746,19 +747,19 @@ begin
         if opr.NOpInsideBlock>=0 then s := s + '/'+Inttostr(opr.NOpInsideBlock+1);
         Canvas_TextRect(DrawGrid.Canvas,Rect,s,State,[tfleft,tfVerticalCenter,tfSingleLine]);
       end else if ACol=2 then begin
-        s := TAccountComp.AccountNumberToAccountTxtNumber(opr.AffectedAccount);
+        s := TAccount.AccountNumberToAccountTxtNumber(opr.AffectedAccount);
         Canvas_TextRect(DrawGrid.Canvas,Rect,s,State,[tfleft,tfVerticalCenter,tfSingleLine]);
       end else if ACol=3 then begin
         s := opr.OperationTxt;
         Canvas_TextRect(DrawGrid.Canvas,Rect,s,State,[tfleft,tfVerticalCenter,tfSingleLine]);
       end else if ACol=4 then begin
-        s := TAccountComp.FormatMoney(opr.Amount);
+        s := TCurrencyUtils.FormatMoney(opr.Amount);
         if opr.Amount>0 then DrawGrid.Canvas.Font.Color := ClGreen
         else if opr.Amount=0 then DrawGrid.Canvas.Font.Color := clGrayText
         else DrawGrid.Canvas.Font.Color := clRed;
         Canvas_TextRect(DrawGrid.Canvas,Rect,s,State,[tfRight,tfVerticalCenter,tfSingleLine]);
       end else if ACol=5 then begin
-        s := TAccountComp.FormatMoney(opr.Fee);
+        s := TCurrencyUtils.FormatMoney(opr.Fee);
         if opr.Fee>0 then DrawGrid.Canvas.Font.Color := ClGreen
         else if opr.Fee=0 then DrawGrid.Canvas.Font.Color := clGrayText
         else DrawGrid.Canvas.Font.Color := clRed;
@@ -767,9 +768,9 @@ begin
         if opr.time=0 then begin
           // Pending operation... showing final balance
           DrawGrid.Canvas.Font.Color := clBlue;
-          s := '('+TAccountComp.FormatMoney(opr.Balance)+')';
+          s := '('+TCurrencyUtils.FormatMoney(opr.Balance)+')';
         end else begin
-          s := TAccountComp.FormatMoney(opr.Balance);
+          s := TCurrencyUtils.FormatMoney(opr.Balance);
           if opr.Balance>0 then DrawGrid.Canvas.Font.Color := ClGreen
           else if opr.Balance=0 then DrawGrid.Canvas.Font.Color := clGrayText
           else DrawGrid.Canvas.Font.Color := clRed;
@@ -1124,7 +1125,7 @@ begin
         end;
       end else if ACol=3 then begin
         if bcd.Volume>=0 then begin
-          s := TAccountComp.FormatMoney(bcd.Volume);
+          s := TCurrencyUtils.FormatMoney(bcd.Volume);
           if FBlockChainDataArray[ARow-1].Volume>0 then DrawGrid.Canvas.Font.Color := ClGreen
           else DrawGrid.Canvas.Font.Color := clGrayText;
           Canvas_TextRect(DrawGrid.Canvas,Rect,s,State,[tfRight,tfVerticalCenter,tfSingleLine]);
@@ -1134,12 +1135,12 @@ begin
           Canvas_TextRect(DrawGrid.Canvas,Rect,s,State,[tfCenter,tfVerticalCenter,tfSingleLine]);
         end;
       end else if ACol=4 then begin
-        s := TAccountComp.FormatMoney(bcd.Reward);
+        s := TCurrencyUtils.FormatMoney(bcd.Reward);
         if FBlockChainDataArray[ARow-1].Reward>0 then DrawGrid.Canvas.Font.Color := ClGreen
         else DrawGrid.Canvas.Font.Color := clGrayText;
         Canvas_TextRect(DrawGrid.Canvas,Rect,s,State,[tfRight,tfVerticalCenter,tfSingleLine]);
       end else if ACol=5 then begin
-        s := TAccountComp.FormatMoney(bcd.Fee);
+        s := TCurrencyUtils.FormatMoney(bcd.Fee);
         if bcd.Fee>0 then DrawGrid.Canvas.Font.Color := ClGreen
         else DrawGrid.Canvas.Font.Color := clGrayText;
         Canvas_TextRect(DrawGrid.Canvas,Rect,s,State,[tfRight,tfVerticalCenter,tfSingleLine]);
@@ -1266,7 +1267,7 @@ Var nstart,nend : Cardinal;
   opc : TPCOperationsComp;
   bcd : TBlockChainData;
   i : Integer;
-  opb : TOperationBlock;
+  opb : TBlockHeader;
 begin
   if (FBlockStart>FBlockEnd) And (FBlockStart>=0) then FBlockEnd := -1;
   if (FBlockEnd>=0) And (FBlockEnd<FBlockStart) then FBlockStart:=-1;
@@ -1299,7 +1300,7 @@ begin
       while (nstart<=nend) do begin
         i := length(FBlockChainDataArray) - (nend-nstart+1);
         bcd := CT_TBlockChainData_NUL;
-        opb := Node.Bank.SafeBox.Block(nend).blockchainInfo;
+        opb := Node.Bank.SafeBox.Block(nend).Blockheader;
         bcd.Block:=opb.block;
         bcd.Timestamp := opb.timestamp;
         bcd.BlockProtocolVersion := opb.protocol_version;

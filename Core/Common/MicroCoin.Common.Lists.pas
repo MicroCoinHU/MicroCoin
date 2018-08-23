@@ -1,11 +1,15 @@
 unit MicroCoin.Common.Lists;
 
 interface
+{$IFDEF FPC}
+{$MODE DELPHI}
 
-uses SysUtils, classes, System.Generics.Collections, UCrypto, UCommon;
+
+{$endif}
+
+uses SysUtils, classes, UCrypto, UCommon, Generics.Collections, Generics.Defaults;
 
 type
-
 
   TOrderedList = class
   private
