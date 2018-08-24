@@ -91,7 +91,7 @@ Type
 implementation
 
 uses
-  Variants, UAccounts, SysUtils;
+  Variants, SysUtils;
 
 Const
   CT_AppParams_File_Magic = 'TAppParams';

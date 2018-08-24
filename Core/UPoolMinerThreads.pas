@@ -22,8 +22,9 @@ interface
 {$I config.inc}
 
 uses
-  Classes, SysUtils, syncobjs, UThread, UPoolMining, UAccounts,
-  UCrypto, ULog, UBlockChain, USha256, MicroCoin.Account.AccountKey;
+  Classes, SysUtils, syncobjs, UThread, UPoolMining,
+  UCrypto, ULog, MicroCoin.BlockChain.BlockManager, USha256, MicroCoin.Account.AccountKey,
+  MicroCoin.BlockChain.Protocol;
 
 type
   TMinerStats = Record

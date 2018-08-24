@@ -12,7 +12,9 @@ unit MicroCoin.Transaction.TransactionList;
 
 interface
 
-uses SysUtils, Classes, MicroCoin.Transaction.Base, UThread;
+uses SysUtils, Classes, MicroCoin.Transaction.Base, UThread,
+     MicroCoin.Account.Storage, MicroCoin.Account.AccountKey,
+     MicroCoin.Common.Lists, UCrypto, UConst, ULog;
 
 type
   TTransactionList = class
@@ -28,6 +30,7 @@ type
     procedure Clear;
     property TransactionData[index: Integer]: TTransactionData read GetTransactionData; default;
   End;
+
 
 
 implementation
@@ -117,5 +120,6 @@ begin
     FList.UnlockList;
   end;
 end;
+
 
 end.

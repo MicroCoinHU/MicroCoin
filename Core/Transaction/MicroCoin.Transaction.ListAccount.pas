@@ -14,10 +14,10 @@ interface
 
 uses MicroCoin.Transaction.Base,
   MicroCoin.Common,
-  MicroCoin.Account,
+  MicroCoin.Account, MicroCoin.Account.Transaction,
   MicroCoin.Account.AccountKey,
   MicroCoin.Transaction.Transaction,
-  Sysutils, classes, UAccounts, UCrypto,
+  Sysutils, classes, UCrypto,
   ULog, UConst, MicroCoin.Transaction.Manager;
 
 type

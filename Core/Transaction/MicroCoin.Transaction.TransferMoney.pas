@@ -16,8 +16,8 @@ uses MicroCoin.Transaction.Base,
   MicroCoin.Common,
   MicroCoin.Account,
   MicroCoin.Account.AccountKey,
-  MicroCoin.Transaction.Transaction,
-  Sysutils, classes, UAccounts, UCrypto, ULog, UConst, MicroCoin.Transaction.Manager;
+  MicroCoin.Transaction.Transaction, MicroCoin.Account.Transaction,
+  Sysutils, classes, UCrypto, ULog, UConst, MicroCoin.Transaction.Manager;
 
 type
 

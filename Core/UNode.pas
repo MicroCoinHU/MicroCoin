@@ -31,10 +31,11 @@ unit UNode;
 interface
 
 uses
-  Classes, UBlockChain, UNetProtocol, UAccounts, UCrypto,
+  Classes, MicroCoin.BlockChain.BlockManager, UNetProtocol, UCrypto,
   UThread, SyncObjs, ULog, MicroCoin.Transaction.Base,
   MicroCoin.Common.Lists,
   MicroCoin.Account,
+  MicroCoin.BlockChain.Block,
   MicroCoin.Transaction.TransactionList, MicroCoin.Transaction.HashTree,
   MicroCoin.Account.Storage, MicroCoin.BlockChain.BlockHeader;
 
@@ -51,10 +52,10 @@ type
     FLockNodeOperations: TPCCriticalSection;
     FOperationSequenceLock: TPCCriticalSection;
     FNotifyList: TList;
-    FBank: TPCBank;
-    FOperations: TPCOperationsComp;
+    FBank: TBlockManager;
+    FOperations: TBlock;
     FNetServer: TNetServer;
-    FBCBankNotify: TPCBankNotify;
+    FBCBankNotify: TBlockManagerNotify;
     FPeerCache: AnsiString;
     FDisabledsNewBlocksCount: Integer;
     FSentOperations: TOrderedRawList;
@@ -72,13 +73,13 @@ type
     class function EncodeNodeServerAddressArrayToIpString(const NodeServerAddressArray: TNodeServerAddressArray): AnsiString;
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
-    property Bank: TPCBank read FBank;
+    property Bank: TBlockManager read FBank;
     function NetServer: TNetServer;
     procedure NotifyNetClientMessage(Sender: TNetConnection; const TheMessage: AnsiString);
     //
-    property Operations: TPCOperationsComp read FOperations;
+    property Operations: TBlock read FOperations;
     //
-    function AddNewBlockChain(SenderConnection: TNetConnection; NewBlockOperations: TPCOperationsComp; var newBlockAccount: TAccountStorageEntry; var errors: AnsiString): Boolean;
+    function AddNewBlockChain(SenderConnection: TNetConnection; NewBlockOperations: TBlock; var newBlockAccount: TAccountStorageEntry; var errors: AnsiString): Boolean;
     function AddOperations(SenderConnection: TNetConnection; Operations: TTransactionHashTree; OperationsResult: TTransactionList; var errors: AnsiString): Integer;
     function AddOperation(SenderConnection: TNetConnection; Operation: ITransaction; var errors: AnsiString): Boolean;
     function SendNodeMessage(Target: TNetConnection; TheMessage: AnsiString; var errors: AnsiString): Boolean;
@@ -86,7 +87,7 @@ type
     procedure NotifyBlocksChanged;
     //
     procedure GetStoredOperationsFromAccount(const OperationsResume: TTransactionList; account_number: Cardinal; MaxDepth, StartOperation, EndOperation: Integer);
-    function FindOperation(const OperationComp: TPCOperationsComp; const OperationHash: TRawBytes; var block: Cardinal; var operation_block_index: Integer): Boolean;
+    function FindOperation(const OperationComp: TBlock; const OperationHash: TRawBytes; var block: Cardinal; var operation_block_index: Integer): Boolean;
     //
     procedure AutoDiscoverNodes(const Ips: AnsiString);
     function IsBlockChainValid(var WhyNot: AnsiString): Boolean;
@@ -138,10 +139,10 @@ type
   TThreadNodeNotifyNewBlock = class(TPCThread)
     FNetConnection: TNetConnection;
     FSanitizedOperationsHashTree: TTransactionHashTree;
-    FNewBlockOperations: TPCOperationsComp;
+    FNewBlockOperations: TBlock;
   protected
     procedure BCExecute; override;
-    constructor Create(NetConnection: TNetConnection; MakeACopyOfNewBlockOperations: TPCOperationsComp; MakeACopyOfSanitizedOperationsHashTree: TTransactionHashTree);
+    constructor Create(NetConnection: TNetConnection; MakeACopyOfNewBlockOperations: TBlock; MakeACopyOfSanitizedOperationsHashTree: TTransactionHashTree);
     destructor Destroy; override;
   end;
 
@@ -166,7 +167,7 @@ resourcestring
 
   { TNode }
 
-function TNode.AddNewBlockChain(SenderConnection: TNetConnection; NewBlockOperations: TPCOperationsComp;
+function TNode.AddNewBlockChain(SenderConnection: TNetConnection; NewBlockOperations: TBlock;
   var newBlockAccount: TAccountStorageEntry; var errors: AnsiString): Boolean;
 var
   i, j: Integer;
@@ -182,7 +183,7 @@ begin
   if FDisabledsNewBlocksCount > 0 then
   begin
     TLog.NewLog(lterror, Classname, Format('Cannot Add new BlockChain due is adding disabled - Connection:%s NewBlock:%s', [
-      Inttohex(PtrInt(SenderConnection), 8), TPCOperationsComp.OperationBlockToText(NewBlockOperations.OperationBlock)]));
+      Inttohex(PtrInt(SenderConnection), 8), TBlock.OperationBlockToText(NewBlockOperations.OperationBlock)]));
     errors := 'Adding blocks is disabled';
     exit;
   end;
@@ -193,7 +194,7 @@ begin
   end;
   OpBlock := NewBlockOperations.OperationBlock;
   TLog.NewLog(ltdebug, Classname, Format('AddNewBlockChain Connection:%s NewBlock:%s', [
-    Inttohex(PtrInt(SenderConnection), 8), TPCOperationsComp.OperationBlockToText(OpBlock)]));
+    Inttohex(PtrInt(SenderConnection), 8), TBlock.OperationBlockToText(OpBlock)]));
   if not TPCThread.TryProtectEnterCriticalSection(Self, 2000, FLockNodeOperations) then
   begin
     if NewBlockOperations.OperationBlock.block <> Bank.BlocksCount then
@@ -207,7 +208,7 @@ begin
   end;
   try
     // Check block number:
-    if TPCOperationsComp.EqualsOperationBlock(Bank.LastOperationBlock, NewBlockOperations.OperationBlock) then
+    if TBlock.EqualsOperationBlock(Bank.LastOperationBlock, NewBlockOperations.OperationBlock) then
     begin
       errors := 'Duplicated block';
       exit;
@@ -308,7 +309,7 @@ begin
   finally
     FLockNodeOperations.Release;
     TLog.NewLog(ltdebug, Classname, Format('Finalizing AddNewBlockChain Connection:%s NewBlock:%s', [
-      Inttohex(PtrInt(SenderConnection), 8), TPCOperationsComp.OperationBlockToText(OpBlock)]));
+      Inttohex(PtrInt(SenderConnection), 8), TBlock.OperationBlockToText(OpBlock)]));
   end;
   if Result then
   begin
@@ -378,7 +379,7 @@ function TNode.AddOperations(SenderConnection: TNetConnection; Operations: TTran
 
 var
   i, j: Integer;
-  operationscomp: TPCOperationsComp;
+  operationscomp: TBlock;
   valids_operations: TTransactionHashTree;
   nc: TNetConnection;
   e: AnsiString;
@@ -561,12 +562,12 @@ begin
   FDisabledsNewBlocksCount := 0;
   FLockNodeOperations := TPCCriticalSection.Create('TNode_LockNodeOperations');
   FOperationSequenceLock := TPCCriticalSection.Create('TNode_OperationSequenceLock');
-  FBank := TPCBank.Create(Self);
-  FBCBankNotify := TPCBankNotify.Create(Self);
-  FBCBankNotify.Bank := FBank;
+  FBank := TBlockManager.Create(Self);
+  FBCBankNotify := TBlockManagerNotify.Create(Self);
+  FBCBankNotify.BlockManager := FBank;
   FBCBankNotify.OnNewBlock := OnBankNewBlock;
   FNetServer := TNetServer.Create;
-  FOperations := TPCOperationsComp.Create(Self);
+  FOperations := TBlock.Create(Self);
   FOperations.Bank := FBank;
   FNotifyList := TList.Create;
 {$IFDEF BufferOfFutureOperations}
@@ -807,7 +808,7 @@ procedure TNode.GetStoredOperationsFromAccount(const OperationsResume: TTransact
 // For better performance, will only include at "OperationsResume" values betweeen "startOperation" and "endOperation"
   procedure DoGetFromBlock(block_number: Integer; last_balance: Int64; act_depth: Integer; nOpsCounter: Integer);
   var
-    opc: TPCOperationsComp;
+    opc: TBlock;
     op: ITransaction;
     OPR: TTransactionData;
     l: TList;
@@ -816,7 +817,7 @@ procedure TNode.GetStoredOperationsFromAccount(const OperationsResume: TTransact
   begin
     if (act_depth <= 0) then
       exit;
-    opc := TPCOperationsComp.Create(nil);
+    opc := TBlock.Create(nil);
     try
       l := TList.Create;
       try
@@ -905,7 +906,7 @@ begin
     DoGetFromBlock(acc.updated_block, acc.balance, MaxDepth, 0);
 end;
 
-function TNode.FindOperation(const OperationComp: TPCOperationsComp;
+function TNode.FindOperation(const OperationComp: TBlock;
   const OperationHash: TRawBytes; var block: Cardinal;
   var operation_block_index: Integer): Boolean;
 { With a OperationHash, search it }
@@ -1245,12 +1246,12 @@ begin
   DebugStep := 'Finalizing';
 end;
 
-constructor TThreadNodeNotifyNewBlock.Create(NetConnection: TNetConnection; MakeACopyOfNewBlockOperations: TPCOperationsComp; MakeACopyOfSanitizedOperationsHashTree: TTransactionHashTree);
+constructor TThreadNodeNotifyNewBlock.Create(NetConnection: TNetConnection; MakeACopyOfNewBlockOperations: TBlock; MakeACopyOfSanitizedOperationsHashTree: TTransactionHashTree);
 begin
   FNetConnection := NetConnection;
   FSanitizedOperationsHashTree := TTransactionHashTree.Create;
   FSanitizedOperationsHashTree.CopyFromHashTree(MakeACopyOfSanitizedOperationsHashTree);
-  FNewBlockOperations := TPCOperationsComp.Create(nil);
+  FNewBlockOperations := TBlock.Create(nil);
   FNewBlockOperations.CopyFrom(MakeACopyOfNewBlockOperations);
   inherited Create(false);
   FreeOnTerminate := true;

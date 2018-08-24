@@ -13,7 +13,8 @@ unit MicroCoin.Transaction.Base;
 interface
 
 uses
-  SysUtils, Classes, UAccounts, UCrypto, UConst, MicroCoin.Account.AccountKey;
+  SysUtils, Classes, UCrypto, UConst, MicroCoin.Account.AccountKey,
+  MicroCoin.Account.Transaction;
 
 type
 

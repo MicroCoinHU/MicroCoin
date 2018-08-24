@@ -12,7 +12,7 @@ unit MicroCoin.Account.AccountKey;
 
 interface
 
-uses UCrypto, sysutils, classes, uconst, UOpenSSL, ULog;
+uses UCrypto, sysutils, classes, uconst, UOpenSSL, ULog, MicroCoin.Common.Lists;
 
 type
 
@@ -41,6 +41,9 @@ type
     class Function WriteAccountKey(Stream: TStream; const value: TAccountKey): Integer;
     class Function ReadAccountKey(Stream: TStream; var value : TAccountKey): Integer;
   end;
+
+
+
 
 const CT_Base58 : AnsiString = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 

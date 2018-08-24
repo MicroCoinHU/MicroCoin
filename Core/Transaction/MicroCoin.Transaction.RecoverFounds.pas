@@ -13,9 +13,9 @@ unit MicroCoin.Transaction.RecoverFounds;
 interface
 
 uses MicroCoin.Transaction.Base, MicroCoin.Transaction.Transaction,
-  MicroCoin.Common,
+  MicroCoin.Common, MicroCoin.Account.Transaction,
   MicroCoin.Account,
-  Sysutils, classes, UAccounts, UCrypto, ULog, UConst, MicroCoin.Transaction.Manager;
+  Sysutils, classes, UCrypto, ULog, UConst, MicroCoin.Transaction.Manager;
 
 type
 

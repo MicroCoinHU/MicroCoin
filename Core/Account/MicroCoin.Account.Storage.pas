@@ -1,10 +1,20 @@
 unit MicroCoin.Account.Storage;
 
+{
+  This unit contains code from PascalCoin:
+
+  Copyright (c) Albert Molina 2016 - 2018 original code from PascalCoin https://pascalcoin.org/
+
+  Distributed under the MIT software license, see the accompanying file LICENSE
+  or visit http://www.opensource.org/licenses/mit-license.php.
+
+}
+
 interface
 
 uses SysUtils, classes, UCrypto, UThread, MicroCoin.Common.Lists,
      MicroCoin.Account, MicroCoin.Account.AccountKey, MicroCoin.BlockChain.BlockHeader,
-     UConst, UBaseTypes, ULog;
+     UConst, UBaseTypes, ULog, MicroCoin.BlockChain.Protocol;
 
 type
 
@@ -82,8 +92,36 @@ type
     property ListOfOrderedAccountKeysList: TList read FListOfOrderedAccountKeysList;
   end;
 
+  TOrderedAccountKeysList = class
+  private
+    FAutoAddAll: Boolean;
+    FAccountStorage: TAccountStorage;
+    FOrderedAccountKeysList: TList; // An ordered list of pointers to quickly find account keys in account list
+    function Find(const AccountKey: TAccountKey; var Index: Integer): Boolean;
+    function GetAccountKeyList(Index: Integer): TOrderedList;
+    function GetAccountKey(Index: Integer): TAccountKey;
+  public
+    procedure ClearAccounts(RemoveAccountList: Boolean);
+    constructor Create(AccountStorage: TAccountStorage; AutoAddAll: Boolean);
+    destructor Destroy; override;
+    procedure AddAccountKey(const AccountKey: TAccountKey);
+    procedure RemoveAccountKey(const AccountKey: TAccountKey);
+    procedure AddAccounts(const AccountKey: TAccountKey; const accounts: array of Cardinal);
+    procedure RemoveAccounts(const AccountKey: TAccountKey; const accounts: array of Cardinal);
+    function IndexOfAccountKey(const AccountKey: TAccountKey): Integer;
+    property AccountKeyList[index: Integer]: TOrderedList read GetAccountKeyList;
+    property AccountKey[index: Integer]: TAccountKey read GetAccountKey;
+    function Count: Integer;
+    property AccountStorage: TAccountStorage read FAccountStorage write FAccountStorage;
+    procedure Clear;
+  end;
+
+const
+  CT_AccountChunkIdentificator = 'SafeBoxChunk';
+  CT_AccountStorageHeader_NUL: TAccountStorageHeader = (protocol: 0; startBlock: 0; endBlock: 0; blocksCount: 0; AccountStorageHash: '');
+
 implementation
-uses UAccounts;
+
 {$DEFINE uselowmem}
 
 const
@@ -1557,5 +1595,227 @@ procedure TAccountStorage.StartThreadSafe;
 begin
   TPCThread.ProtectEnterCriticalSection(Self, FLock);
 end;
+
+
+type
+  TOrderedAccountKeyList = record
+    rawaccountkey: TRawBytes;
+    accounts_number: TOrderedList;
+  end;
+
+  POrderedAccountKeyList = ^TOrderedAccountKeyList;
+
+function SortOrdered(Item1, Item2: Pointer): Integer;
+begin
+  Result := PtrInt(Item1) - PtrInt(Item2);
+end;
+
+procedure TOrderedAccountKeysList.AddAccountKey(const AccountKey: TAccountKey);
+var
+  P: POrderedAccountKeyList;
+  i, j: Integer;
+begin
+  if not Find(AccountKey, i) then
+  begin
+    New(P);
+    P^.rawaccountkey := AccountKey.ToRawString;
+    P^.accounts_number := TOrderedList.Create;
+    FOrderedAccountKeysList.Insert(i, P);
+    // Search this key in the AccountsList and add all...
+    j := 0;
+    if Assigned(FAccountStorage) then
+    begin
+      for i := 0 to FAccountStorage.AccountsCount - 1 do
+      begin
+        if TAccountKey.EqualAccountKeys(FAccountStorage.Account(i).AccountInfo.AccountKey, AccountKey) then
+        begin
+          // Note: P^.accounts will be ascending ordered due to "for i:=0 to ..."
+          P^.accounts_number.Add(i);
+        end;
+      end;
+      TLog.NewLog(ltDebug, Classname, Format('Adding account key (%d of %d) %s', [j, FAccountStorage.AccountsCount, TCrypto.ToHexaString(AccountKey.ToRawString)]));
+    end
+    else
+    begin
+      TLog.NewLog(ltDebug, Classname, Format('Adding account key (no Account List) %s', [TCrypto.ToHexaString(AccountKey.ToRawString)]));
+    end;
+  end;
+end;
+
+procedure TOrderedAccountKeysList.AddAccounts(const AccountKey: TAccountKey; const accounts: array of Cardinal);
+var
+  P: POrderedAccountKeyList;
+  i, i2: Integer;
+begin
+  if Find(AccountKey, i) then
+  begin
+    P := POrderedAccountKeyList(FOrderedAccountKeysList[i]);
+  end
+  else if (FAutoAddAll) then
+  begin
+    New(P);
+    P^.rawaccountkey := AccountKey.ToRawString;
+    P^.accounts_number := TOrderedList.Create;
+    FOrderedAccountKeysList.Insert(i, P);
+  end
+  else
+    exit;
+  for i := low(accounts) to high(accounts) do
+  begin
+    P^.accounts_number.Add(accounts[i]);
+  end;
+end;
+
+procedure TOrderedAccountKeysList.Clear;
+begin
+  ClearAccounts(true);
+end;
+
+procedure TOrderedAccountKeysList.ClearAccounts(RemoveAccountList: Boolean);
+var
+  P: POrderedAccountKeyList;
+  i: Integer;
+begin
+  for i := 0 to FOrderedAccountKeysList.Count - 1 do
+  begin
+    P := FOrderedAccountKeysList[i];
+    if RemoveAccountList then
+    begin
+      P^.accounts_number.Free;
+      Dispose(P);
+    end
+    else
+    begin
+      P^.accounts_number.Clear;
+    end;
+  end;
+  if RemoveAccountList then
+  begin
+    FOrderedAccountKeysList.Clear;
+  end;
+end;
+
+function TOrderedAccountKeysList.Count: Integer;
+begin
+  Result := FOrderedAccountKeysList.Count;
+end;
+
+constructor TOrderedAccountKeysList.Create(AccountStorage: TAccountStorage; AutoAddAll: Boolean);
+var
+  i: Integer;
+begin
+  TLog.NewLog(ltDebug, Classname, 'Creating an Ordered Account Keys List adding all:' + CT_TRUE_FALSE[AutoAddAll]);
+  FAutoAddAll := AutoAddAll;
+  FAccountStorage := AccountStorage;
+  FOrderedAccountKeysList := TList.Create;
+  if Assigned(AccountStorage) then
+  begin
+    AccountStorage.ListOfOrderedAccountKeysList.Add(Self);
+    if AutoAddAll then
+    begin
+      for i := 0 to AccountStorage.AccountsCount - 1 do
+      begin
+        AddAccountKey(AccountStorage.Account(i).AccountInfo.AccountKey);
+      end;
+    end;
+  end;
+end;
+
+destructor TOrderedAccountKeysList.Destroy;
+begin
+  TLog.NewLog(ltDebug, Classname, 'Destroying an Ordered Account Keys List adding all:' + CT_TRUE_FALSE[FAutoAddAll]);
+  if Assigned(FAccountStorage) then
+  begin
+    FAccountStorage.ListOfOrderedAccountKeysList.Remove(Self);
+  end;
+  ClearAccounts(true);
+  FreeAndNil(FOrderedAccountKeysList);
+  inherited;
+end;
+
+function TOrderedAccountKeysList.Find(const AccountKey: TAccountKey; var Index: Integer): Boolean;
+var
+  L, H, i, c: Integer;
+  rak: TRawBytes;
+begin
+  Result := false;
+  rak := AccountKey.ToRawString;
+  L := 0;
+  H := FOrderedAccountKeysList.Count - 1;
+  while L <= H do
+  begin
+    i := (L + H) shr 1;
+    c := CompareStr(POrderedAccountKeyList(FOrderedAccountKeysList[i]).rawaccountkey, rak);
+    if c < 0 then
+      L := i + 1
+    else
+    begin
+      H := i - 1;
+      if c = 0 then
+      begin
+        Result := true;
+        L := i;
+      end;
+    end;
+  end;
+  index := L;
+end;
+
+function TOrderedAccountKeysList.GetAccountKey(Index: Integer): TAccountKey;
+var
+  raw: TRawBytes;
+begin
+  raw := POrderedAccountKeyList(FOrderedAccountKeysList[index]).rawaccountkey;
+  Result := TAccountKey.FromRawString(raw);
+end;
+
+function TOrderedAccountKeysList.GetAccountKeyList(Index: Integer): TOrderedList;
+begin
+  Result := POrderedAccountKeyList(FOrderedAccountKeysList[index]).accounts_number;
+end;
+
+function TOrderedAccountKeysList.IndexOfAccountKey(const AccountKey: TAccountKey): Integer;
+begin
+  if not Find(AccountKey, Result) then
+    Result := -1;
+end;
+
+procedure TOrderedAccountKeysList.RemoveAccounts(const AccountKey: TAccountKey; const accounts: array of Cardinal);
+var
+  P: POrderedAccountKeyList;
+  i, j: Integer;
+begin
+  if not Find(AccountKey, i) then
+    exit; // Nothing to do
+  P := POrderedAccountKeyList(FOrderedAccountKeysList[i]);
+  for j := low(accounts) to high(accounts) do
+  begin
+    P^.accounts_number.Remove(accounts[j]);
+  end;
+  if (P^.accounts_number.Count = 0) and (FAutoAddAll) then
+  begin
+    // Remove from list
+    FOrderedAccountKeysList.Delete(i);
+    // Free it
+    P^.accounts_number.Free;
+    Dispose(P);
+  end;
+end;
+
+procedure TOrderedAccountKeysList.RemoveAccountKey(const AccountKey: TAccountKey);
+var
+  P: POrderedAccountKeyList;
+  i, j: Integer;
+begin
+  if not Find(AccountKey, i) then
+    exit; // Nothing to do
+  P := POrderedAccountKeyList(FOrderedAccountKeysList[i]);
+  // Remove from list
+  FOrderedAccountKeysList.Delete(i);
+  // Free it
+  P^.accounts_number.Free;
+  Dispose(P);
+end;
+
 
 end.

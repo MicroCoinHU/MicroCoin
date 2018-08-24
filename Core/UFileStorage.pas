@@ -22,7 +22,8 @@ unit UFileStorage;
 interface
 
 uses
-  Classes, UBlockChain, SyncObjs, UThread, UAccounts, UCrypto, MicroCoin.Account.Storage;
+  Classes, MicroCoin.BlockChain.BlockManager, SyncObjs, UThread, UCrypto, MicroCoin.Account.Storage,
+  MicroCoin.BlockChain.Storage, MicroCoin.BlockChain.Block;
 
 {$I config.inc}
 
@@ -47,8 +48,8 @@ Type
     FDatabaseFolder: AnsiString;
     FBlockChainFileName : AnsiString;
     Function StreamReadBlockHeader(Stream: TStream; iBlockHeaders : Integer; BlockHeaderFirstBlock, Block: Cardinal; CanSearchBackward : Boolean; var BlockHeader : TBlockHeader): Boolean;
-    Function StreamBlockRead(Stream : TStream; iBlockHeaders : Integer; BlockHeaderFirstBlock, Block : Cardinal; Operations : TPCOperationsComp) : Boolean;
-    Function StreamBlockSave(Stream : TStream; iBlockHeaders : Integer; BlockHeaderFirstBlock : Cardinal; Operations : TPCOperationsComp) : Boolean;
+    Function StreamBlockRead(Stream : TStream; iBlockHeaders : Integer; BlockHeaderFirstBlock, Block : Cardinal; Operations : TBlock) : Boolean;
+    Function StreamBlockSave(Stream : TStream; iBlockHeaders : Integer; BlockHeaderFirstBlock : Cardinal; Operations : TBlock) : Boolean;
     Function GetFolder(Const AOrphan : TOrphan): AnsiString;
     Function GetBlockHeaderFirstBytePosition(Stream : TStream; Block : Cardinal; CanInitialize : Boolean; var iBlockHeaders : Integer; var BlockHeaderFirstBlock : Cardinal) : Boolean;
     Function GetBlockHeaderFixedSize : Int64;
@@ -58,8 +59,8 @@ Type
   protected
     procedure SetReadOnly(const Value: Boolean); override;
     procedure SetOrphan(const Value: TOrphan); override;
-    Function DoLoadBlockChain(Operations : TPCOperationsComp; Block : Cardinal) : Boolean; override;
-    Function DoSaveBlockChain(Operations : TPCOperationsComp) : Boolean; override;
+    Function DoLoadBlockChain(Operations : TBlock; Block : Cardinal) : Boolean; override;
+    Function DoSaveBlockChain(Operations : TBlock) : Boolean; override;
     Function DoMoveBlockChain(Start_Block : Cardinal; Const DestOrphan : TOrphan; DestStorage : TStorage) : Boolean; override;
     Function DoSaveBank : Boolean; override;
     Function DoRestoreBank(max_block : Int64) : Boolean; override;
@@ -259,7 +260,7 @@ begin
   end;
 end;
 
-function TFileStorage.DoLoadBlockChain(Operations: TPCOperationsComp; Block: Cardinal): Boolean;
+function TFileStorage.DoLoadBlockChain(Operations: TBlock; Block: Cardinal): Boolean;
 Var stream : TStream;
   iBlockHeaders : Integer;
   BlockHeaderFirstBlock : Cardinal;
@@ -323,7 +324,7 @@ function TFileStorage.DoMoveBlockChain(Start_Block: Cardinal; const DestOrphan: 
 
 Var db : TFileStorage;
   i : Integer;
-  ops : TPCOperationsComp;
+  ops : TBlock;
   b : Cardinal;
 begin
   Try
@@ -339,12 +340,12 @@ begin
       end;
       if db is TFileStorage then TFileStorage(db).LockBlockChainStream;
       try
-        ops := TPCOperationsComp.Create(Nil);
+        ops := TBlock.Create(Nil);
         try
           b := Start_Block;
           while LoadBlockChainBlock(ops,b) do begin
             inc(b);
-            TLog.NewLog(ltDebug,Classname,'Moving block from "'+Orphan+'" to "'+DestOrphan+'" '+TPCOperationsComp.OperationBlockToText(ops.OperationBlock));
+            TLog.NewLog(ltDebug,Classname,'Moving block from "'+Orphan+'" to "'+DestOrphan+'" '+TBlock.OperationBlockToText(ops.OperationBlock));
             db.SaveBlockChainBlock(ops);
           end;
           TLog.NewLog(ltdebug,Classname,'Moved blockchain from "'+Orphan+'" to "'+DestOrphan+'" from block '+inttostr(Start_Block)+' to '+inttostr(b-1));
@@ -453,7 +454,7 @@ begin
   end;
 end;
 
-function TFileStorage.DoSaveBlockChain(Operations: TPCOperationsComp): Boolean;
+function TFileStorage.DoSaveBlockChain(Operations: TBlock): Boolean;
 Var stream : TStream;
   iBlockHeaders : Integer;
   BlockHeaderFirstBlock : Cardinal;
@@ -765,7 +766,7 @@ begin
   ClearStream;
 end;
 
-function TFileStorage.StreamBlockRead(Stream : TStream; iBlockHeaders : Integer; BlockHeaderFirstBlock, Block : Cardinal; Operations : TPCOperationsComp) : Boolean;
+function TFileStorage.StreamBlockRead(Stream : TStream; iBlockHeaders : Integer; BlockHeaderFirstBlock, Block : Cardinal; Operations : TBlock) : Boolean;
 Var p : Int64;
   errors : AnsiString;
   streamFirstBlock,
@@ -813,7 +814,7 @@ begin
 end;
 
 
-function TFileStorage.StreamBlockSave(Stream : TStream; iBlockHeaders : Integer; BlockHeaderFirstBlock : Cardinal; Operations : TPCOperationsComp) : Boolean;
+function TFileStorage.StreamBlockSave(Stream : TStream; iBlockHeaders : Integer; BlockHeaderFirstBlock : Cardinal; Operations : TBlock) : Boolean;
 Var p : Int64;
   c : Cardinal;
   _Header, _HeaderPrevious : TBlockHeader;

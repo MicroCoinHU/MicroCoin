@@ -21,7 +21,7 @@ unit UWalletKeys;
 interface
 
 uses
-  Classes, UBlockChain, MicroCoin.Account.AccountKey, UAccounts, UCrypto,
+  Classes, MicroCoin.BlockChain.BlockManager, MicroCoin.Account.AccountKey, UCrypto,
   MicroCoin.Account.Storage, MicroCoin.BlockChain.BlockHeader;
 
 Type

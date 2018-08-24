@@ -13,9 +13,9 @@ unit MicroCoin.Transaction.ChangeKey;
 interface
 
 uses MicroCoin.Transaction.Base, MicroCoin.Transaction.Transaction,
-  MicroCoin.Account.AccountKey,
+  MicroCoin.Account.AccountKey, MicroCoin.Account.Transaction,
   MicroCoin.Common, MicroCoin.Account,
-  Sysutils, classes, UAccounts, UCrypto, ULog, UConst, MicroCoin.Transaction.Manager;
+  Sysutils, classes, UCrypto, ULog, UConst, MicroCoin.Transaction.Manager;
 
 type
 

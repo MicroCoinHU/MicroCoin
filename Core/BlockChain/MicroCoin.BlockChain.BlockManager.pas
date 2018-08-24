@@ -1,21 +1,19 @@
-unit UBlockChain;
-
-{$IFDEF FPC}
-{$MODE Delphi}
-{$ENDIF}
+unit MicroCoin.BlockChain.BlockManager;
+
+
 {
+  This unit contains code from PascalCoin:
+
   Copyright (c) Albert Molina 2016 - 2018 original code from PascalCoin https://pascalcoin.org/
 
   Distributed under the MIT software license, see the accompanying file LICENSE
   or visit http://www.opensource.org/licenses/mit-license.php.
 
-  This unit is a part of Pascal Coin, a P2P crypto currency without need of
-  historical operations.
-
-  If you like it, consider a donation using BitCoin:
-  16K3HCZRhFUtM8GdWRcfKeaa6KsuyxZaYk
-
 }
+
+{$IFDEF FPC}
+{$MODE Delphi}
+{$ENDIF}
 
 interface
 
@@ -26,126 +24,41 @@ uses
   MicroCoin.Account.AccountKey, MicroCoin.BlockChain.BlockHeader,
   MicroCoin.Account.Storage, MicroCoin.Account.Transaction, MicroCoin.BlockChain.Protocol,
   MicroCoin.BlockChain.Storage, MicroCoin.BlockChain.Block;
-{$I config.inc}
-{
 
-  Bank BlockChain:
-
-  Safe Box content: (See Unit "UAccounts.pas" to see pascal code)
-  +--------------+--------------------------------------------------+------------+------------+
-  + BlockAccount + Each BlockAccount has N "Account"                +  Timestamp + Block Hash +
-  +              +--------------------------------------------------+            +            +
-  +              + Addr B0 + Public key +  Balance + updated + n_op +            +            +
-  +              + Addr B1 + Public key +  Balance + updated + n_op +            +            +
-  +              + ......                                           +            +            +
-  +              + Addr B4 + Public key +  Balance + updated + n_op +            +            +
-  +--------------+---------+----------------------------------------+------------+------------+
-  +            0 +       0 + pk_aaaaaaa + 100.0000 +       0 +    0 + 1461701856 +   Sha256() +
-  +              +       1 + pk_aaaaaaa +   0.0000 +       0 +    0 +            + = h1111111 +
-  +              +       2 + pk_aaaaaaa +   0.0000 +       0 +    0 +            +            +
-  +              +       3 + pk_aaaaaaa +   0.0000 +       0 +    0 +            +            +
-  +              +       4 + pk_aaaaaaa +   0.0000 +       0 +    0 +            +            +
-  +--------------+---------+----------------------------------------+------------+------------+
-  +            1 +       5 + pk_bbbbbbb + 100.0000 +       0 +    0 + 1461702960 +   Sha256() +
-  +              +       6 + pk_bbbbbbb +   0.0000 +       0 +    0 +            + = h2222222 +
-  +              +       7 + pk_bbbbbbb +   0.0000 +       0 +    0 +            +            +
-  +              +       8 + pk_bbbbbbb +   0.0000 +       0 +    0 +            +            +
-  +              +       9 + pk_bbbbbbb +   0.0000 +       0 +    0 +            +            +
-  +--------------+---------+----------------------------------------+------------+------------+
-  +     ................                                                                      +
-  +--------------+---------+----------------------------------------+------------+------------+
-  +            5 +      25 + pk_bbbbbbb + 100.0000 +       0 +    0 + 1461713484 +   Sha256() +
-  +              +      26 + pk_bbbbbbb +   0.0000 +       0 +    0 +            + = h3333333 +
-  +              +      27 + pk_bbbbbbb +   0.0000 +       0 +    0 +            +            +
-  +              +      28 + pk_bbbbbbb +   0.0000 +       0 +    0 +            +            +
-  +              +      29 + pk_bbbbbbb +   0.0000 +       0 +    0 +            +            +
-  +--------------+---------+----------------------------------------+------------+------------+
-  +  Safe Box Hash  : Sha256(h1111111 + h2222222 + ... + h3333333) = sbh_A1                   +
-  +-------------------------------------------------------------------------------------------+
-
-  BlockChain:
-
-  To generate a BlockChain (block X) we need the previous "Safe Box Hash"
-  (the Safe Box Hash number X-1, generated when BlockChain X-1 was generated)
-  Each BlockChain block generates a new "Safe Box" with a new "Safe Box Hash"
-
-  With this method, Safe Box is unique after a BlockChain, so we can assume
-  that a hard coded Safe Box X is the same that to load all previous BlockChain
-  from 0 to X. Conclusion: It's not necessary historical operations (block chains)
-  to work with Micro Coin
-
-  Some BlockChain fields:
-  +-------+-----------------+----------+------+-----+-----+------------+--------+-------+---------------+---------------+-----------------+---------------+-----------------------+
-  + Block + Account key     +  reward  + fee  + protocols + timestamp  + target + nonce + Miner Payload + safe box hash + operations hash + Proof of Work + Operations stream     +
-  +-------+-----------------+----------+------+-----+-----+------------+--------+-------+---------------+---------------+-----------------+---------------+-----------------------+
-  +     0 + (hard coded)    + 100.0000 +    0 +   1 +   0 + 1461701856 + trgt_1 +  ...  + (Hard coded)  +  (Hard coded) + Sha256(Operat.) + 000000C3F5... + Operations of block 0 +
-  +-------+-----------------+----------+------+-----+-----+------------+--------+-------+---------------+---------------+-----------------+---------------+-----------------------+
-  +     1 + hhhhhhhhhhhhhhh + 100.0000 +    0 +   1 +   0 + 1461701987 + trgt_1 +  ...  +      ...      + SFH block 0   + Sha256(Operat.) + 000000A987... + Operations of block 1 +
-  +-------+-----------------+----------+------+-----+-----+------------+--------+-------+---------------+---------------+-----------------+---------------+-----------------------+
-  +     2 + iiiiiiiiiiiiiii + 100.0000 + 0.43 +   1 +   0 + 1461702460 + trgt_1 +  ...  +      ...      + SFH block 1   + Sha256(Operat.) + 0000003A1C... + Operations of block 2 +
-  +-------+-----------------+----------+------+-----+-----+------------+--------+-------+---------------+---------------+-----------------+---------------+-----------------------+
-  +       .....                                                                                                                                                   +
-  +-------+-----------------+----------+------+-----+-----+------------+--------+-------+---------------+---------------+-----------------+---------------+-----------------------+
-
-  Considerations:
-  - Account Key: Is a public key that will have all new generated Accounts of the Safe Box
-  - Protocols are 2 values: First indicate protocol of this block, second future candidate protocol that is allowed by miner who made this. (For protocol upgrades)
-  - Safe Box Has: Each Block of the Bloch Chain is made in base of a previous Safe Box. This value hard codes consistency
-  - Operations Stream includes all the operations that will be made to the Safe Box after this block is generated. A hash value of Operations stream is "Operations Hash"
-
-  Operations:
-
-  Each Block of the Block Chain has its owns operations that will be used to change Safe Box after block is completed and included in BlockChain
-
-  Operations of actual Protocol (version 1) can be one of this:
-  - Transaction from 1 account to 1 account
-  - Change AccountKey of an account
-  - Recover balance from an unused account (lost keys)
-
-  Each Operation has a Hash value that is used to generate "Operations Hash". Operations Hash is a Sha256 of all the Operations included
-  inside it hashed like a Merkle Tree.
-
-  In unit "UOpTransaction.pas" you can see how each Operation Works.
-
-}
+  {$I ../config.inc}
 
 type
   TBlockManager = class;
   TBlockManagerNotify = class;
-
-  { TPCOperationsComp }
-
 
   TBlockManagerLog = procedure(Sender: TBlockManager; Operations: TBlock; Logtype: TLogType; Logtxt: AnsiString) of object;
 
   TBlockManagerNotify = class(TComponent)
   private
     FOnNewBlock: TNotifyEvent;
-    FBank: TBlockManager;
-    procedure SetBank(const value: TBlockManager);
+    FBlockManager: TBlockManager;
+    procedure SetBlockManager(const value: TBlockManager);
   protected
     procedure Notification(AComponent: TComponent; Operation: TOperation); override;
     procedure NotifyNewBlock;
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
-    property bank: TBlockManager read FBank write SetBank;
+    property BlockManager: TBlockManager read FBlockManager write SetBlockManager;
     property OnNewBlock: TNotifyEvent read FOnNewBlock write FOnNewBlock;
   end;
 
 
-  { TPCBank }
-
-  TBlockManager = class(TBank)
+  TBlockManager = class(TBlockManagerBase)
   private
     FStorage: TStorage;
-    FSafeBox: TAccountStorage;
+    FAccountStorage: TAccountStorage;
     FLastBlockCache: TBlock;
     FLastOperationBlock: TBlockHeader;
     FIsRestoringFromFile: Boolean;
     FUpgradingToV2: Boolean;
     FOnLog: TBlockManagerLog;
-    FBankLock: TPCCriticalSection;
+    FAccountStorageLock: TPCCriticalSection;
     FNotifyList: TList;
     FStorageClass: TStorageClass;
     function GetStorage: TStorage;
@@ -158,10 +71,10 @@ type
     procedure AssignTo(Dest: TPersistent); override;
     function GetActualTargetSecondsAverage(BackBlocks: Cardinal): Real;
     function GetTargetSecondsAverage(FromBlock, BackBlocks: Cardinal): Real;
-    function LoadBankFromStream(Stream: TStream; useSecureLoad: Boolean; var errors: AnsiString): Boolean; override;
+    function LoadAccountsFromStream(Stream: TStream; useSecureLoad: Boolean; var errors: AnsiString): Boolean; override;
     procedure Clear;
     function LoadOperations(Operations: TBlock; Block: Cardinal): Boolean;
-    property SafeBox: TAccountStorage read FSafeBox;
+    property SafeBox: TAccountStorage read FAccountStorage;
     function AddNewBlockChainBlock(Operations: TBlock; MaxAllowedTimestamp: Cardinal; var newBlock: TAccountStorageEntry; var errors: AnsiString): Boolean;
     procedure DiskRestoreFromOperations(max_block: Int64);
     procedure NewLog(Operations: TBlock; Logtype: TLogType; Logtxt: AnsiString);
@@ -184,11 +97,11 @@ uses
   {StdCtrls,}
   UTime, UConst;
 
-{ TPCBank }
+
 
 function TBlockManager.AccountsCount: Cardinal;
 begin
-  Result := FSafeBox.AccountsCount;
+  Result := FAccountStorage.AccountsCount;
 end;
 
 function TBlockManager.AddNewBlockChainBlock(Operations: TBlock; MaxAllowedTimestamp: Cardinal; var newBlock: TAccountStorageEntry; var errors: AnsiString): Boolean;
@@ -196,7 +109,7 @@ var
   buffer, PoW: AnsiString;
   i: Integer;
 begin
-  TPCThread.ProtectEnterCriticalSection(Self, FBankLock);
+  TPCThread.ProtectEnterCriticalSection(Self, FAccountStorageLock);
   try
     Result := false;
     errors := '';
@@ -245,7 +158,7 @@ begin
         NewLog(Operations, lterror, 'Invalid new block ' + Inttostr(Operations.OperationBlock.Block) + ': ' + errors);
     end;
   finally
-    FBankLock.Release;
+    FAccountStorageLock.Release;
   end;
   if Result then
   begin
@@ -287,7 +200,7 @@ begin
   FLastOperationBlock.initial_safe_box_hash := TCrypto.DoSha256(CT_Genesis_Magic_String_For_Old_Block_Hash);
   // Genesis hash
   FLastBlockCache.Clear(true);
-  NewLog(nil, ltupdate, 'Clear Bank');
+  NewLog(nil, ltupdate, 'Clear cache and account storage');
 end;
 
 constructor TBlockManager.Create(AOwner: TComponent);
@@ -295,10 +208,10 @@ begin
   inherited;
   FStorage := nil;
   FStorageClass := nil;
-  FBankLock := TPCCriticalSection.Create('TPCBank_BANKLOCK');
+  FAccountStorageLock := TPCCriticalSection.Create('TBlockManager_LOCKSTORAGE');
   FIsRestoringFromFile := false;
   FOnLog := nil;
-  FSafeBox := TAccountStorage.Create;
+  FAccountStorage := TAccountStorage.Create;
   FNotifyList := TList.Create;
   FLastBlockCache := TBlock.Create(nil);
   FIsRestoringFromFile := false;
@@ -312,13 +225,13 @@ var
 begin
   try
     step := 'Deleting critical section';
-    FreeAndNil(FBankLock);
+    FreeAndNil(FAccountStorageLock);
     step := 'Clear';
     Clear;
     step := 'Destroying LastBlockCache';
     FreeAndNil(FLastBlockCache);
     step := 'Destroying SafeBox';
-    FreeAndNil(FSafeBox);
+    FreeAndNil(FAccountStorage);
     step := 'Destroying NotifyList';
     FreeAndNil(FNotifyList);
     step := 'Destroying Storage';
@@ -328,7 +241,7 @@ begin
   except
     on E: Exception do
     begin
-      TLog.NewLog(lterror, Classname, 'Error destroying Bank step: ' + step + ' Errors (' + E.Classname + '): ' + E.Message);
+      TLog.NewLog(lterror, Classname, 'Error destroying Blockmanager step: ' + step + ' Errors (' + E.Classname + '): ' + E.Message);
       raise;
     end;
   end;
@@ -346,7 +259,7 @@ begin
     TLog.NewLog(lterror, Classname, 'Is Restoring!!!');
     raise Exception.Create('Is restoring!');
   end;
-  TPCThread.ProtectEnterCriticalSection(Self, FBankLock);
+  TPCThread.ProtectEnterCriticalSection(Self, FAccountStorageLock);
   try
     FUpgradingToV2 := not Storage.HasUpgradedToVersion2;
     FIsRestoringFromFile := true;
@@ -357,7 +270,7 @@ begin
         n := max_block
       else
         n := Storage.LastBlock;
-      Storage.RestoreBank(n);
+      Storage.RestoreAccountStorage(n);
       // Restore last blockchain
       if (BlocksCount > 0) and (SafeBox.CurrentProtocol = CT_PROTOCOL_1) then
       begin
@@ -391,7 +304,7 @@ begin
 {$ELSE}
                 if (BlocksCount mod (CT_BankToDiskEveryNBlocks * 10)) = 0 then
                 begin
-                  Storage.SaveBank;
+                  Storage.SaveAccountStorage;
                 end;
 {$ENDIF}
               end;
@@ -413,7 +326,7 @@ begin
       FUpgradingToV2 := false;
     end;
   finally
-    FBankLock.Release;
+    FAccountStorageLock.Release;
   end;
 end;
 
@@ -475,7 +388,7 @@ begin
     if not Assigned(FStorageClass) then
       raise Exception.Create('StorageClass not defined');
     FStorage := FStorageClass.Create(Self);
-    FStorage.bank := Self;
+    FStorage.BlockManager := Self;
   end;
   Result := FStorage;
 end;
@@ -495,7 +408,7 @@ begin
     Result := true;
 end;
 
-function TBlockManager.LoadBankFromStream(Stream: TStream; useSecureLoad: Boolean; var errors: AnsiString): Boolean;
+function TBlockManager.LoadAccountsFromStream(Stream: TStream; useSecureLoad: Boolean; var errors: AnsiString): Boolean;
 var
   LastReadBlock: TAccountStorageEntry;
   i: Integer;
@@ -511,7 +424,7 @@ begin
       if not Result then
         exit;
     end;
-    TPCThread.ProtectEnterCriticalSection(Self, FBankLock);
+    TPCThread.ProtectEnterCriticalSection(Self, FAccountStorageLock);
     try
       if Assigned(auxSB) then
       begin
@@ -532,7 +445,7 @@ begin
         // Genesis hash
       end;
     finally
-      FBankLock.Release;
+      FAccountStorageLock.Release;
     end;
     for i := 0 to FNotifyList.Count - 1 do
     begin
@@ -546,7 +459,7 @@ end;
 
 function TBlockManager.LoadOperations(Operations: TBlock; Block: Cardinal): Boolean;
 begin
-  TPCThread.ProtectEnterCriticalSection(Self, FBankLock);
+  TPCThread.ProtectEnterCriticalSection(Self, FAccountStorageLock);
   try
     if (Block > 0) and (Block = FLastBlockCache.OperationBlock.Block) then
     begin
@@ -559,7 +472,7 @@ begin
       Result := Storage.LoadBlockChainBlock(Operations, Block);
     end;
   finally
-    FBankLock.Release;
+    FAccountStorageLock.Release;
   end;
 end;
 
@@ -585,18 +498,15 @@ begin
     FreeAndNil(FStorage);
 end;
 
-
-{ TPCBankNotify }
-
 constructor TBlockManagerNotify.Create(AOwner: TComponent);
 begin
   inherited;
-  FBank := nil;
+  FBlockManager := nil;
 end;
 
 destructor TBlockManagerNotify.Destroy;
 begin
-  bank := nil;
+  BlockManager := nil;
   inherited;
 end;
 
@@ -604,30 +514,29 @@ procedure TBlockManagerNotify.Notification(AComponent: TComponent; Operation: TO
 begin
   inherited;
   if (Operation = opRemove) then
-    if AComponent = FBank then
-      FBank := nil;
+    if AComponent = FBlockManager then
+      FBlockManager := nil;
 end;
 
 procedure TBlockManagerNotify.NotifyNewBlock;
 begin
   if Assigned(FOnNewBlock) then
-    FOnNewBlock(bank);
+    FOnNewBlock(BlockManager);
 end;
 
-procedure TBlockManagerNotify.SetBank(const value: TBlockManager);
+procedure TBlockManagerNotify.SetBlockManager(const value: TBlockManager);
 begin
-  if Assigned(FBank) then
+  if Assigned(FBlockManager) then
   begin
-    FBank.FNotifyList.Remove(Self);
-    FBank.RemoveFreeNotification(Self);
+    FBlockManager.FNotifyList.Remove(Self);
+    FBlockManager.RemoveFreeNotification(Self);
   end;
-  FBank := value;
-  if Assigned(FBank) then
+  FBlockManager := value;
+  if Assigned(FBlockManager) then
   begin
-    FBank.FreeNotification(Self);
-    FBank.FNotifyList.Add(Self);
+    FBlockManager.FreeNotification(Self);
+    FBlockManager.FNotifyList.Add(Self);
   end;
 end;
 
 end.
-

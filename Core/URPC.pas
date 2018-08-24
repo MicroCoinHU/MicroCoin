@@ -20,11 +20,11 @@ unit URPC;
 
 interface
 
-uses UThread, ULog, UConst, UNode, UAccounts, UCrypto, UBlockChain,
+uses UThread, ULog, UConst, UNode, UCrypto, MicroCoin.BlockChain.BlockManager,
 {$IFDEF fpc} fpjson, {$ELSE}System.Json, {$ENDIF}
   UNetProtocol, UWalletKeys, UTime, UAES, UECIES, httpsend,
   UJSONFunctions, classes, blcksock, synsock, IniFiles, Variants, math,
-  MicroCoin.Account,
+  MicroCoin.Account, MicroCoin.BlockChain.Block,
   MicroCoin.Account.Storage, MicroCoin.BlockChain.BlockHeader,
   MicroCoin.Transaction.TransferMoney, MicroCoin.Transaction.ChangeKey,
   MicroCoin.Transaction.ListAccount, MicroCoin.Transaction.ChangeAccountInfo,
@@ -643,10 +643,10 @@ var
 
   function GetBlock(nBlock: cardinal; jsonObject: TPCJSONObject): Boolean;
   var
-    pcops: TPCOperationsComp;
+    pcops: TBlock;
     ob: TBlockHeader;
   begin
-    pcops := TPCOperationsComp.Create(nil);
+    pcops := TBlock.Create(nil);
     try
       if FNode.Bank.BlocksCount <= nBlock then
       begin
@@ -2586,7 +2586,7 @@ var
   senderpubkey, destpubkey: TAccountKey;
   ansistr: AnsiString;
   nsaarr: TNodeServerAddressArray;
-  pcops: TPCOperationsComp;
+  pcops: TBlock;
   ecpkey: TECPrivateKey;
   OPR: TTransactionData;
   r: TRawBytes;
@@ -2893,7 +2893,7 @@ begin
     c := params.GetAsVariant('block').AsCardinal(CT_MaxBlock);
     if (c >= 0) and (c < FNode.Bank.BlocksCount) then
     begin
-      pcops := TPCOperationsComp.Create(nil);
+      pcops := TBlock.Create(nil);
       try
         if not FNode.Bank.LoadOperations(pcops, c) then
         begin
@@ -2936,7 +2936,7 @@ begin
     c := params.GetAsVariant('block').AsCardinal(CT_MaxBlock);
     if (c >= 0) and (c < FNode.Bank.BlocksCount) then
     begin
-      pcops := TPCOperationsComp.Create(nil);
+      pcops := TBlock.Create(nil);
       try
         if not FNode.Bank.LoadOperations(pcops, c) then
         begin
@@ -3029,7 +3029,7 @@ begin
       ErrorDesc := 'param ophash not found or invalid value "' + params.AsString('ophash', '') + '"';
       exit;
     end;
-    pcops := TPCOperationsComp.Create(nil);
+    pcops := TBlock.Create(nil);
     try
       if not FNode.FindOperation(pcops, r, c, i) then
       begin

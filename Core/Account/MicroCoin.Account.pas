@@ -1,5 +1,15 @@
 unit MicroCoin.Account;
 
+{
+  This unit contains code from PascalCoin:
+
+  Copyright (c) Albert Molina 2016 - 2018 original code from PascalCoin https://pascalcoin.org/
+
+  Distributed under the MIT software license, see the accompanying file LICENSE
+  or visit http://www.opensource.org/licenses/mit-license.php.
+
+}
+
 interface
 
 uses Classes, Sysutils, MicroCoin.Account.AccountKey, UCrypto, UConst, UBaseTypes;
@@ -29,6 +39,7 @@ type
     class operator NotEqual(const accountInfo1, accountInfo2: TAccountInfo): Boolean;
   end;
 
+  PAccount = ^TAccount;
   TAccount = record
     Account: Cardinal; // FIXED value. Account number
     AccountInfo: TAccountInfo;
@@ -43,6 +54,21 @@ type
     class function AccountTxtNumberToAccountNumber(const account_txt_number: AnsiString; var account_number: Cardinal): Boolean; static;
     class function AccountBlock(const account_number: Cardinal): Cardinal; static;
   end;
+
+  TOrderedAccountList = class
+  private
+    FList: TList;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    procedure Clear;
+    function Add(const Account: TAccount): Integer;
+    function Count: Integer;
+    function Get(Index: Integer): TAccount; overload;
+    function GetPointer(Index: Integer): PAccount; overload;
+    function Find(const account_number: Cardinal; var Index: Integer): Boolean;
+  end;
+
 
   TMemAccount = record // TAccount with less memory usage
     // account number is discarded (-4 bytes)
@@ -81,8 +107,6 @@ type
 type
   PBlockAccount = ^TMemBlockAccount;
 
-
-  PAccount = ^TAccount;
 
 const
   CT_AccountInfo_NUL: TAccountInfo = (state: as_Unknown; AccountKey: (EC_OpenSSL_NID: 0; x: ''; y: ''); locked_until_block: 0; price: 0; account_to_pay: 0;
@@ -308,5 +332,87 @@ begin
   end;
 end;
 
+function TOrderedAccountList.Add(const Account: TAccount): Integer;
+var
+  P: PAccount;
+begin
+  if Find(Account.Account, Result) then
+  begin
+    PAccount(FList[Result])^ := Account;
+  end
+  else
+  begin
+    New(P);
+    P^ := Account;
+    FList.Insert(Result, P);
+  end;
+end;
+
+procedure TOrderedAccountList.Clear;
+var
+  i: Integer;
+  P: PAccount;
+begin
+  for i := 0 to FList.Count - 1 do
+  begin
+    P := FList[i];
+    Dispose(P);
+  end;
+  FList.Clear;
+end;
+
+function TOrderedAccountList.Count: Integer;
+begin
+  Result := FList.Count;
+end;
+
+constructor TOrderedAccountList.Create;
+begin
+  FList := TList.Create;
+end;
+
+destructor TOrderedAccountList.Destroy;
+begin
+  Clear;
+  FreeAndNil(FList);
+  inherited;
+end;
+
+function TOrderedAccountList.Find(const account_number: Cardinal; var Index: Integer): Boolean;
+var
+  L, H, i: Integer;
+  c: Int64;
+begin
+  Result := false;
+  L := 0;
+  H := FList.Count - 1;
+  while L <= H do
+  begin
+    i := (L + H) shr 1;
+    c := Int64(PAccount(FList[i]).Account) - Int64(account_number);
+    if c < 0 then
+      L := i + 1
+    else
+    begin
+      H := i - 1;
+      if c = 0 then
+      begin
+        Result := true;
+        L := i;
+      end;
+    end;
+  end;
+  index := L;
+end;
+
+function TOrderedAccountList.GetPointer(Index: Integer): PAccount;
+begin
+  Result := PAccount(FList.Items[index]);
+end;
+
+function TOrderedAccountList.Get(Index: Integer): TAccount;
+begin
+  Result := GetPointer(Index)^;
+end;
 
 end.

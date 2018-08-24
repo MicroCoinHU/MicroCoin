@@ -12,8 +12,8 @@ unit MicroCoin.Transaction.ChangeAccountInfo;
 
 interface
 
-uses uaccounts, ucrypto, MicroCoin.Transaction.Transaction, SysUtils,
-  MicroCoin.Account,MicroCoin.Account.Storage, MicroCoin.BlockChain.BlockHeader,
+uses ucrypto, MicroCoin.Transaction.Transaction, SysUtils,
+  MicroCoin.Account,MicroCoin.Account.Storage, MicroCoin.BlockChain.BlockHeader, MicroCoin.Account.Transaction,
   MicroCoin.Common, Classes, MicroCoin.Account.AccountKey, MicroCoin.Transaction.Base, UConst, ULog, MicroCoin.Transaction.Manager;
 
 type

@@ -23,7 +23,7 @@ interface
 
 uses
   Classes, SysUtils,  ZLib, {$IFDEF FPC} zStream, {$ENDIF}
-  UAccounts, ULog, UConst, UCrypto, MicroCoin.Account.AccountKey, MicroCoin.Account.Storage;
+  ULog, UConst, UCrypto, MicroCoin.Account.AccountKey, MicroCoin.Account.Storage;
 
 type
 

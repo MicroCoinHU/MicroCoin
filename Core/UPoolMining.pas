@@ -27,8 +27,10 @@ Uses
   {LCLIntf, LCLType, LMessages,}
 {$ENDIF}
   UTCPIP, SysUtils, UThread, SyncObjs, Classes, UJSONFunctions, UAES, UNode,
-  UCrypto, UAccounts, UConst, UBlockChain, MicroCoin.Transaction.HashTree,
-  MicroCoin.Account.AccountKey,MicroCoin.Account.Storage, MicroCoin.BlockChain.BlockHeader;
+  UCrypto, UConst, MicroCoin.BlockChain.BlockManager, MicroCoin.Transaction.HashTree,
+  MicroCoin.Account.AccountKey,MicroCoin.Account.Storage, MicroCoin.BlockChain.BlockHeader,
+  MicroCoin.BlockChain.Block,
+  MicroCoin.BlockChain.Protocol;
 
 Const
   CT_PoolMining_Method_STATUS = 'status';
@@ -128,7 +130,7 @@ Type
     FOnMiningServerNewBlockFound: TNotifyEvent;
     FPoolJobs : TPCThreadList;
     FPoolThread : TPoolMiningServerThread;
-    FMinerOperations : TPCOperationsComp;
+    FMinerOperations : TBlock;
     FMaxOperationsPerBlock: Integer;
     FMax0FeeOperationsPerBlock: Integer;
     Procedure DoProcessJSON(json : TPCJSONObject; ResponseMethod : String; Client : TJSONRPCTcpIpClient);
@@ -139,7 +141,7 @@ Type
     procedure SetMinerPayload(const Value: TRawBytes);
     Procedure ClearPoolJobs;
     Procedure CaptureNewJobAndSendToMiners;
-    Procedure SendJobToMiner(Operations : TPCOperationsComp; Client : TJSONRPCTcpIpClient; IsResponse : Boolean; idResponse : Variant);
+    Procedure SendJobToMiner(Operations : TBlock; Client : TJSONRPCTcpIpClient; IsResponse : Boolean; idResponse : Variant);
     Procedure FillMinerOperations;
     procedure SetMax0FeeOperationsPerBlock(const Value: Integer);
     procedure SetMaxOperationsPerBlock(const Value: Integer);
@@ -516,7 +518,7 @@ Const CT_WAIT_SECONDS_BEFORE_SEND_NEW_JOB = 10;
 
 Type
   TPoolJob = Record
-    OperationsComp : TPCOperationsComp;
+    OperationsComp : TBlock;
     SentDateTime : TDateTime;
     SentMinTimestamp : Cardinal;
   End;
@@ -554,7 +556,7 @@ begin
         P^.SentMinTimestamp := FNodeNotifyEvents.Node.Bank.LastBlockFound.OperationBlock.timestamp;
       end;
       FillMinerOperations;
-      P^.OperationsComp := TPCOperationsComp.Create(Nil);
+      P^.OperationsComp := TBlock.Create(Nil);
       P^.OperationsComp.CopyFrom(FMinerOperations);
       P^.OperationsComp.AccountKey := FMinerAccountKey;
       P^.OperationsComp.BlockPayload := FMinerPayload;
@@ -562,7 +564,7 @@ begin
       OpB := P^.OperationsComp.OperationBlock;
       if (OpB.block<>0) And (OpB.block <> (FNodeNotifyEvents.Node.Bank.LastBlockFound.OperationBlock.block+1)) then begin
         // A new block is generated meanwhile ... do not include
-        TLog.NewLog(ltDebug,ClassName,'Generated a new block meanwhile ... '+TPCOperationsComp.OperationBlockToText(OpB)+'<>'+TPCOperationsComp.OperationBlockToText(FNodeNotifyEvents.Node.Bank.LastBlockFound.OperationBlock));
+        TLog.NewLog(ltDebug,ClassName,'Generated a new block meanwhile ... '+TBlock.OperationBlockToText(OpB)+'<>'+TBlock.OperationBlockToText(FNodeNotifyEvents.Node.Bank.LastBlockFound.OperationBlock));
         P^.OperationsComp.Free;
         Dispose(P);
         P := Nil;
@@ -591,7 +593,7 @@ begin
           if Not Active then exit;
           SendJobToMiner(P^.OperationsComp,l[i],false,null);
         end;
-        TLog.NewLog(ltDebug,ClassName,'Sending job to miners: '+TPCOperationsComp.OperationBlockToText(P^.OperationsComp.OperationBlock)+' Cache blocks:'+Inttostr(l.Count));
+        TLog.NewLog(ltDebug,ClassName,'Sending job to miners: '+TBlock.OperationBlockToText(P^.OperationsComp.OperationBlock)+' Cache blocks:'+Inttostr(l.Count));
       Finally
         NetTcpIpClientsUnlock;
       End;
@@ -633,7 +635,7 @@ begin
   FNodeNotifyEvents.OnBlocksChanged := OnNodeNewBlock;
   FNodeNotifyEvents.OnOperationsChanged := OnNodeOperationsChanged;
   FNodeNotifyEvents.Node := TNode.Node;
-  FMinerOperations := TPCOperationsComp.Create(FNodeNotifyEvents.Node.Bank);
+  FMinerOperations := TBlock.Create(FNodeNotifyEvents.Node.Bank);
   FMinerAccountKey := CT_TECDSA_Public_Nul;
   FMinerPayload := '';
   FPoolJobs := TPCThreadList.Create('TPoolMiningServer_PoolJobs');
@@ -721,7 +723,7 @@ var tree : TTransactionHashTree;
     tree.AddTransactionToHashTree(Op);
   End;
 Var i,j : Integer;
-  MasterOp : TPCOperationsComp;
+  MasterOp : TBlock;
   op : ITransaction;
   Var errors : AnsiString;
 begin
@@ -732,7 +734,7 @@ begin
     Try
       tree := TTransactionHashTree.Create;
       try
-        if (Not (TPCOperationsComp.EqualsOperationBlock(FMinerOperations.OperationBlock,MasterOp.OperationBlock))) then begin
+        if (Not (TBlock.EqualsOperationBlock(FMinerOperations.OperationBlock,MasterOp.OperationBlock))) then begin
           FMinerOperations.Clear(true);
           if MasterOp.Count>0 then begin
             // First round: Select with fee > 0
@@ -783,7 +785,7 @@ end;
 
 function TPoolMiningServer.MinerSubmit(Client: TJSONRPCTcpIpClient; params: TPCJSONObject; const id : Variant): Boolean;
 Var s : String;
-  nbOperations : TPCOperationsComp;
+  nbOperations : TBlock;
   errors, sJobInfo : AnsiString;
   nba : TAccountStorageEntry;
   json : TPCJSONObject;
@@ -835,7 +837,7 @@ begin
           _targetPoW := FNodeNotifyEvents.Node.Bank.SafeBox.GetActualTargetHash(P^.OperationsComp.OperationBlock.protocol_version=CT_PROTOCOL_2);
           if (P^.OperationsComp.OperationBlock.proof_of_work<=_targetPoW) then begin
             // Candidate!
-            nbOperations := TPCOperationsComp.Create(Nil);
+            nbOperations := TBlock.Create(Nil);
             nbOperations.bank := FNodeNotifyEvents.Node.Bank;
             nbOperations.CopyFrom(P^.OperationsComp);
             nbOperations.AccountKey := MinerAccountKey;
@@ -922,7 +924,7 @@ begin
   CaptureNewJobAndSendToMiners;
 end;
 
-procedure TPoolMiningServer.SendJobToMiner(Operations: TPCOperationsComp; Client: TJSONRPCTcpIpClient; IsResponse : Boolean; idResponse : Variant);
+procedure TPoolMiningServer.SendJobToMiner(Operations: TBlock; Client: TJSONRPCTcpIpClient; IsResponse : Boolean; idResponse : Variant);
 var params : TPCJSONObject;
   ts : Cardinal;
 Var P : PPoolJob;
@@ -944,13 +946,13 @@ begin
           P^.SentMinTimestamp := FNodeNotifyEvents.Node.Bank.LastBlockFound.OperationBlock.timestamp;
         end;
         FillMinerOperations;
-        P^.OperationsComp := TPCOperationsComp.Create(Nil);
+        P^.OperationsComp := TBlock.Create(Nil);
         P^.OperationsComp.CopyFrom(FMinerOperations);
         P^.OperationsComp.AccountKey := FMinerAccountKey;
         P^.OperationsComp.BlockPayload := FMinerPayload;
         P^.OperationsComp.timestamp := P^.SentMinTimestamp; // Best practices 1.5.3
         if (P^.OperationsComp.OperationBlock.block<>0) And (P^.OperationsComp.OperationBlock.block <> (FNodeNotifyEvents.Node.Bank.LastBlockFound.OperationBlock.block+1)) then begin
-          TLog.NewLog(ltError,ClassName,'ERROR DEV 20170228-2 '+TPCOperationsComp.OperationBlockToText(P^.OperationsComp.OperationBlock)+'<>'+TPCOperationsComp.OperationBlockToText(FNodeNotifyEvents.Node.Bank.LastBlockFound.OperationBlock));
+          TLog.NewLog(ltError,ClassName,'ERROR DEV 20170228-2 '+TBlock.OperationBlockToText(P^.OperationsComp.OperationBlock)+'<>'+TBlock.OperationBlockToText(FNodeNotifyEvents.Node.Bank.LastBlockFound.OperationBlock));
           P^.OperationsComp.Free;
           Dispose(P);
           raise Exception.Create('ERROR DEV 20170228-2');
