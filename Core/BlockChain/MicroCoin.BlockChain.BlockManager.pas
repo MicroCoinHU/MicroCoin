@@ -63,10 +63,12 @@ type
     FStorageClass: TStorageClass;
     function GetStorage: TStorage;
     procedure SetStorageClass(const value: TStorageClass);
+    function GetAccountStorage: TAccountStorage; override;
+    function GetBlocksCount: Cardinal; override;
+    function GetLastOperationBlock: TBlockHeader; override;
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
-    function BlocksCount: Cardinal;
     function AccountsCount: Cardinal;
     procedure AssignTo(Dest: TPersistent); override;
     function GetActualTargetSecondsAverage(BackBlocks: Cardinal): Real;
@@ -74,18 +76,19 @@ type
     function LoadAccountsFromStream(Stream: TStream; useSecureLoad: Boolean; var errors: AnsiString): Boolean; override;
     procedure Clear;
     function LoadOperations(Operations: TBlock; Block: Cardinal): Boolean;
-    property SafeBox: TAccountStorage read FAccountStorage;
     function AddNewBlockChainBlock(Operations: TBlock; MaxAllowedTimestamp: Cardinal; var newBlock: TAccountStorageEntry; var errors: AnsiString): Boolean;
     procedure DiskRestoreFromOperations(max_block: Int64);
     procedure NewLog(Operations: TBlock; Logtype: TLogType; Logtxt: AnsiString);
     property OnLog: TBlockManagerLog read FOnLog write FOnLog;
-    property LastOperationBlock: TBlockHeader read FLastOperationBlock;
+    property LastOperationBlock: TBlockHeader read GetLastOperationBlock;
     // TODO: Use
     property Storage: TStorage read GetStorage;
     property StorageClass: TStorageClass read FStorageClass write SetStorageClass;
     function IsReady(var CurrentProcess: AnsiString): Boolean;
     property LastBlockFound: TBlock read FLastBlockCache;
     property UpgradingToV2: Boolean read FUpgradingToV2;
+    property AccountStorage: TAccountStorage read GetAccountStorage;
+    property BlocksCount : Cardinal read GetBlocksCount;
   end;
 
 implementation
@@ -135,16 +138,16 @@ begin
         exit;
       end;
 
-      newBlock := SafeBox.Block(SafeBox.BlocksCount - 1);
+      newBlock := AccountStorage.Block(AccountStorage.BlocksCount - 1);
 
       // Initialize values
       FLastOperationBlock := Operations.OperationBlock;
       // log it!
       NewLog(Operations, ltupdate,
         Format('New block height:%d nOnce:%d timestamp:%d Operations:%d Fee:%d SafeBoxBalance:%d=%d PoW:%s Operations previous Safe Box hash:%s Future old Safe Box hash for next block:%s',
-        [Operations.OperationBlock.Block, Operations.OperationBlock.nonce, Operations.OperationBlock.timestamp, Operations.Count, Operations.OperationBlock.Fee, SafeBox.TotalBalance,
+        [Operations.OperationBlock.Block, Operations.OperationBlock.nonce, Operations.OperationBlock.timestamp, Operations.Count, Operations.OperationBlock.Fee, AccountStorage.TotalBalance,
         Operations.SafeBoxTransaction.TotalBalance, TCrypto.ToHexaString(Operations.OperationBlock.proof_of_work), TCrypto.ToHexaString(Operations.OperationBlock.initial_safe_box_hash),
-        TCrypto.ToHexaString(SafeBox.AccountStorageHash)]));
+        TCrypto.ToHexaString(AccountStorage.AccountStorageHash)]));
       // Save Operations to disk
       if not FIsRestoringFromFile then
       begin
@@ -182,20 +185,20 @@ begin
     exit;
 
   d := TBlockManager(Dest);
-  d.SafeBox.CopyFrom(SafeBox);
+  d.AccountStorage.CopyFrom(AccountStorage);
   d.FLastOperationBlock := FLastOperationBlock;
   d.FIsRestoringFromFile := FIsRestoringFromFile;
   d.FLastBlockCache.CopyFrom(FLastBlockCache);
 end;
 
-function TBlockManager.BlocksCount: Cardinal;
+function TBlockManager.GetBlocksCount: Cardinal;
 begin
-  Result := SafeBox.BlocksCount;
+  Result := AccountStorage.BlocksCount;
 end;
 
 procedure TBlockManager.Clear;
 begin
-  SafeBox.Clear;
+  AccountStorage.Clear;
   FLastOperationBlock := TBlock.GetFirstBlock;
   FLastOperationBlock.initial_safe_box_hash := TCrypto.DoSha256(CT_Genesis_Magic_String_For_Old_Block_Hash);
   // Genesis hash
@@ -272,7 +275,7 @@ begin
         n := Storage.LastBlock;
       Storage.RestoreAccountStorage(n);
       // Restore last blockchain
-      if (BlocksCount > 0) and (SafeBox.CurrentProtocol = CT_PROTOCOL_1) then
+      if (BlocksCount > 0) and (AccountStorage.CurrentProtocol = CT_PROTOCOL_1) then
       begin
         if not Storage.LoadBlockChainBlock(FLastBlockCache, BlocksCount - 1) then
         begin
@@ -330,19 +333,24 @@ begin
   end;
 end;
 
+function TBlockManager.GetAccountStorage: TAccountStorage;
+begin
+ Result := FAccountStorage;
+end;
+
 function TBlockManager.GetActualTargetSecondsAverage(BackBlocks: Cardinal): Real;
 var
   ts1, ts2: Int64;
 begin
   if BlocksCount > BackBlocks then
   begin
-    ts1 := SafeBox.Block(BlocksCount - 1).BlockHeader.timestamp;
-    ts2 := SafeBox.Block(BlocksCount - BackBlocks - 1).BlockHeader.timestamp;
+    ts1 := AccountStorage.Block(BlocksCount - 1).BlockHeader.timestamp;
+    ts2 := AccountStorage.Block(BlocksCount - BackBlocks - 1).BlockHeader.timestamp;
   end
   else if (BlocksCount > 1) then
   begin
-    ts1 := SafeBox.Block(BlocksCount - 1).BlockHeader.timestamp;
-    ts2 := SafeBox.Block(0).BlockHeader.timestamp;
+    ts1 := AccountStorage.Block(BlocksCount - 1).BlockHeader.timestamp;
+    ts2 := AccountStorage.Block(0).BlockHeader.timestamp;
     BackBlocks := BlocksCount - 1;
   end
   else
@@ -351,6 +359,11 @@ begin
     exit;
   end;
   Result := (ts1 - ts2) / BackBlocks;
+end;
+
+function TBlockManager.GetLastOperationBlock: TBlockHeader;
+begin
+ Result := FLastOperationBlock;
 end;
 
 function TBlockManager.GetTargetSecondsAverage(FromBlock, BackBlocks: Cardinal): Real;
@@ -364,13 +377,13 @@ begin
   end;
   if FromBlock > BackBlocks then
   begin
-    ts1 := SafeBox.Block(FromBlock - 1).BlockHeader.timestamp;
-    ts2 := SafeBox.Block(FromBlock - BackBlocks - 1).BlockHeader.timestamp;
+    ts1 := AccountStorage.Block(FromBlock - 1).BlockHeader.timestamp;
+    ts2 := AccountStorage.Block(FromBlock - BackBlocks - 1).BlockHeader.timestamp;
   end
   else if (FromBlock > 1) then
   begin
-    ts1 := SafeBox.Block(FromBlock - 1).BlockHeader.timestamp;
-    ts2 := SafeBox.Block(0).BlockHeader.timestamp;
+    ts1 := AccountStorage.Block(FromBlock - 1).BlockHeader.timestamp;
+    ts2 := AccountStorage.Block(0).BlockHeader.timestamp;
     BackBlocks := FromBlock - 1;
   end
   else
@@ -428,16 +441,16 @@ begin
     try
       if Assigned(auxSB) then
       begin
-        SafeBox.CopyFrom(auxSB);
+        AccountStorage.CopyFrom(auxSB);
       end
       else
       begin
-        Result := SafeBox.LoadFromStream(Stream, false, LastReadBlock, errors);
+        Result := AccountStorage.LoadFromStream(Stream, false, LastReadBlock, errors);
       end;
       if not Result then
         exit;
-      if SafeBox.BlocksCount > 0 then
-        FLastOperationBlock := SafeBox.Block(SafeBox.BlocksCount - 1).BlockHeader
+      if AccountStorage.BlocksCount > 0 then
+        FLastOperationBlock := AccountStorage.Block(AccountStorage.BlocksCount - 1).BlockHeader
       else
       begin
         FLastOperationBlock := TBlock.GetFirstBlock;

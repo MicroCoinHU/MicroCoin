@@ -27,10 +27,10 @@ uses
 {$ELSE}
   LCLIntf, LCLType, LMessages,
 {$ENDIF}
-  Classes, Grids, UNode, UAccounts, UBlockChain, UAppParams,
+  Classes, Grids, UNode, UAppParams,
   UWalletKeys, UCrypto, MicroCoin.Transaction.Base, MicroCoin.Common.Lists,
   MicroCoin.Transaction.TransactionList, MicroCoin.Account.AccountKey,
-  MicroCoin.BlockChain.BlockHeader;
+  MicroCoin.BlockChain.Block, MicroCoin.BlockChain.BlockHeader;
 
 Type
   // TAccountsGrid implements a visual integration of TDrawGrid
@@ -193,7 +193,7 @@ Const
 implementation
 
 uses
-  Graphics, SysUtils, UTime, UOpTransaction, UConst,
+  Graphics, SysUtils, UTime, UConst,
   UFRMPayloadDecoder, ULog, MicroCoin.Account, MicroCoin.Common;
 
 resourcestring
@@ -295,14 +295,14 @@ begin
     if Assigned(Node) then begin
       if Node.Bank.AccountsCount<1 then DrawGrid.RowCount := 2
       else DrawGrid.RowCount := Node.Bank.AccountsCount+1;
-      FAccountsBalance := Node.Bank.SafeBox.TotalBalance;
+      FAccountsBalance := Node.Bank.AccountStorage.TotalBalance;
     end else DrawGrid.RowCount := 2;
   end else begin
     if FAccountsList.Count<1 then DrawGrid.RowCount := 2
     else DrawGrid.RowCount := FAccountsList.Count+1;
     if Assigned(Node) then begin
       for i := 0 to FAccountsList.Count - 1 do begin
-        acc := Node.Bank.SafeBox.Account( FAccountsList.Get(i) );
+        acc := Node.Bank.AccountStorage.Account( FAccountsList.Get(i) );
         inc(FAccountsBalance, acc.balance);
       end;
     end;
@@ -905,7 +905,7 @@ Var list : TList;
   i,j : Integer;
   OPR : TTransactionData;
   Op : ITransaction;
-  opc : TPCOperationsComp;
+  opc : TBlock;
   bstart,bend : int64;
 begin
   FOperationsResume.Clear;
@@ -925,7 +925,7 @@ begin
       end;
     end else begin
       if AccountNumber<0 then begin
-        opc := TPCOperationsComp.Create(Nil);
+        opc := TBlock.Create(Nil);
         try
           opc.bank := Node.Bank;
           If FBlockEnd<0 then begin
@@ -1264,7 +1264,7 @@ end;
 
 procedure TBlockChainGrid.UpdateBlockChainGrid;
 Var nstart,nend : Cardinal;
-  opc : TPCOperationsComp;
+  opc : TBlock;
   bcd : TBlockChainData;
   i : Integer;
   opb : TBlockHeader;
@@ -1294,13 +1294,13 @@ begin
       else nstart := 0;
     end;
     SetLength(FBlockChainDataArray,nend - nstart +1);
-    opc := TPCOperationsComp.Create(Nil);
+    opc := TBlock.Create(Nil);
     try
       opc.bank := Node.Bank;
       while (nstart<=nend) do begin
         i := length(FBlockChainDataArray) - (nend-nstart+1);
         bcd := CT_TBlockChainData_NUL;
-        opb := Node.Bank.SafeBox.Block(nend).Blockheader;
+        opb := Node.Bank.AccountStorage.Block(nend).Blockheader;
         bcd.Block:=opb.block;
         bcd.Timestamp := opb.timestamp;
         bcd.BlockProtocolVersion := opb.protocol_version;
@@ -1308,11 +1308,11 @@ begin
         bcd.Reward := opb.reward;
         bcd.Fee := opb.fee;
         bcd.Target := opb.compact_target;
-        bcd.HashRateKhs := Node.Bank.SafeBox.CalcBlockHashRateInKhs(bcd.Block,HashRateAverageBlocksCount);
+        bcd.HashRateKhs := Node.Bank.AccountStorage.CalcBlockHashRateInKhs(bcd.Block,HashRateAverageBlocksCount);
         bcd.MinerPayload := opb.block_payload;
         bcd.PoW := opb.proof_of_work;
         bcd.SafeBoxHash := opb.initial_safe_box_hash;
-        bcd.AccumulatedWork := Node.Bank.SafeBox.Block(bcd.Block).AccumulatedWork;
+        bcd.AccumulatedWork := Node.Bank.AccountStorage.Block(bcd.Block).AccumulatedWork;
         if (Node.Bank.LoadOperations(opc,nend)) then begin
           bcd.OperationsCount := opc.Count;
           bcd.Volume := opc.OperationsHashTree.TotalAmount + opc.OperationsHashTree.TotalFee;

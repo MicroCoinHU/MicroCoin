@@ -655,7 +655,7 @@ var
         Result := false;
         exit;
       end;
-      ob := FNode.Bank.SafeBox.Block(nBlock).Blockheader;
+      ob := FNode.Bank.AccountStorage.Block(nBlock).Blockheader;
 
       jsonObject.GetAsVariant('block').Value := ob.Block;
       jsonObject.GetAsVariant('enc_pubkey').Value := TCrypto.ToHexaString(ob.account_key.ToRawString);
@@ -670,7 +670,7 @@ var
       jsonObject.GetAsVariant('sbh').Value := TCrypto.ToHexaString(ob.initial_safe_box_hash);
       jsonObject.GetAsVariant('oph').Value := TCrypto.ToHexaString(ob.operations_hash);
       jsonObject.GetAsVariant('pow').Value := TCrypto.ToHexaString(ob.proof_of_work);
-      jsonObject.GetAsVariant('hashratekhs').Value := FNode.Bank.SafeBox.CalcBlockHashRateInKhs(ob.Block, 50);
+      jsonObject.GetAsVariant('hashratekhs').Value := FNode.Bank.AccountStorage.CalcBlockHashRateInKhs(ob.Block, 50);
       jsonObject.GetAsVariant('maturation').Value := FNode.Bank.BlocksCount - ob.Block - 1;
       if FNode.Bank.LoadOperations(pcops, nBlock) then
       begin
@@ -2503,7 +2503,7 @@ var
     // Validate Parameters
     if accountName <> '' then
     begin
-      if not FNode.Bank.SafeBox.AccountNameIsValid(accountName, errors2) then
+      if not FNode.Bank.AccountStorage.AccountNameIsValid(accountName, errors2) then
       begin
         ErrorNum := CT_RPC_ErrNum_InvalidAccountName;
         ErrorDesc := errors;
@@ -2524,7 +2524,7 @@ var
     // Search by name
     if accountName <> '' then
     begin
-      accountNumber := FNode.Bank.SafeBox.FindAccountByName(accountName);
+      accountNumber := FNode.Bank.AccountStorage.FindAccountByName(accountName);
       if accountNumber >= 0 then
       begin
         Account := FNode.Operations.SafeBoxTransaction.Account(accountNumber);

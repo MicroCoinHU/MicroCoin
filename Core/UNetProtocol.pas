@@ -1245,7 +1245,7 @@ const
           end;
           ant_nblock := auxBlock.Block;
           //
-          sbBlock := TNode.Node.Bank.SafeBox.Block(auxBlock.Block).BlockHeader;
+          sbBlock := TNode.Node.Bank.AccountStorage.Block(auxBlock.Block).BlockHeader;
           if TBlock.EqualsOperationBlock(sbBlock, auxBlock) then
           begin
             distinctmin := auxBlock.Block;
@@ -1354,15 +1354,15 @@ const
       // -----------------------------
       // Before of version 1.5 was: "if Bank.BlocksCount>TNode.Node.Bank.BlocksCount then ..."
       // Starting on version 1.5 is: "if Bank.WORK > MyBank.WORK then ..."
-      if Bank.SafeBox.WorkSum > TNode.Node.Bank.SafeBox.WorkSum then
+      if Bank.AccountStorage.WorkSum > TNode.Node.Bank.AccountStorage.WorkSum then
       begin
         oldBlockchainOperations := TTransactionHashTree.Create;
         try
           TNode.Node.DisableNewBlocks;
           try
             // I'm an orphan blockchain...
-            TLog.NewLog(ltInfo, CT_LogSender, 'New valid blockchain found. My block count=' + Inttostr(TNode.Node.Bank.BlocksCount) + ' work: ' + Inttostr(TNode.Node.Bank.SafeBox.WorkSum) +
-              ' found count=' + Inttostr(Bank.BlocksCount) + ' work: ' + Inttostr(Bank.SafeBox.WorkSum) + ' starting at block ' + Inttostr(start_block));
+            TLog.NewLog(ltInfo, CT_LogSender, 'New valid blockchain found. My block count=' + Inttostr(TNode.Node.Bank.BlocksCount) + ' work: ' + Inttostr(TNode.Node.Bank.AccountStorage.WorkSum) +
+              ' found count=' + Inttostr(Bank.BlocksCount) + ' work: ' + Inttostr(Bank.AccountStorage.WorkSum) + ' starting at block ' + Inttostr(start_block));
             if TNode.Node.Bank.BlocksCount > 0 then
             begin
               OpExecute := TBlock.Create(nil);
@@ -1417,11 +1417,11 @@ const
       end
       else
       begin
-        if (not IsAScam) and (Connection.FRemoteAccumulatedWork > TNode.Node.Bank.SafeBox.WorkSum) then
+        if (not IsAScam) and (Connection.FRemoteAccumulatedWork > TNode.Node.Bank.AccountStorage.WorkSum) then
         begin
           // Possible scammer!
           Connection.DisconnectInvalidClient(false, Format('Possible scammer! Says blocks:%d Work:%d - Obtained blocks:%d work:%d', [Connection.FRemoteOperationBlock.Block + 1,
-            Connection.FRemoteAccumulatedWork, Bank.BlocksCount, Bank.SafeBox.WorkSum]));
+            Connection.FRemoteAccumulatedWork, Bank.BlocksCount, Bank.AccountStorage.WorkSum]));
         end;
       end;
     finally
@@ -1556,7 +1556,7 @@ type
       // Now receiveData is the ALL safebox
       TNode.Node.DisableNewBlocks;
       try
-        TNode.Node.Bank.SafeBox.StartThreadSafe;
+        TNode.Node.Bank.AccountStorage.StartThreadSafe;
         try
           ReceiveData.Position := 0;
           if TNode.Node.Bank.LoadAccountsFromStream(ReceiveData, true, errors) then
@@ -1575,7 +1575,7 @@ type
             exit;
           end;
         finally
-          TNode.Node.Bank.SafeBox.EndThreadSave;
+          TNode.Node.Bank.AccountStorage.EndThreadSave;
         end;
       finally
         TNode.Node.EnableNewBlocks;
@@ -2568,7 +2568,7 @@ begin
           begin
             // Is not a valid entry????
             // Perhaps an orphan blockchain: Me or Client!
-            TLog.NewLog(ltInfo, Classname, 'Distinct operation block found! My:' + TBlock.OperationBlockToText(TNode.Node.Bank.SafeBox.Block(TNode.Node.Bank.BlocksCount - 1).BlockHeader) + ' remote:'
+            TLog.NewLog(ltInfo, Classname, 'Distinct operation block found! My:' + TBlock.OperationBlockToText(TNode.Node.Bank.AccountStorage.Block(TNode.Node.Bank.BlocksCount - 1).BlockHeader) + ' remote:'
               + TBlock.OperationBlockToText(op.OperationBlock) + ' Errors: ' + errors);
           end;
         end
@@ -2651,7 +2651,7 @@ begin
       b := b_start;
       total_b := 0;
       repeat
-        ob := TNode.Node.Bank.SafeBox.Block(b).BlockHeader;
+        ob := TNode.Node.Bank.AccountStorage.Block(b).BlockHeader;
         if TBlock.SaveOperationBlockToStream(ob, msops) then
         begin
           blocksstr := blocksstr + Inttostr(b) + ',';
@@ -2837,7 +2837,7 @@ begin
           end;
         end;
         //
-        if (FRemoteAccumulatedWork > TNode.Node.Bank.SafeBox.WorkSum) or ((FRemoteAccumulatedWork = 0) and (TNetData.NetData.FMaxRemoteOperationBlock.Block < FRemoteOperationBlock.Block)) then
+        if (FRemoteAccumulatedWork > TNode.Node.Bank.AccountStorage.WorkSum) or ((FRemoteAccumulatedWork = 0) and (TNetData.NetData.FMaxRemoteOperationBlock.Block < FRemoteOperationBlock.Block)) then
         begin
           TNetData.NetData.FMaxRemoteOperationBlock := FRemoteOperationBlock;
           if TPCThread.ThreadClassFound(TThreadGetNewBlockChainFromClient, nil) < 0 then
@@ -2983,7 +2983,7 @@ begin
         end
         else
         begin
-          if (FRemoteAccumulatedWork > TNode.Node.Bank.SafeBox.WorkSum) then
+          if (FRemoteAccumulatedWork > TNode.Node.Bank.AccountStorage.WorkSum) then
           begin
             if (op.OperationBlock.Block = TNode.Node.Bank.BlocksCount) then
             begin
@@ -3582,7 +3582,7 @@ begin
     // Send client version
     TStreamOp.WriteAnsiString(data, CT_ClientAppVersion{$IFDEF LINUX} + 'l'{$ELSE} + 'w'{$ENDIF}{$IFDEF FPC}{$IFDEF LCL} + 'L'{$ELSE} + 'F'{$ENDIF}{$ENDIF});
     // Build 1.5 send accumulated work
-    data.Write(TNode.Node.Bank.SafeBox.WorkSum, SizeOf(TNode.Node.Bank.SafeBox.WorkSum));
+    data.Write(TNode.Node.Bank.AccountStorage.WorkSum, SizeOf(TNode.Node.Bank.AccountStorage.WorkSum));
     //
     // data.SaveToFile('./hello.bin');
     Send(NetTranferType, CT_NetOp_Hello, 0, request_id, data);
@@ -3646,7 +3646,7 @@ begin
     try
       request_id := TNetData.NetData.NewRequestId;
       NewBlock.SaveBlockToStream(false, data);
-      data.Write(TNode.Node.Bank.SafeBox.WorkSum, SizeOf(TNode.Node.Bank.SafeBox.WorkSum));
+      data.Write(TNode.Node.Bank.AccountStorage.WorkSum, SizeOf(TNode.Node.Bank.AccountStorage.WorkSum));
       Send(ntp_autosend, CT_NetOp_NewBlock, 0, request_id, data);
     finally
       data.Free;
@@ -3982,7 +3982,7 @@ begin
     begin
       if TNetData.NetData.GetConnection(i, nc) then
       begin
-        if (nc.FRemoteAccumulatedWork > maxWork) and (nc.FRemoteAccumulatedWork > TNode.Node.Bank.SafeBox.WorkSum) then
+        if (nc.FRemoteAccumulatedWork > maxWork) and (nc.FRemoteAccumulatedWork > TNode.Node.Bank.AccountStorage.WorkSum) then
         begin
           maxWork := nc.FRemoteAccumulatedWork;
           iMax := i;

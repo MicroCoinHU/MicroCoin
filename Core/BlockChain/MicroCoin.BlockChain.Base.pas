@@ -22,9 +22,9 @@ type
     function GetLastOperationBlock: TBlockHeader; virtual; abstract;
   public
     function LoadAccountsFromStream(Stream: TStream; useSecureLoad: Boolean; var errors: AnsiString): Boolean; virtual; abstract;
-    property BlocksCount : Cardinal read GetBlocksCount;
     property AccountStorage: TAccountStorage read GetAccountStorage;
     property LastOperationBlock : TBlockHeader read GetLastOperationBlock;
+    property BlocksCount : Cardinal read GetBlocksCount;
   end;
 
 implementation

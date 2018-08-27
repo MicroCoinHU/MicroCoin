@@ -834,7 +834,7 @@ begin
         If (P^.SentMinTimestamp<=_timestamp) then begin
           P^.OperationsComp.timestamp := _timestamp;
           P^.OperationsComp.nonce := _nOnce;
-          _targetPoW := FNodeNotifyEvents.Node.Bank.SafeBox.GetActualTargetHash(P^.OperationsComp.OperationBlock.protocol_version=CT_PROTOCOL_2);
+          _targetPoW := FNodeNotifyEvents.Node.Bank.AccountStorage.GetActualTargetHash(P^.OperationsComp.OperationBlock.protocol_version=CT_PROTOCOL_2);
           if (P^.OperationsComp.OperationBlock.proof_of_work<=_targetPoW) then begin
             // Candidate!
             nbOperations := TBlock.Create(Nil);
