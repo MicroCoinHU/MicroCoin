@@ -13,7 +13,7 @@ unit MicroCoin.Account.Storage;
 interface
 
 uses SysUtils, classes, UCrypto, UThread, MicroCoin.Common.Lists,
-     MicroCoin.Account, MicroCoin.Account.AccountKey, MicroCoin.BlockChain.BlockHeader,
+     MicroCoin.Account.Data, MicroCoin.Account.AccountKey, MicroCoin.BlockChain.BlockHeader,
      UConst, UBaseTypes, ULog, MicroCoin.BlockChain.Protocol;
 
 type

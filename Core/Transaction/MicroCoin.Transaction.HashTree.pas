@@ -307,7 +307,7 @@ Var
   OpType: Cardinal;
   bcop: ITransaction;
   j: Integer;
-  OpClass: TPCOperationClass;
+  OpClass: TTransactionClass;
   lastNE: TNotifyEvent;
 begin
   Result := false;
@@ -328,7 +328,7 @@ begin
       if Stream.Size - Stream.Position < 4 then
         exit;
       Stream.Read(OpType, 4);
-      OpClass := TTransactionManager.GetTransactionPluginByOpType(OpType);
+      OpClass := TTransactionManager.GetTransactionPlugin(OpType);
       if Not Assigned(OpClass) then
       begin
         errors := errors + ' optype not valid:' + InttoHex(OpType, 4);

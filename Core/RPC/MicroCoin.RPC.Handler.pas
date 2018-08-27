@@ -1,35 +1,28 @@
-unit URPC;
-
-{$IFDEF FPC}
-{$MODE Delphi}
-{$ENDIF}
+unit MicroCoin.RPC.Handler;
 
 {
+  This unit contains code from PascalCoin:
+
   Copyright (c) Albert Molina 2016 - 2018 original code from PascalCoin https://pascalcoin.org/
 
   Distributed under the MIT software license, see the accompanying file LICENSE
   or visit http://www.opensource.org/licenses/mit-license.php.
 
-  This unit is a part of Pascal Coin, a P2P crypto currency without need of
-  historical operations.
-
-  If you like it, consider a donation using BitCoin:
-  16K3HCZRhFUtM8GdWRcfKeaa6KsuyxZaYk
-
 }
 
 interface
 
-uses UThread, ULog, UConst, UNode, UCrypto, MicroCoin.BlockChain.BlockManager,
-{$IFDEF fpc} fpjson, {$ELSE}System.Json, {$ENDIF}
-  UNetProtocol, UWalletKeys, UTime, UAES, UECIES, httpsend,
-  UJSONFunctions, classes, blcksock, synsock, IniFiles, Variants, math,
-  MicroCoin.Account, MicroCoin.BlockChain.Block,
+uses UThread, UNode, SysUtils, Classes, blcksock,
+  Synautil, Math, UCrypto, Generics.Collections,
+  MicroCoin.Account.Data, MicroCoin.BlockChain.Block,
+  MicroCoin.RPC.PluginManager,
   MicroCoin.Account.Storage, MicroCoin.BlockChain.BlockHeader,
   MicroCoin.Transaction.TransferMoney, MicroCoin.Transaction.ChangeKey,
   MicroCoin.Transaction.ListAccount, MicroCoin.Transaction.ChangeAccountInfo,
   MicroCoin.Transaction.TransactionList, MicroCoin.Transaction.HashTree,
-  MicroCoin.Common.Lists, MicroCoin.Account.AccountKey, MicroCoin.Common;
+  MicroCoin.Common.Lists, MicroCoin.Account.AccountKey, MicroCoin.Common,
+  MicroCoin.Transaction.Base, MicroCoin.Transaction.Transaction,
+  synsock, {$IFDEF fpc} fpjson, {$ELSE}System.Json, {$ENDIF} UJSONFunctions, RTTI;
 
 const
   CT_RPC_ErrNum_InternalError = 100;
@@ -47,310 +40,24 @@ const
 
 type
 
-  { TRPCServer }
 
-  TRPCServerThread = class;
-
-  TRPCServer = class
-  private
-    FRPCServerThread: TRPCServerThread;
-    FActive: Boolean;
-    FWalletKeys: TWalletKeysExt;
-    FPort: Word;
-    FJSON20Strict: Boolean;
-    FIniFileName: AnsiString;
-    FIniFile: TIniFile;
-    FRPCLog: TLog;
-    FCallsCounter: Int64;
-    FValidIPs: AnsiString;
-    FNodeNotifyEvents: TNodeNotifyEvents;
-    procedure SetActive(AValue: Boolean);
-    procedure SetIniFileName(const Value: AnsiString);
-    procedure SetLogFileName(const Value: AnsiString);
-    function GetLogFileName: AnsiString;
-    procedure SetValidIPs(const Value: AnsiString);
-  protected
-    function IsValidClientIP(const clientIp: string; clientPort: Word): Boolean;
-    procedure AddRPCLog(const Sender: string; const Message: string);
-    function GetNewCallCounter: Int64;
-    procedure OnNodeNewOperation(Sender: TObject);
-  public
-    constructor Create;
-    destructor Destroy; override;
-    property Port: Word read FPort write FPort;
-    property Active: Boolean read FActive write SetActive;
-    property WalletKeys: TWalletKeysExt read FWalletKeys write FWalletKeys;
-    //
-    property JSON20Strict: Boolean read FJSON20Strict write FJSON20Strict;
-    property IniFileName: AnsiString read FIniFileName write SetIniFileName;
-    property LogFileName: AnsiString read GetLogFileName write SetLogFileName;
-    property ValidIPs: AnsiString read FValidIPs write SetValidIPs;
-  end;
-
-  { TRPCServerThread }
-
-  TRPCServerThread = class(TPCThread)
-    FServerSocket: TTCPBlockSocket;
-    FPort: Word;
-  protected
-    procedure BCExecute; override;
-  public
-    constructor Create(Port: Word);
-    destructor Destroy; override;
-  end;
-
-  { TRPCProcess }
-
-  TRPCProcess = class(TPCThread)
+  TRPCHandler = class(TPCThread)
   private
     FSock: TTCPBlockSocket;
     FNode: TNode;
   public
-    constructor Create(hsock: tSocket);
+    constructor Create(hsock: TSocket);
     destructor Destroy; override;
     procedure BCExecute; override;
-    function ProcessMethod(const method: string; params: TPCJSONObject; jsonresponse: TPCJSONObject; var ErrorNum: Integer; var ErrorDesc: string): Boolean;
+    function ProcessMethod(const method: string; params: TPCJSONObject; jsonresponse: TPCJSONObject; var ErrorNum: integer; var ErrorDesc: string): Boolean;
   end;
 
 implementation
 
-uses {$IFNDEF FPC}windows, {$ENDIF}
-  SysUtils, Synautil, MicroCoin.Transaction.Base, MicroCoin.Transaction.Transaction;
+uses
+  UAES, UWalletKeys, UECIES, UConst, MicroCoin.RPC.Server, ULog, Variants, UNetProtocol, UTime;
 
-var
-  _RPCServer: TRPCServer = nil;
-
-  { TRPCServer }
-
-procedure TRPCServer.AddRPCLog(const Sender: string; const Message: string);
-begin
-  if not Assigned(FRPCLog) then
-    exit;
-  FRPCLog.NotifyNewLog(ltinfo, Sender + ' ' + Inttostr(FCallsCounter), message);
-end;
-
-function TRPCServer.GetLogFileName: AnsiString;
-begin
-  if Assigned(FRPCLog) then
-    Result := FRPCLog.FileName
-  else
-    Result := '';
-end;
-
-function TRPCServer.GetNewCallCounter: Int64;
-begin
-  inc(FCallsCounter);
-  Result := FCallsCounter;
-end;
-
-procedure TRPCServer.OnNodeNewOperation(Sender: TObject);
-var
-  i, j: Integer;
-  Op: ITransaction;
-  OPR: TTransactionData;
-  an: cardinal;
-  ToAccount: string;
-  Amount: string;
-  FromAccount: string;
-  Payload: string;
-  HTTP: THTTPSend;
-  Decrypted: string;
-  WalletKey: TWalletKey;
-  Result: Boolean;
-  from: string;
-  ini: TIniFile;
-  Proxy: string;
-  stream: TMemoryStream;
-  a: string;
-  sp: pchar;
-  fee: string;
-  ophash: string;
-  balance: string;
-begin
-
-  ini := TIniFile.Create('microcoin.ini');
-
-  Proxy := ini.ReadString('Events', 'Transaction', '');
-  FreeAndNil(ini);
-  if Proxy = '' then
-    exit;
-  { Script := TPSScript.Create(nil); }
-  for i := 0 to TNodeNotifyEvents(Sender).Node.Operations.Count - 1 do
-  begin
-    Op := TNodeNotifyEvents(Sender).Node.Operations.Operation[i];
-    Op := TNodeNotifyEvents(Sender).Node.Operations.OperationsHashTree.GetOperation(i);
-    {
-      Script.AddRegisteredVariable('FromAccount', 'btString');
-      Script.AddRegisteredVariable('ToAccount', 'btString');
-      Script.AddRegisteredVariable('Amount', 'btString');
-      Script.AddRegisteredVariable('Fee', 'btString');
-      Script.AddRegisteredVariable('Balance', 'btString');
-      Script.AddRegisteredVariable('OpHash', 'btString');
-      Script.AddRegisteredVariable('Payload', 'btString');
-    }
-    Op.GetTransactionData(0, Op.SignerAccount, OPR);
-    an := OPR.DestAccount;
-    FromAccount := TAccount.AccountNumberToAccountTxtNumber(OPR.AffectedAccount);
-    ToAccount := TAccount.AccountNumberToAccountTxtNumber(OPR.DestAccount);
-    Amount := TCurrencyUtils.FormatMoney(OPR.Amount * -1);
-    fee := TCurrencyUtils.FormatMoney(OPR.fee);
-    balance := TCurrencyUtils.FormatMoney(OPR.balance);
-    ophash := TCrypto.ToHexaString(OPR.OperationHash);
-    if TCrypto.IsHumanReadable(OPR.OriginalPayload) then
-      Payload := OPR.OriginalPayload
-    else
-      Payload := '';
-    {
-      Script.AddRegisteredVariable('FromAccount', 'btString');
-      Script.AddRegisteredVariable('ToAccount', 'btString');
-      Script.AddRegisteredVariable('Amount', 'btString');
-      Script.AddRegisteredVariable('Fee', 'btString');
-      Script.AddRegisteredVariable('Balance', 'btString');
-      Script.AddRegisteredVariable('OpHash', 'btString');
-      Script.AddRegisteredVariable('Payload', 'btString');
-      Script.Script.LoadFromFile(FromAccount);
-      Script.Compile;
-      Script.Execute;
-    }
-    try
-      stream := TMemoryStream.Create;
-      HTTP := THTTPSend.Create;
-      try
-        with TPCJSONObject.Create do
-        begin
-          GetAsVariant('from').Value := from;
-          GetAsVariant('to').Value := ToAccount;
-          GetAsVariant('amount').Value := Amount;
-          GetAsVariant('fee').Value := fee;
-          GetAsVariant('balance').Value := balance;
-          GetAsVariant('ophash').Value := ophash;
-          GetAsVariant('payload').Value := Payload;
-          a := ToJSON(false);
-          Free;
-        end;
-        WriteStrToStream(HTTP.Document, a);
-        HTTP.MimeType := 'application/json';
-        HTTP.Protocol := '1.1';
-        Result := HTTP.HTTPMethod('POST', Proxy);
-        if Result then
-        begin
-          stream.CopyFrom(HTTP.Document, 0);
-          stream.Position := 0;
-          sp := StrAlloc(stream.size);
-          stream.Read(sp^, stream.size);
-          a := StrPas(sp);
-        end;
-      finally
-        HTTP.Free;
-      end;
-    finally
-      stream.Free;
-    end;
-  end;
-end;
-
-procedure TRPCServer.SetActive(AValue: Boolean);
-begin
-  if FActive = AValue then
-    exit;
-  FActive := AValue;
-  if (FActive) then
-  begin
-    FRPCServerThread := TRPCServerThread.Create(FPort);
-  end
-  else
-  begin
-    FRPCServerThread.Terminate;
-    FRPCServerThread.WaitFor;
-    FreeAndNil(FRPCServerThread);
-  end;
-  TLog.NewLog(ltupdate, Classname, 'Updated RPC Server to Active=' + CT_TRUE_FALSE[FActive]);
-end;
-
-procedure TRPCServer.SetIniFileName(const Value: AnsiString);
-begin
-  if FIniFileName = Value then
-    exit;
-  FreeAndNil(FIniFile);
-  FIniFileName := Value;
-  if (FIniFileName <> '') and (FileExists(FIniFileName)) then
-  begin
-    FIniFile := TIniFile.Create(FIniFileName);
-  end;
-  if Assigned(FIniFile) then
-  begin
-    FJSON20Strict := FIniFile.ReadBool('general', 'json20strict', true)
-  end;
-end;
-
-procedure TRPCServer.SetLogFileName(const Value: AnsiString);
-begin
-  if (not Assigned(FRPCLog)) and (Trim(Value) <> '') then
-  begin
-    FRPCLog := TLog.Create(nil);
-    FRPCLog.ProcessGlobalLogs := false;
-    FRPCLog.SaveTypes := CT_TLogTypes_ALL;
-  end;
-  if (Trim(Value) <> '') then
-  begin
-    FRPCLog.FileName := Value;
-  end
-  else
-    FreeAndNil(FRPCLog);
-end;
-
-procedure TRPCServer.SetValidIPs(const Value: AnsiString);
-begin
-  if FValidIPs = Value then
-    exit;
-  FValidIPs := Value;
-  if FValidIPs = '' then
-    TLog.NewLog(ltupdate, Classname, 'Updated RPC Server valid IPs to ALL')
-  else
-    TLog.NewLog(ltupdate, Classname, 'Updated RPC Server valid IPs to: ' + FValidIPs)
-end;
-
-function TRPCServer.IsValidClientIP(const clientIp: string; clientPort: Word): Boolean;
-begin
-  if FValidIPs = '' then
-    Result := true
-  else
-  begin
-    Result := pos(clientIp, FValidIPs) > 0;
-  end;
-end;
-
-constructor TRPCServer.Create;
-begin
-  FActive := false;
-  FRPCLog := nil;
-  FIniFile := nil;
-  FIniFileName := '';
-  FJSON20Strict := true;
-  FWalletKeys := nil;
-  FRPCServerThread := nil;
-  FPort := CT_JSONRPC_Port;
-  FCallsCounter := 0;
-  FValidIPs := '127.0.0.1;localhost'; // New Build 1.5 - By default, only localhost can access to RPC
-  if not Assigned(_RPCServer) then
-    _RPCServer := Self;
-  FNodeNotifyEvents := TNodeNotifyEvents.Create(nil);
-  FNodeNotifyEvents.OnOperationsChanged := OnNodeNewOperation;
-end;
-
-destructor TRPCServer.Destroy;
-begin
-  FreeAndNil(FRPCLog);
-  Active := false;
-  if _RPCServer = Self then
-    _RPCServer := nil;
-  FNodeNotifyEvents.Free;
-  inherited Destroy;
-end;
-
-{ TRPCProcess }
-
-constructor TRPCProcess.Create(hsock: tSocket);
+constructor TRPCHandler.Create(hsock: TSocket);
 begin
   FSock := TTCPBlockSocket.Create;
   FSock.socket := hsock;
@@ -361,42 +68,41 @@ begin
   FreeOnTerminate := true;
 end;
 
-destructor TRPCProcess.Destroy;
+destructor TRPCHandler.Destroy;
 begin
   FSock.Free;
   inherited Destroy;
 end;
 
-procedure TRPCProcess.BCExecute;
+procedure TRPCHandler.BCExecute;
 var
-  timeout: Integer;
+  timeout: integer;
   s: string;
   method, uri, Protocol: string;
-  size: Integer;
-  x, n: Integer;
-  resultcode: Integer;
+  size: integer;
+  x, n: integer;
+  resultcode: integer;
   inputdata: TBytes;
-  js, jsresult: TPCJSONData;
+  js, jsresult: TPCJsonData;
   jsonobj, jsonresponse: TPCJSONObject;
-  errNum: Integer;
+  errNum: integer;
   errDesc: string;
-  jsonrequesttxt,
-    jsonresponsetxt, methodName, paramsTxt: AnsiString;
+  jsonrequesttxt, jsonresponsetxt, methodName, paramsTxt: AnsiString;
   valid: Boolean;
-  i: Integer;
+  i: integer;
   Headers: TStringList;
   tc: cardinal;
   callcounter: Int64;
 begin
-  callcounter := _RPCServer.GetNewCallCounter;
+  callcounter := TRPCServer.Instance.GetNewCallCounter;
   tc := GetTickCount;
   methodName := '';
   paramsTxt := '';
   // IP Protection
-  if (not _RPCServer.IsValidClientIP(FSock.GetRemoteSinIP, FSock.GetRemoteSinPort)) then
+  if (not TRPCServer.Instance.IsValidClientIP(FSock.GetRemoteSinIP, FSock.GetRemoteSinPort)) then
   begin
     TLog.NewLog(lterror, Classname, FSock.GetRemoteSinIP + ':' + Inttostr(FSock.GetRemoteSinPort) + ' INVALID IP');
-    _RPCServer.AddRPCLog(FSock.GetRemoteSinIP + ':' + Inttostr(FSock.GetRemoteSinPort), ' INVALID IP');
+    TRPCServer.Instance.AddRPCLog(FSock.GetRemoteSinIP + ':' + Inttostr(FSock.GetRemoteSinPort), ' INVALID IP');
     exit;
   end;
   errNum := CT_RPC_ErrNum_InternalError;
@@ -459,7 +165,7 @@ begin
       end;
       // Convert InputData to JSON object
       try
-        js := TPCJSONData.ParseJSONValue(jsonrequesttxt);
+        js := TPCJsonData.ParseJSONValue(jsonrequesttxt);
       except
         on E: Exception do
         begin
@@ -549,7 +255,7 @@ begin
           FSock.SendBuffer(addr(jsonresponsetxt[1]), length(jsonresponsetxt));
         end;
       end;
-      _RPCServer.AddRPCLog(FSock.GetRemoteSinIP + ':' + Inttostr(FSock.GetRemoteSinPort), 'Method:' + methodName + ' Params:' + paramsTxt + ' ' + Inttostr(errNum) + ':' + errDesc + ' Time:' +
+      TRPCServer.Instance.AddRPCLog(FSock.GetRemoteSinIP + ':' + Inttostr(FSock.GetRemoteSinPort), 'Method:' + methodName + ' Params:' + paramsTxt + ' ' + Inttostr(errNum) + ':' + errDesc + ' Time:' +
         FormatFloat('0.000', (GetTickCount - tc) / 1000));
     finally
       jsonresponse.Free;
@@ -558,8 +264,7 @@ begin
   end;
 end;
 
-function TRPCProcess.ProcessMethod(const method: string; params: TPCJSONObject;
-  jsonresponse: TPCJSONObject; var ErrorNum: Integer; var ErrorDesc: string): Boolean;
+function TRPCHandler.ProcessMethod(const method: string; params: TPCJSONObject; jsonresponse: TPCJSONObject; var ErrorNum: integer; var ErrorDesc: string): Boolean;
 var
   _ro: TPCJSONObject;
   _ra: TPCJSONArray;
@@ -583,9 +288,9 @@ var
     Result := _ra;
   end;
 
-  function ToJSONCurrency(pascalCoins: Int64): Real;
+  function ToJSONCurrency(microCoins: Int64): Real;
   begin
-    Result := RoundTo(pascalCoins / 10000, -4);
+    Result := RoundTo(microCoins / 10000, -4);
   end;
 
   function ToMicroCoins(jsonCurr: Real): Int64;
@@ -655,7 +360,7 @@ var
         Result := false;
         exit;
       end;
-      ob := FNode.Bank.AccountStorage.Block(nBlock).Blockheader;
+      ob := FNode.Bank.AccountStorage.Block(nBlock).BlockHeader;
 
       jsonObject.GetAsVariant('block').Value := ob.Block;
       jsonObject.GetAsVariant('enc_pubkey').Value := TCrypto.ToHexaString(ob.account_key.ToRawString);
@@ -745,14 +450,14 @@ var
     jsonObject.GetAsVariant('rawoperations').Value := OperationsHashTreeToHexaString(OperationsHashTree);
   end;
 
-  function GetAccountOperations(accountNumber: cardinal; jsonArray: TPCJSONArray; maxBlocksDepth, startReg, maxReg: Integer): Boolean;
+  function GetAccountOperations(accountNumber: cardinal; jsonArray: TPCJSONArray; maxBlocksDepth, startReg, maxReg: integer): Boolean;
   var
     list: TList;
     Op: ITransaction;
     OPR: TTransactionData;
     Obj: TPCJSONObject;
     OperationsResume: TTransactionList;
-    i, nCounter: Integer;
+    i, nCounter: integer;
   begin
     Result := false;
     if (startReg < -1) or (maxReg <= 0) then
@@ -810,7 +515,7 @@ var
 
   procedure GetConnections;
   var
-    i: Integer;
+    i: integer;
     l: TList;
     nc: TNetConnection;
     Obj: TPCJSONObject;
@@ -839,25 +544,24 @@ var
 
 // This function creates a TOpTransaction without looking for balance/private key of sender account
 // It assumes that sender,target,sender_last_n_operation,senderAccountKey and targetAccountKey are correct
-  function CreateOperationTransaction(Sender, target, sender_last_n_operation: cardinal; Amount, fee: UInt64;
-    const senderAccounKey, targetAccountKey: TAccountKey; const RawPayload: TRawBytes;
+  function CreateOperationTransaction(Sender, target, sender_last_n_operation: cardinal; Amount, fee: UInt64; const senderAccounKey, targetAccountKey: TAccountKey; const RawPayload: TRawBytes;
     const Payload_method, EncodePwd: AnsiString): TTransferMoneyTransaction;
   // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
   var
-    i: Integer;
+    i: integer;
     f_raw: TRawBytes;
   begin
     Result := nil;
-    i := _RPCServer.FWalletKeys.IndexOfAccountKey(senderAccounKey);
+    i := TRPCServer.Instance.WalletKeys.IndexOfAccountKey(senderAccounKey);
     if i < 0 then
     begin
       ErrorDesc := 'Sender Public Key not found in wallet: ' + (senderAccounKey.AccountPublicKeyExport);
       ErrorNum := CT_RPC_ErrNum_InvalidPubKey;
       exit;
     end;
-    if (not Assigned(_RPCServer.FWalletKeys.Key[i].PrivateKey)) then
+    if (not Assigned(TRPCServer.Instance.WalletKeys.Key[i].PrivateKey)) then
     begin
-      if _RPCServer.FWalletKeys.Key[i].CryptedKey <> '' then
+      if TRPCServer.Instance.WalletKeys.Key[i].CryptedKey <> '' then
       begin
         // Wallet is password protected
         ErrorDesc := 'Wallet is password protected';
@@ -896,7 +600,7 @@ var
     end
     else
       f_raw := '';
-    Result := TTransferMoneyTransaction.CreateTransaction(Sender, sender_last_n_operation + 1, target, _RPCServer.FWalletKeys.Key[i].PrivateKey, Amount, fee, f_raw);
+    Result := TTransferMoneyTransaction.CreateTransaction(Sender, sender_last_n_operation + 1, target, TRPCServer.Instance.WalletKeys.Key[i].PrivateKey, Amount, fee, f_raw);
     if not Result.HasValidSignature then
     begin
       FreeAndNil(Result);
@@ -959,9 +663,7 @@ var
     end;
   end;
 
-  function SignOpSendTo(const HexaStringOperationsHashTree: TRawBytes; Sender, target: cardinal;
-    const senderAccounKey, targetAccountKey: TAccountKey;
-    last_sender_n_operation: cardinal;
+  function SignOpSendTo(const HexaStringOperationsHashTree: TRawBytes; Sender, target: cardinal; const senderAccounKey, targetAccountKey: TAccountKey; last_sender_n_operation: cardinal;
     Amount, fee: UInt64; const RawPayload: TRawBytes; const Payload_method, EncodePwd: AnsiString): Boolean;
   // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
   var
@@ -998,21 +700,21 @@ var
     const Payload_method, EncodePwd: AnsiString): TChangeKeyTransaction;
   // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
   var
-    i: Integer;
+    i: integer;
     errors: AnsiString;
     f_raw: TRawBytes;
   begin
     Result := nil;
-    i := _RPCServer.FWalletKeys.IndexOfAccountKey(account_pubkey);
+    i := TRPCServer.Instance.WalletKeys.IndexOfAccountKey(account_pubkey);
     if (i < 0) then
     begin
       ErrorDesc := 'Private key not found in wallet: ' + (account_pubkey.AccountPublicKeyExport);
       ErrorNum := CT_RPC_ErrNum_InvalidPubKey;
       exit;
     end;
-    if (not Assigned(_RPCServer.FWalletKeys.Key[i].PrivateKey)) then
+    if (not Assigned(TRPCServer.Instance.WalletKeys.Key[i].PrivateKey)) then
     begin
-      if _RPCServer.FWalletKeys.Key[i].CryptedKey <> '' then
+      if TRPCServer.Instance.WalletKeys.Key[i].CryptedKey <> '' then
       begin
         // Wallet is password protected
         ErrorDesc := 'Wallet is password protected';
@@ -1052,11 +754,11 @@ var
       f_raw := '';
     if account_signer = account_target then
     begin
-      Result := TChangeKeyTransaction.Create(account_signer, account_last_n_operation + 1, account_target, _RPCServer.FWalletKeys.Key[i].PrivateKey, new_pubkey, fee, f_raw);
+      Result := TChangeKeyTransaction.Create(account_signer, account_last_n_operation + 1, account_target, TRPCServer.Instance.WalletKeys.Key[i].PrivateKey, new_pubkey, fee, f_raw);
     end
     else
     begin
-      Result := TChangeKeySignedTransaction.Create(account_signer, account_last_n_operation + 1, account_target, _RPCServer.FWalletKeys.Key[i].PrivateKey, new_pubkey, fee, f_raw);
+      Result := TChangeKeySignedTransaction.Create(account_signer, account_last_n_operation + 1, account_target, TRPCServer.Instance.WalletKeys.Key[i].PrivateKey, new_pubkey, fee, f_raw);
     end;
     if not Result.HasValidSignature then
     begin
@@ -1109,26 +811,26 @@ var
 
 // This function creates a TOpListAccountForSale without looking for actual state (cold wallet)
 // It assumes that account_number,account_last_n_operation and account_pubkey are correct
-  function CreateOperationListAccountForSale(account_signer, account_last_n_operation, account_listed: cardinal; const account_signer_pubkey: TAccountKey;
-    account_price: UInt64; locked_until_block: cardinal; account_to_pay: cardinal; const new_account_pubkey: TAccountKey;
-    fee: UInt64; RawPayload: TRawBytes; const Payload_method, EncodePwd: AnsiString): TOpListAccountForSale;
+  function CreateOperationListAccountForSale(account_signer, account_last_n_operation, account_listed: cardinal; const account_signer_pubkey: TAccountKey; account_price: UInt64;
+    locked_until_block: cardinal; account_to_pay: cardinal; const new_account_pubkey: TAccountKey; fee: UInt64; RawPayload: TRawBytes; const Payload_method, EncodePwd: AnsiString)
+    : TOpListAccountForSale;
   // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
   var
-    i: Integer;
+    i: integer;
     errors: AnsiString;
     f_raw: TRawBytes;
   begin
     Result := nil;
-    i := _RPCServer.FWalletKeys.IndexOfAccountKey(account_signer_pubkey);
+    i := TRPCServer.Instance.WalletKeys.IndexOfAccountKey(account_signer_pubkey);
     if (i < 0) then
     begin
       ErrorDesc := 'Private key not found in wallet: ' + (account_signer_pubkey.AccountPublicKeyExport);
       ErrorNum := CT_RPC_ErrNum_InvalidPubKey;
       exit;
     end;
-    if (not Assigned(_RPCServer.FWalletKeys.Key[i].PrivateKey)) then
+    if (not Assigned(TRPCServer.Instance.WalletKeys.Key[i].PrivateKey)) then
     begin
-      if _RPCServer.FWalletKeys.Key[i].CryptedKey <> '' then
+      if TRPCServer.Instance.WalletKeys.Key[i].CryptedKey <> '' then
       begin
         // Wallet is password protected
         ErrorDesc := 'Wallet is password protected';
@@ -1168,7 +870,7 @@ var
     else
       f_raw := '';
     Result := TOpListAccountForSale.CreateListAccountForSale(account_signer, account_last_n_operation + 1, account_listed, account_price, fee, account_to_pay, new_account_pubkey, locked_until_block,
-      _RPCServer.FWalletKeys.Key[i].PrivateKey, f_raw);
+      TRPCServer.Instance.WalletKeys.Key[i].PrivateKey, f_raw);
     if not Result.HasValidSignature then
     begin
       FreeAndNil(Result);
@@ -1180,24 +882,24 @@ var
 
 // This function creates a TOpDelistAccountForSale without looking for actual state (cold wallet)
 // It assumes that account_number,account_last_n_operation are correct
-  function CreateOperationDelistAccountForSale(account_signer, account_last_n_operation, account_delisted: cardinal; const account_signer_pubkey: TAccountKey;
-    fee: UInt64; RawPayload: TRawBytes; const Payload_method, EncodePwd: AnsiString): TOpDelistAccountForSale;
+  function CreateOperationDelistAccountForSale(account_signer, account_last_n_operation, account_delisted: cardinal; const account_signer_pubkey: TAccountKey; fee: UInt64; RawPayload: TRawBytes;
+    const Payload_method, EncodePwd: AnsiString): TOpDelistAccountForSale;
   // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
   var
-    i: Integer;
+    i: integer;
     f_raw: TRawBytes;
   begin
     Result := nil;
-    i := _RPCServer.FWalletKeys.IndexOfAccountKey(account_signer_pubkey);
+    i := TRPCServer.Instance.WalletKeys.IndexOfAccountKey(account_signer_pubkey);
     if (i < 0) then
     begin
       ErrorDesc := 'Private key not found in wallet: ' + (account_signer_pubkey.AccountPublicKeyExport);
       ErrorNum := CT_RPC_ErrNum_InvalidPubKey;
       exit;
     end;
-    if (not Assigned(_RPCServer.FWalletKeys.Key[i].PrivateKey)) then
+    if (not Assigned(TRPCServer.Instance.WalletKeys.Key[i].PrivateKey)) then
     begin
-      if _RPCServer.FWalletKeys.Key[i].CryptedKey <> '' then
+      if TRPCServer.Instance.WalletKeys.Key[i].CryptedKey <> '' then
       begin
         // Wallet is password protected
         ErrorDesc := 'Wallet is password protected';
@@ -1231,7 +933,7 @@ var
     end
     else
       f_raw := '';
-    Result := TOpDelistAccountForSale.CreateDelistAccountForSale(account_signer, account_last_n_operation + 1, account_delisted, fee, _RPCServer.FWalletKeys.Key[i].PrivateKey, f_raw);
+    Result := TOpDelistAccountForSale.CreateDelistAccountForSale(account_signer, account_last_n_operation + 1, account_delisted, fee, TRPCServer.Instance.WalletKeys.Key[i].PrivateKey, f_raw);
     if not Result.HasValidSignature then
     begin
       FreeAndNil(Result);
@@ -1244,26 +946,25 @@ var
 // This function creates a TOpBuyAccount without looking for actual state (cold wallet)
 // It assumes that account_number,account_last_n_operation and account_pubkey are correct
 // Also asumes that amount is >= price and other needed conditions
-  function CreateOperationBuyAccount(account_number, account_last_n_operation: cardinal; const account_pubkey: TAccountKey;
-    account_to_buy: cardinal; account_price, Amount: UInt64; account_to_pay: cardinal; const new_account_pubkey: TAccountKey;
-    fee: UInt64; RawPayload: TRawBytes; const Payload_method, EncodePwd: AnsiString): TBuyAccountTransaction;
+  function CreateOperationBuyAccount(account_number, account_last_n_operation: cardinal; const account_pubkey: TAccountKey; account_to_buy: cardinal; account_price, Amount: UInt64;
+    account_to_pay: cardinal; const new_account_pubkey: TAccountKey; fee: UInt64; RawPayload: TRawBytes; const Payload_method, EncodePwd: AnsiString): TBuyAccountTransaction;
   // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
   var
-    i: Integer;
+    i: integer;
     errors: AnsiString;
     f_raw: TRawBytes;
   begin
     Result := nil;
-    i := _RPCServer.FWalletKeys.IndexOfAccountKey(account_pubkey);
+    i := TRPCServer.Instance.WalletKeys.IndexOfAccountKey(account_pubkey);
     if (i < 0) then
     begin
       ErrorDesc := 'Private key not found in wallet: ' + (account_pubkey.AccountPublicKeyExport);
       ErrorNum := CT_RPC_ErrNum_InvalidPubKey;
       exit;
     end;
-    if (not Assigned(_RPCServer.FWalletKeys.Key[i].PrivateKey)) then
+    if (not Assigned(TRPCServer.Instance.WalletKeys.Key[i].PrivateKey)) then
     begin
-      if _RPCServer.FWalletKeys.Key[i].CryptedKey <> '' then
+      if TRPCServer.Instance.WalletKeys.Key[i].CryptedKey <> '' then
       begin
         // Wallet is password protected
         ErrorDesc := 'Wallet is password protected';
@@ -1302,7 +1003,7 @@ var
     else
       f_raw := '';
     Result := TBuyAccountTransaction.CreateBuy(account_number, account_last_n_operation + 1, account_to_buy, account_to_pay, account_price, Amount, fee, new_account_pubkey,
-      _RPCServer.FWalletKeys.Key[i].PrivateKey, f_raw);
+      TRPCServer.Instance.WalletKeys.Key[i].PrivateKey, f_raw);
     if not Result.HasValidSignature then
     begin
       FreeAndNil(Result);
@@ -1314,7 +1015,7 @@ var
 
   function GetCardinalsValues(ordinals_coma_separated: string; cardinals: TOrderedList; var errors: AnsiString): Boolean;
   var
-    i, istart: Integer;
+    i, istart: integer;
     ctxt: string;
     an: cardinal;
   begin
@@ -1372,7 +1073,7 @@ var
   var
     opck: TChangeKeyTransaction;
     acc: TAccount;
-    i, ian: Integer;
+    i, ian: integer;
     errors: AnsiString;
     OPR: TTransactionData;
     accountsnumber: TOrderedList;
@@ -1441,9 +1142,7 @@ var
     end;
   end;
 
-  function SignOpChangeKey(const HexaStringOperationsHashTree: TRawBytes; account_signer, account_target: cardinal;
-    const actualAccounKey, newAccountKey: TAccountKey;
-    last_n_operation: cardinal;
+  function SignOpChangeKey(const HexaStringOperationsHashTree: TRawBytes; account_signer, account_target: cardinal; const actualAccounKey, newAccountKey: TAccountKey; last_n_operation: cardinal;
     fee: UInt64; const RawPayload: TRawBytes; const Payload_method, EncodePwd: AnsiString): Boolean;
   // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
   var
@@ -1481,7 +1180,7 @@ var
     OPR: TTransactionData;
     Obj: TPCJSONObject;
     Op: ITransaction;
-    i: Integer;
+    i: integer;
   begin
     if not HexaStringToOperationsHashTree(HexaStringOperationsHashTree, OperationsHashTree, errors) then
     begin
@@ -1514,7 +1213,7 @@ var
   var
     OperationsHashTree: TTransactionHashTree;
     errors: AnsiString;
-    i: Integer;
+    i: integer;
     OperationsResumeList: TTransactionList;
   begin
     if not HexaStringToOperationsHashTree(HexaStringOperationsHashTree, OperationsHashTree, errors) then
@@ -1618,7 +1317,7 @@ var
 
   function DoDecrypt(RawEncryptedPayload: TRawBytes; jsonArrayPwds: TPCJSONArray): Boolean;
   var
-    i: Integer;
+    i: integer;
     pkey: TECPrivateKey;
     decrypted_payload: TRawBytes;
   begin
@@ -1631,9 +1330,9 @@ var
       Result := true;
       exit;
     end;
-    for i := 0 to _RPCServer.WalletKeys.Count - 1 do
+    for i := 0 to TRPCServer.Instance.WalletKeys.Count - 1 do
     begin
-      pkey := _RPCServer.WalletKeys.Key[i].PrivateKey;
+      pkey := TRPCServer.Instance.WalletKeys.Key[i].PrivateKey;
       if (Assigned(pkey)) then
       begin
         if ECIESDecrypt(pkey.EC_OpenSSL_NID, pkey.PrivateKey, false, RawEncryptedPayload, decrypted_payload) then
@@ -1781,10 +1480,8 @@ var
     end
     else
       new_pubkey := CT_TECDSA_Public_Nul;
-    opSale := CreateOperationListAccountForSale(account_signer, last_n_operation, account_target, actualAccounKey, price, locked_until_block,
-      seller_account, new_pubkey, fee,
-      TCrypto.HexaToRaw(params.AsString('payload', '')),
-      params.AsString('payload_method', 'dest'), params.AsString('pwd', ''));
+    opSale := CreateOperationListAccountForSale(account_signer, last_n_operation, account_target, actualAccounKey, price, locked_until_block, seller_account, new_pubkey, fee,
+      TCrypto.HexaToRaw(params.AsString('payload', '')), params.AsString('payload_method', 'dest'), params.AsString('pwd', ''));
     if opSale = nil then
       exit;
     try
@@ -1876,28 +1573,26 @@ var
 
 // This function creates a TOpChangeAccountInfo without looking for actual state (cold wallet)
 // It assumes that account_number,account_last_n_operation and account_pubkey are correct
-  function CreateOperationChangeAccountInfo(account_signer, account_last_n_operation, account_target: cardinal; const account_signer_pubkey: TAccountKey;
-    changePubKey: Boolean; const new_account_pubkey: TAccountKey;
-    changeName: Boolean; const new_name: TRawBytes;
-    changeType: Boolean; new_type: Word;
-    fee: UInt64; RawPayload: TRawBytes; const Payload_method, EncodePwd: AnsiString): TOpChangeAccountInfo;
+  function CreateOperationChangeAccountInfo(account_signer, account_last_n_operation, account_target: cardinal; const account_signer_pubkey: TAccountKey; changePubKey: Boolean;
+    const new_account_pubkey: TAccountKey; changeName: Boolean; const new_name: TRawBytes; changeType: Boolean; new_type: Word; fee: UInt64; RawPayload: TRawBytes;
+    const Payload_method, EncodePwd: AnsiString): TOpChangeAccountInfo;
   // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
   var
-    i: Integer;
+    i: integer;
     errors: AnsiString;
     f_raw: TRawBytes;
   begin
     Result := nil;
-    i := _RPCServer.FWalletKeys.IndexOfAccountKey(account_signer_pubkey);
+    i := TRPCServer.Instance.WalletKeys.IndexOfAccountKey(account_signer_pubkey);
     if (i < 0) then
     begin
       ErrorDesc := 'Private key not found in wallet: ' + (account_signer_pubkey.AccountPublicKeyExport);
       ErrorNum := CT_RPC_ErrNum_InvalidPubKey;
       exit;
     end;
-    if (not Assigned(_RPCServer.FWalletKeys.Key[i].PrivateKey)) then
+    if (not Assigned(TRPCServer.Instance.WalletKeys.Key[i].PrivateKey)) then
     begin
-      if _RPCServer.FWalletKeys.Key[i].CryptedKey <> '' then
+      if TRPCServer.Instance.WalletKeys.Key[i].CryptedKey <> '' then
       begin
         // Wallet is password protected
         ErrorDesc := 'Wallet is password protected';
@@ -1936,10 +1631,8 @@ var
     end
     else
       f_raw := '';
-    Result := TOpChangeAccountInfo.CreateChangeAccountInfo(account_signer, account_last_n_operation + 1, account_target,
-      _RPCServer.FWalletKeys.Key[i].PrivateKey,
-      changePubKey, new_account_pubkey, changeName, new_name, changeType, new_type,
-      fee, f_raw);
+    Result := TOpChangeAccountInfo.CreateChangeAccountInfo(account_signer, account_last_n_operation + 1, account_target, TRPCServer.Instance.WalletKeys.Key[i].PrivateKey, changePubKey,
+      new_account_pubkey, changeName, new_name, changeType, new_type, fee, f_raw);
     if not Result.HasValidSignature then
     begin
       FreeAndNil(Result);
@@ -1963,7 +1656,7 @@ var
     ChangeKey, changeName, changeType: Boolean;
     new_name: AnsiString;
     new_type: Word;
-    new_typeI: Integer;
+    new_typeI: integer;
     new_pubkey: TAccountKey;
   begin
     Result := false;
@@ -2030,12 +1723,8 @@ var
       changeType := false;
     end;
 
-    opChangeInfo := CreateOperationChangeAccountInfo(account_signer, last_n_operation, account_target, actualAccountKey,
-      ChangeKey, new_pubkey,
-      changeName, new_name,
-      changeType, new_type,
-      fee, TCrypto.HexaToRaw(params.AsString('payload', '')),
-      params.AsString('payload_method', 'dest'), params.AsString('pwd', ''));
+    opChangeInfo := CreateOperationChangeAccountInfo(account_signer, last_n_operation, account_target, actualAccountKey, ChangeKey, new_pubkey, changeName, new_name, changeType, new_type, fee,
+      TCrypto.HexaToRaw(params.AsString('payload', '')), params.AsString('payload_method', 'dest'), params.AsString('pwd', ''));
     if opChangeInfo = nil then
       exit;
     try
@@ -2178,8 +1867,7 @@ var
     else
       new_pubkey := CT_TECDSA_Public_Nul;
     opBuy := CreateOperationBuyAccount(buyer_account, last_n_operation, buyerAccountKey, account_to_purchase, price, Amount, seller_account, new_pubkey, fee,
-      TCrypto.HexaToRaw(params.AsString('payload', '')),
-      params.AsString('payload_method', 'dest'), params.AsString('pwd', ''));
+      TCrypto.HexaToRaw(params.AsString('payload', '')), params.AsString('payload_method', 'dest'), params.AsString('pwd', ''));
     if opBuy = nil then
       exit;
     try
@@ -2481,9 +2169,9 @@ var
   function FindAccounts(params: TPCJSONObject; var output: TPCJSONArray): Boolean;
   var
     accountName: TRawBytes;
-    accountType: Integer;
-    accountNumber: Integer;
-    start, max: Integer;
+    accountType: integer;
+    accountNumber: integer;
+    start, max: integer;
     state: TAccountState;
     Account: TAccount;
     i: cardinal;
@@ -2528,7 +2216,7 @@ var
       if accountNumber >= 0 then
       begin
         Account := FNode.Operations.SafeBoxTransaction.Account(accountNumber);
-        if (accountType = -1) or (Integer(Account.account_type) = accountType) then
+        if (accountType = -1) or (integer(Account.account_type) = accountType) then
           FillAccountObject(Account, output.GetAsObject(output.Count));
       end;
     end
@@ -2567,7 +2255,7 @@ var
       for i := start to FNode.Bank.AccountsCount - 1 do
       begin
         Account := FNode.Operations.SafeBoxTransaction.Account(i);
-        if (accountType = -1) or (Integer(Account.account_type) = accountType) then
+        if (accountType = -1) or (integer(Account.account_type) = accountType) then
         begin
           // Found a match
           FillAccountObject(Account, output.GetAsObject(output.Count));
@@ -2581,7 +2269,7 @@ var
 
 var
   c, c2: cardinal;
-  i, j, k, l: Integer;
+  i, j, k, l: integer;
   Account: TAccount;
   senderpubkey, destpubkey: TAccountKey;
   ansistr: AnsiString;
@@ -2593,6 +2281,8 @@ var
   ocl: TOrderedList;
   jsonarr: TPCJSONArray;
   jso: TPCJSONObject;
+  handler : THandler;
+  handlerResult : TRPCResult;
 begin
   _ro := nil;
   _ra := nil;
@@ -2600,7 +2290,22 @@ begin
   ErrorDesc := '';
   Result := false;
   TLog.NewLog(ltdebug, Classname, 'Processing RPC-JSON method ' + method);
-  if (method = 'addnode') then
+
+  handler := TRPCManager.GetHandler(method);
+
+  if Assigned(handler)
+  then begin
+    handlerResult :=  handler(params);
+    if handlerResult.Success then
+    begin
+      jsonresponse := handlerResult.Response;
+      Result := true;
+    end else begin
+      ErrorNum := handlerResult.ErrorCode;
+      ErrorDesc := handlerResult.ErrorMessage;
+      Result := false;
+    end;
+  end else if (method = 'addnode') then
   begin
     // Param "nodes" contains ip's and ports in format "ip1:port1;ip2:port2 ...". If port is not specified, use default
     // Returns quantity of nodes added
@@ -2612,179 +2317,20 @@ begin
     jsonresponse.GetAsVariant('result').Value := length(nsaarr);
     Result := true;
   end
-  else if (method = 'getaccount') then
-  begin
-    // Param "account" contains account number
-    // Returns JSON Object with account information based on BlockChain + Pending operations
-    c := params.GetAsVariant('account').AsCardinal(CT_MaxAccount);
-    if (c >= 0) and (c < FNode.Bank.AccountsCount) then
-    begin
-      Account := FNode.Operations.SafeBoxTransaction.Account(c);
-      FillAccountObject(Account, GetResultObject);
-      Result := true;
-    end
-    else
-    begin
-      ErrorNum := CT_RPC_ErrNum_InvalidAccount;
-      if (c = CT_MaxAccount) then
-        ErrorDesc := 'Need "account" param'
-      else
-        ErrorDesc := 'Account not found: ' + Inttostr(c);
-    end;
-  end
-  else if (method = 'findaccounts') then
-  begin
-    Result := FindAccounts(params, jsonarr);
-  end
-  else if (method = 'getwalletaccounts') then
-  begin
-    // Returns JSON array with accounts in Wallet
-    jsonarr := jsonresponse.GetAsArray('result');
-    if (params.IndexOfName('enc_pubkey') >= 0) or (params.IndexOfName('b58_pubkey') >= 0) then
-    begin
-      if not(CapturePubKey('', OPR.newKey, ErrorDesc)) then
-      begin
-        ErrorNum := CT_RPC_ErrNum_InvalidPubKey;
-        exit;
-      end;
-      i := _RPCServer.WalletKeys.AccountsKeyList.IndexOfAccountKey(OPR.newKey);
-      if (i < 0) then
-      begin
-        ErrorNum := CT_RPC_ErrNum_NotFound;
-        ErrorDesc := 'Public key not found in wallet';
-        exit;
-      end;
-      ocl := _RPCServer.WalletKeys.AccountsKeyList.AccountKeyList[i];
-      k := params.AsInteger('max', 100);
-      l := params.AsInteger('start', 0);
-      for j := 0 to ocl.Count - 1 do
-      begin
-        if (j >= l) then
-        begin
-          Account := FNode.Operations.SafeBoxTransaction.Account(ocl.Get(j));
-          FillAccountObject(Account, jsonarr.GetAsObject(jsonarr.Count));
-        end;
-        if (k > 0) and ((j + 1) >= (k + l)) then
-          break;
-      end;
-      Result := true;
-    end
-    else
-    begin
-      k := params.AsInteger('max', 100);
-      l := params.AsInteger('start', 0);
-      c := 0;
-      for i := 0 to _RPCServer.WalletKeys.AccountsKeyList.Count - 1 do
-      begin
-        ocl := _RPCServer.WalletKeys.AccountsKeyList.AccountKeyList[i];
-        for j := 0 to ocl.Count - 1 do
-        begin
-          if (c >= l) then
-          begin
-            Account := FNode.Operations.SafeBoxTransaction.Account(ocl.Get(j));
-            FillAccountObject(Account, jsonarr.GetAsObject(jsonarr.Count));
-          end;
-          inc(c);
-          if (k > 0) and (c >= (k + l)) then
-            break;
-        end;
-        if (k > 0) and (c >= (k + l)) then
-          break;
-      end;
-      Result := true;
-    end;
-  end
-  else if (method = 'getwalletaccountscount') then
-  begin
-    // New Build 1.1.1
-    // Returns a number with count value
-    if (params.IndexOfName('enc_pubkey') >= 0) or (params.IndexOfName('b58_pubkey') >= 0) then
-    begin
-      if not(CapturePubKey('', OPR.newKey, ErrorDesc)) then
-      begin
-        ErrorNum := CT_RPC_ErrNum_InvalidPubKey;
-        exit;
-      end;
-      i := _RPCServer.WalletKeys.AccountsKeyList.IndexOfAccountKey(OPR.newKey);
-      if (i < 0) then
-      begin
-        ErrorNum := CT_RPC_ErrNum_NotFound;
-        ErrorDesc := 'Public key not found in wallet';
-        exit;
-      end;
-      ocl := _RPCServer.WalletKeys.AccountsKeyList.AccountKeyList[i];
-      jsonresponse.GetAsVariant('result').Value := ocl.Count;
-      Result := true;
-    end
-    else
-    begin
-      ErrorDesc := '';
-      c := 0;
-      for i := 0 to _RPCServer.WalletKeys.AccountsKeyList.Count - 1 do
-      begin
-        ocl := _RPCServer.WalletKeys.AccountsKeyList.AccountKeyList[i];
-        inc(c, ocl.Count);
-      end;
-      jsonresponse.GetAsVariant('result').Value := c;
-      Result := true;
-    end;
-  end
-  else if (method = 'getwalletcoins') then
-  begin
-    if (params.IndexOfName('enc_pubkey') >= 0) or (params.IndexOfName('b58_pubkey') >= 0) then
-    begin
-      if not(CapturePubKey('', OPR.newKey, ErrorDesc)) then
-      begin
-        ErrorNum := CT_RPC_ErrNum_InvalidPubKey;
-        exit;
-      end;
-      i := _RPCServer.WalletKeys.AccountsKeyList.IndexOfAccountKey(OPR.newKey);
-      if (i < 0) then
-      begin
-        ErrorNum := CT_RPC_ErrNum_NotFound;
-        ErrorDesc := 'Public key not found in wallet';
-        exit;
-      end;
-      ocl := _RPCServer.WalletKeys.AccountsKeyList.AccountKeyList[i];
-      Account.balance := 0;
-      for j := 0 to ocl.Count - 1 do
-      begin
-        inc(Account.balance, FNode.Operations.SafeBoxTransaction.Account(ocl.Get(j)).balance);
-      end;
-      jsonresponse.GetAsVariant('result').Value := ToJSONCurrency(Account.balance);
-      Result := true;
-    end
-    else
-    begin
-      ErrorDesc := '';
-      c := 0;
-      Account.balance := 0;
-      for i := 0 to _RPCServer.WalletKeys.AccountsKeyList.Count - 1 do
-      begin
-        ocl := _RPCServer.WalletKeys.AccountsKeyList.AccountKeyList[i];
-        for j := 0 to ocl.Count - 1 do
-        begin
-          inc(Account.balance, FNode.Operations.SafeBoxTransaction.Account(ocl.Get(j)).balance);
-        end;
-      end;
-      jsonresponse.GetAsVariant('result').Value := ToJSONCurrency(Account.balance);
-      Result := true;
-    end;
-  end
   else if (method = 'getwalletpubkeys') then
   begin
     // Returns JSON array with pubkeys in wallet
     k := params.AsInteger('max', 100);
     j := params.AsInteger('start', 0);
     jsonarr := jsonresponse.GetAsArray('result');
-    for i := 0 to _RPCServer.WalletKeys.Count - 1 do
+    for i := 0 to TRPCServer.Instance.WalletKeys.Count - 1 do
     begin
       if (i >= j) then
       begin
         jso := jsonarr.GetAsObject(jsonarr.Count);
-        jso.GetAsVariant('name').Value := _RPCServer.WalletKeys.Key[i].name;
-        jso.GetAsVariant('can_use').Value := (_RPCServer.WalletKeys.Key[i].CryptedKey <> '');
-        FillPublicKeyObject(_RPCServer.WalletKeys.Key[i].AccountKey, jso);
+        jso.GetAsVariant('name').Value := TRPCServer.Instance.WalletKeys.Key[i].name;
+        jso.GetAsVariant('can_use').Value := (TRPCServer.Instance.WalletKeys.Key[i].CryptedKey <> '');
+        FillPublicKeyObject(TRPCServer.Instance.WalletKeys.Key[i].AccountKey, jso);
       end;
       if (k > 0) and ((i + 1) >= (j + k)) then
         break;
@@ -2798,14 +2344,14 @@ begin
       ErrorNum := CT_RPC_ErrNum_InvalidPubKey;
       exit;
     end;
-    i := _RPCServer.WalletKeys.AccountsKeyList.IndexOfAccountKey(OPR.newKey);
+    i := TRPCServer.Instance.WalletKeys.AccountsKeyList.IndexOfAccountKey(OPR.newKey);
     if (i < 0) then
     begin
       ErrorNum := CT_RPC_ErrNum_NotFound;
       ErrorDesc := 'Public key not found in wallet';
       exit;
     end;
-    FillPublicKeyObject(_RPCServer.WalletKeys.AccountsKeyList.AccountKey[i], GetResultObject);
+    FillPublicKeyObject(TRPCServer.Instance.WalletKeys.AccountsKeyList.AccountKey[i], GetResultObject);
     Result := true;
   end
   else if (method = 'getblock') then
@@ -3058,17 +2604,14 @@ begin
     // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
     // Returns a JSON "Operation Resume format" object when successfull
     // Note: "ophash" will contain block "0" = "pending block"
-    if not _RPCServer.WalletKeys.IsValidPassword then
+    if not TRPCServer.Instance.WalletKeys.IsValidPassword then
     begin
       ErrorNum := CT_RPC_ErrNum_WalletPasswordProtected;
       ErrorDesc := 'Wallet is password protected. Unlock first';
       exit;
     end;
-    Result := OpSendTo(params.AsCardinal('sender', CT_MaxAccount), params.AsCardinal('target', CT_MaxAccount),
-      ToMicroCoins(params.AsDouble('amount', 0)),
-      ToMicroCoins(params.AsDouble('fee', 0)),
-      TCrypto.HexaToRaw(params.AsString('payload', '')),
-      params.AsString('payload_method', 'dest'), params.AsString('pwd', ''));
+    Result := OpSendTo(params.AsCardinal('sender', CT_MaxAccount), params.AsCardinal('target', CT_MaxAccount), ToMicroCoins(params.AsDouble('amount', 0)), ToMicroCoins(params.AsDouble('fee', 0)),
+      TCrypto.HexaToRaw(params.AsString('payload', '')), params.AsString('payload_method', 'dest'), params.AsString('pwd', ''));
   end
   else if (method = 'signsendto') then
   begin
@@ -3081,7 +2624,7 @@ begin
     // If "payload" is present, it will be encoded using "payload_method"
     // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
     // Returns a JSON "Operations info" containing old "rawoperations" plus new Transaction
-    if not _RPCServer.WalletKeys.IsValidPassword then
+    if not TRPCServer.Instance.WalletKeys.IsValidPassword then
     begin
       ErrorNum := CT_RPC_ErrNum_WalletPasswordProtected;
       ErrorDesc := 'Wallet is password protected. Unlock first';
@@ -3097,14 +2640,8 @@ begin
       ErrorNum := CT_RPC_ErrNum_InvalidPubKey;
       exit;
     end;
-    Result := SignOpSendTo(
-      params.AsString('rawoperations', ''),
-      params.AsCardinal('sender', CT_MaxAccount), params.AsCardinal('target', CT_MaxAccount),
-      senderpubkey, destpubkey,
-      params.AsCardinal('last_n_operation', 0),
-      ToMicroCoins(params.AsDouble('amount', 0)),
-      ToMicroCoins(params.AsDouble('fee', 0)),
-      TCrypto.HexaToRaw(params.AsString('payload', '')),
+    Result := SignOpSendTo(params.AsString('rawoperations', ''), params.AsCardinal('sender', CT_MaxAccount), params.AsCardinal('target', CT_MaxAccount), senderpubkey, destpubkey,
+      params.AsCardinal('last_n_operation', 0), ToMicroCoins(params.AsDouble('amount', 0)), ToMicroCoins(params.AsDouble('fee', 0)), TCrypto.HexaToRaw(params.AsString('payload', '')),
       params.AsString('payload_method', 'dest'), params.AsString('pwd', ''));
   end
   else if (method = 'changekey') then
@@ -3114,7 +2651,7 @@ begin
     // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
     // Returns a JSON "Operation Resume format" object when successfull
     // Note: "ophash" will contain block "0" = "pending block"
-    if not _RPCServer.WalletKeys.IsValidPassword then
+    if not TRPCServer.Instance.WalletKeys.IsValidPassword then
     begin
       ErrorNum := CT_RPC_ErrNum_WalletPasswordProtected;
       ErrorDesc := 'Wallet is password protected. Unlock first';
@@ -3138,10 +2675,7 @@ begin
       ErrorNum := CT_RPC_ErrNum_InvalidPubKey;
       exit;
     end;
-    Result := ChangeAccountKey(c2, c,
-      Account.accountInfo.AccountKey,
-      ToMicroCoins(params.AsDouble('fee', 0)),
-      TCrypto.HexaToRaw(params.AsString('payload', '')),
+    Result := ChangeAccountKey(c2, c, Account.accountInfo.AccountKey, ToMicroCoins(params.AsDouble('fee', 0)), TCrypto.HexaToRaw(params.AsString('payload', '')),
       params.AsString('payload_method', 'dest'), params.AsString('pwd', ''));
   end
   else if (method = 'changekeys') then
@@ -3151,7 +2685,7 @@ begin
     // If "payload" is present, it will be encoded using "payload_method"
     // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
     // Returns a JSON object with result information
-    if not _RPCServer.WalletKeys.IsValidPassword then
+    if not TRPCServer.Instance.WalletKeys.IsValidPassword then
     begin
       ErrorNum := CT_RPC_ErrNum_WalletPasswordProtected;
       ErrorDesc := 'Wallet is password protected. Unlock first';
@@ -3168,10 +2702,7 @@ begin
       ErrorNum := CT_RPC_ErrNum_InvalidPubKey;
       exit;
     end;
-    Result := ChangeAccountsKey(params.AsString('accounts', ''),
-      Account.accountInfo.AccountKey,
-      ToMicroCoins(params.AsDouble('fee', 0)),
-      TCrypto.HexaToRaw(params.AsString('payload', '')),
+    Result := ChangeAccountsKey(params.AsString('accounts', ''), Account.accountInfo.AccountKey, ToMicroCoins(params.AsDouble('fee', 0)), TCrypto.HexaToRaw(params.AsString('payload', '')),
       params.AsString('payload_method', 'dest'), params.AsString('pwd', ''));
   end
   else if (method = 'signchangekey') then
@@ -3186,7 +2717,7 @@ begin
     // If "payload" is present, it will be encoded using "payload_method"
     // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
     // Returns a JSON "Operations info" containing old "rawoperations" plus new Transaction
-    if not _RPCServer.WalletKeys.IsValidPassword then
+    if not TRPCServer.Instance.WalletKeys.IsValidPassword then
     begin
       ErrorNum := CT_RPC_ErrNum_WalletPasswordProtected;
       ErrorDesc := 'Wallet is password protected. Unlock first';
@@ -3215,12 +2746,8 @@ begin
       ErrorNum := CT_RPC_ErrNum_InvalidPubKey;
       exit;
     end;
-    Result := SignOpChangeKey(params.AsString('rawoperations', ''), c2, c,
-      senderpubkey, destpubkey,
-      params.AsCardinal('last_n_operation', 0),
-      ToMicroCoins(params.AsDouble('fee', 0)),
-      TCrypto.HexaToRaw(params.AsString('payload', '')),
-      params.AsString('payload_method', 'dest'), params.AsString('pwd', ''));
+    Result := SignOpChangeKey(params.AsString('rawoperations', ''), c2, c, senderpubkey, destpubkey, params.AsCardinal('last_n_operation', 0), ToMicroCoins(params.AsDouble('fee', 0)),
+      TCrypto.HexaToRaw(params.AsString('payload', '')), params.AsString('payload_method', 'dest'), params.AsString('pwd', ''));
   end
   else if (method = 'listaccountforsale') then
   begin
@@ -3299,7 +2826,7 @@ begin
       GetResultObject.GetAsVariant('ready_s').Value := ansistr;
     end;
     GetResultObject.GetAsVariant('port').Value := FNode.NetServer.Port;
-    GetResultObject.GetAsVariant('locked').Value := not _RPCServer.WalletKeys.IsValidPassword;
+    GetResultObject.GetAsVariant('locked').Value := not TRPCServer.Instance.WalletKeys.IsValidPassword;
     GetResultObject.GetAsVariant('timestamp').Value := UnivDateTimeToUnix(DateTime2UnivDateTime(now));
     GetResultObject.GetAsVariant('version').Value := CT_ClientAppVersion;
     GetResultObject.GetAsObject('netprotocol').GetAsVariant('ver').Value := CT_NetProtocol_Version;
@@ -3397,9 +2924,7 @@ begin
         exit;
       end;
     end;
-    Result := DoEncrypt(TCrypto.HexaToRaw(params.AsString('payload', '')),
-      OPR.newKey,
-      params.AsString('payload_method', ''), params.AsString('pwd', ''));
+    Result := DoEncrypt(TCrypto.HexaToRaw(params.AsString('payload', '')), OPR.newKey, params.AsString('payload_method', ''), params.AsString('pwd', ''));
   end
   else if (method = 'payloaddecrypt') then
   begin
@@ -3411,7 +2936,7 @@ begin
       ErrorDesc := 'Need param "payload"';
       exit;
     end;
-    if not _RPCServer.WalletKeys.IsValidPassword then
+    if not TRPCServer.Instance.WalletKeys.IsValidPassword then
     begin
       ErrorNum := CT_RPC_ErrNum_WalletPasswordProtected;
       ErrorDesc := 'Wallet is password protected. Unlock first';
@@ -3430,7 +2955,7 @@ begin
     // Creates a new private key and stores it on the wallet, returning Public key JSON object
     // Param "ec_nid" can be 714=secp256k1 715=secp384r1 729=secp283k1 716=secp521r1. (Default = CT_Default_EC_OpenSSL_NID)
     // Param "name" is name for this address
-    if not _RPCServer.WalletKeys.IsValidPassword then
+    if not TRPCServer.Instance.WalletKeys.IsValidPassword then
     begin
       ErrorNum := CT_RPC_ErrNum_WalletPasswordProtected;
       ErrorDesc := 'Wallet is password protected. Unlock first';
@@ -3439,7 +2964,7 @@ begin
     ecpkey := TECPrivateKey.Create;
     try
       ecpkey.GenerateRandomPrivateKey(params.AsInteger('ec_nid', CT_Default_EC_OpenSSL_NID));
-      _RPCServer.FWalletKeys.AddPrivateKey(params.AsString('name', DateTimeToStr(now)), ecpkey);
+      TRPCServer.Instance.WalletKeys.AddPrivateKey(params.AsString('name', DateTimeToStr(now)), ecpkey);
       FillPublicKeyObject(ecpkey.PublicKey, GetResultObject);
       Result := true;
     finally
@@ -3448,7 +2973,7 @@ begin
   end
   else if (method = 'lock') then
   begin
-    jsonresponse.GetAsVariant('result').Value := _RPCServer.WalletKeys.LockWallet;
+    jsonresponse.GetAsVariant('result').Value := TRPCServer.Instance.WalletKeys.LockWallet;
     Result := true;
   end
   else if (method = 'unlock') then
@@ -3461,11 +2986,11 @@ begin
       ErrorDesc := 'Need param "pwd"';
       exit;
     end;
-    if not _RPCServer.WalletKeys.IsValidPassword then
+    if not TRPCServer.Instance.WalletKeys.IsValidPassword then
     begin
-      _RPCServer.WalletKeys.WalletPassword := params.AsString('pwd', '');
+      TRPCServer.Instance.WalletKeys.WalletPassword := params.AsString('pwd', '');
     end;
-    jsonresponse.GetAsVariant('result').Value := _RPCServer.WalletKeys.IsValidPassword;
+    jsonresponse.GetAsVariant('result').Value := TRPCServer.Instance.WalletKeys.IsValidPassword;
     Result := true;
   end
   else if (method = 'setwalletpassword') then
@@ -3473,7 +2998,7 @@ begin
     // Changes the Wallet password with "pwd" param
     // Must be unlocked first
     // Returns Boolean if wallet password changed
-    if not _RPCServer.WalletKeys.IsValidPassword then
+    if not TRPCServer.Instance.WalletKeys.IsValidPassword then
     begin
       ErrorNum := CT_RPC_ErrNum_WalletPasswordProtected;
       ErrorDesc := 'Wallet is password protected. Unlock first';
@@ -3486,8 +3011,8 @@ begin
       ErrorDesc := 'Need param "pwd"';
       exit;
     end;
-    _RPCServer.WalletKeys.WalletPassword := params.AsString('pwd', '');
-    jsonresponse.GetAsVariant('result').Value := _RPCServer.WalletKeys.IsValidPassword;
+    TRPCServer.Instance.WalletKeys.WalletPassword := params.AsString('pwd', '');
+    jsonresponse.GetAsVariant('result').Value := TRPCServer.Instance.WalletKeys.IsValidPassword;
     Result := true;
   end
   else if (method = 'stopnode') then
@@ -3513,54 +3038,5 @@ begin
   end;
 end;
 
-{ TRPCServerThread }
-
-procedure TRPCServerThread.BCExecute;
-var
-  ClientSock: tSocket;
-begin
-  with FServerSocket do
-  begin
-    CreateSocket;
-    setLinger(true, 10000);
-    bind('0.0.0.0', Inttostr(FPort));
-    listen;
-    repeat
-      if terminated then
-        break;
-      try
-        if canread(1000) then
-        begin
-          ClientSock := accept;
-          if lasterror = 0 then
-          begin
-            TRPCProcess.Create(ClientSock);
-          end;
-        end;
-      except
-        on E: Exception do
-        begin
-          TLog.NewLog(lterror, Classname, 'Error ' + E.Classname + ':' + E.Message);
-        end;
-      end;
-      sleep(1);
-    until false;
-  end;
-end;
-
-constructor TRPCServerThread.Create(Port: Word);
-begin
-  TLog.NewLog(ltinfo, Classname, 'Activating RPC-JSON Server on port ' + Inttostr(Port));
-  FServerSocket := TTCPBlockSocket.Create;
-  FPort := Port;
-  inherited Create(false);
-end;
-
-destructor TRPCServerThread.Destroy;
-begin
-  TLog.NewLog(ltinfo, Classname, 'Stoping RPC-JSON Server');
-  FreeAndNil(FServerSocket);
-  inherited Destroy;
-end;
 
 end.

@@ -13,7 +13,7 @@ unit MicroCoin.Account.Transaction;
 interface
 
 uses Sysutils, classes, UCrypto, MicroCoin.Common.Lists, UConst,
-     MicroCoin.Account.AccountKey, MicroCoin.Account, MicroCoin.Common,
+     MicroCoin.Account.AccountKey, MicroCoin.Account.Data, MicroCoin.Common,
      MicroCoin.Account.Storage, MicroCoin.BlockChain.BlockHeader, ULog;
 
 type

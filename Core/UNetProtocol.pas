@@ -2366,7 +2366,7 @@ procedure TNetConnection.DoProcess_AddOperations(HeaderData: TNetHeaderData; Dat
 var
   c, i: Integer;
   optype: Byte;
-  opclass: TPCOperationClass;
+  opclass: TTransactionClass;
   op: ITransaction;
   Operations: TTransactionHashTree;
   errors: AnsiString;
@@ -2391,7 +2391,7 @@ begin
       errors := 'Invalid operation ' + Inttostr(i) + '/' + Inttostr(c);
       if not DataBuffer.Read(optype, 1) = 1 then
         exit;
-      opclass := TTransactionManager.GetTransactionPluginByOpType(optype);
+      opclass := TTransactionManager.GetTransactionPlugin(optype);
       if not Assigned(opclass) then
         exit;
       op := opclass.Create;

@@ -1,7 +1,6 @@
 unit MicroCoin.Transaction.RecoverFounds;
-
-{
-  This unit contains code from PascalCoin:
+{
+  This unit contains code from PascalCoin:
 
   Copyright (c) Albert Molina 2016 - 2018 original code from PascalCoin https://pascalcoin.org/
 
@@ -14,7 +13,7 @@ interface
 
 uses MicroCoin.Transaction.Base, MicroCoin.Transaction.Transaction,
   MicroCoin.Common, MicroCoin.Account.Transaction,
-  MicroCoin.Account,
+  MicroCoin.Account.Data,
   Sysutils, classes, UCrypto, ULog, UConst, MicroCoin.Transaction.Manager;
 
 type

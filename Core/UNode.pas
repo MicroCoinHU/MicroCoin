@@ -34,7 +34,7 @@ uses
   Classes, MicroCoin.BlockChain.BlockManager, UNetProtocol, UCrypto,
   UThread, SyncObjs, ULog, MicroCoin.Transaction.Base,
   MicroCoin.Common.Lists,
-  MicroCoin.Account,
+  MicroCoin.Account.Data,
   MicroCoin.BlockChain.Block,
   MicroCoin.Transaction.TransactionList, MicroCoin.Transaction.HashTree,
   MicroCoin.Account.Storage, MicroCoin.BlockChain.BlockHeader;
