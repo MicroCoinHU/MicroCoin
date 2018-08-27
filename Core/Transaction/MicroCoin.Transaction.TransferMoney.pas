@@ -829,4 +829,5 @@ TTransactionManager.RegisterTransactionPlugin(TTransferMoneyTransaction, CT_Op_T
 TTransactionManager.RegisterTransactionPlugin(TBuyAccountTransaction, CT_Op_BuyAccount);
 
 end.
+
 

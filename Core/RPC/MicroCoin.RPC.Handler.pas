@@ -2289,7 +2289,7 @@ begin
   ErrorNum := 0;
   ErrorDesc := '';
   Result := false;
-  TLog.NewLog(ltdebug, Classname, 'Processing RPC-JSON method ' + method);
+  TLog.NewLog(ltdebug, ClassName, 'Processing RPC-JSON method ' + method);
 
   handler := TRPCManager.GetHandler(method);
 
@@ -2298,7 +2298,7 @@ begin
     handlerResult :=  handler(params);
     if handlerResult.Success then
     begin
-      jsonresponse := handlerResult.Response;
+      jsonresponse.Assign(handlerResult.Response);
       Result := true;
     end else begin
       ErrorNum := handlerResult.ErrorCode;

@@ -194,7 +194,7 @@ implementation
 
 uses
   Graphics, SysUtils, UTime, UConst,
-  UFRMPayloadDecoder, ULog, MicroCoin.Account, MicroCoin.Common;
+  UFRMPayloadDecoder, ULog, MicroCoin.Account.Data, MicroCoin.Common;
 
 resourcestring
   rsAccountN = 'Account N.';

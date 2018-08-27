@@ -49,7 +49,7 @@ type
     function GetLogFileName: AnsiString;
     procedure SetValidIPs(const Value: AnsiString);
     class function GetInstance: TRPCServer; static;
-  protected
+  strict private
     procedure OnNodeNewOperation(Sender: TObject);
     constructor Create;
   public
@@ -69,9 +69,6 @@ type
   end;
 
 implementation
-
-var
-  _RPCServer: TRPCServer = nil;
 
 procedure TRPCServer.AddRPCLog(const Sender: string; const Message: string);
 begin
@@ -280,6 +277,7 @@ end;
 
 constructor TRPCServer.Create;
 begin
+  inherited;
   FActive := false;
   FRPCLog := nil;
   FIniFile := nil;
@@ -290,8 +288,6 @@ begin
   FPort := CT_JSONRPC_Port;
   FCallsCounter := 0;
   FValidIPs := '127.0.0.1;localhost'; // New Build 1.5 - By default, only localhost can access to RPC
-  if not Assigned(_RPCServer) then
-    _RPCServer := Self;
   FNodeNotifyEvents := TNodeNotifyEvents.Create(nil);
   FNodeNotifyEvents.OnOperationsChanged := OnNodeNewOperation;
 end;
@@ -300,8 +296,6 @@ destructor TRPCServer.Destroy;
 begin
   FreeAndNil(FRPCLog);
   Active := false;
-  if _RPCServer = Self then
-    _RPCServer := nil;
   FNodeNotifyEvents.Free;
   inherited Destroy;
 end;
