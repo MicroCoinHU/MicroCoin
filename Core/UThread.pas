@@ -69,7 +69,7 @@ Type
     Class function GetThread(index : Integer) : TPCThread;
     Class function GetThreadByClass(tclass : TPCThreadClass; Exclude : TObject) : TPCThread;
     Class Procedure ProtectEnterCriticalSection(Const Sender : TObject; var Lock : TPCCriticalSection);
-    Class Function TryProtectEnterCriticalSection(Const Sender : TObject; MaxWaitMilliseconds : Cardinal; var Lock : TPCCriticalSection) : Boolean;
+    Class Function TryProtectEnterCriticalSection(Const Sender : TObject; MaxWaitMilliseconds : Cardinal; Lock : TPCCriticalSection) : Boolean;
     Class Procedure ThreadsListInfo(list: TStrings);
     constructor Create(CreateSuspended: Boolean);
     destructor Destroy; override;
@@ -239,7 +239,7 @@ begin
 end;
 
 class function TPCThread.TryProtectEnterCriticalSection(const Sender: TObject;
-  MaxWaitMilliseconds: Cardinal; var Lock: TPCCriticalSection): Boolean;
+  MaxWaitMilliseconds: Cardinal; Lock: TPCCriticalSection): Boolean;
 Var tc : Cardinal;
   {$IFDEF HIGHLOG}
   tc2,tc3,lockCurrThread,lockWatingForCounter,lockStartedTimestamp : Cardinal;

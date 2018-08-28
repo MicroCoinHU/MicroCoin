@@ -162,7 +162,7 @@ Type
 
 implementation
 
-uses UConst, UTime, UJSONFunctions, UNode, UNetProtocol;
+uses UConst, UTime, UJSONFunctions;
 
 { TPoolMinerThread }
 

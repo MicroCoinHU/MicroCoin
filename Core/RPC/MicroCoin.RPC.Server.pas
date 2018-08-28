@@ -12,9 +12,9 @@ unit MicroCoin.RPC.Server;
 
 interface
 
-uses Sysutils, Classes, UNode, httpsend, UWalletkeys, Ulog, Inifiles,
+uses Sysutils, Classes, httpsend, UWalletkeys, Ulog, Inifiles,
 {$IFDEF fpc} fpjson, {$ELSE}System.Json, {$ENDIF} UJSONFunctions, synautil,
-  UConst, UThread, blcksock, synsock, MicroCoin.RPC.Handler,
+  UConst, UThread, blcksock, synsock, MicroCoin.RPC.Handler, MicroCoin.Node.Events,
   UCrypto, MicroCoin.Common, MicroCoin.Transaction.Base, MicroCoin.Account.Data;
 
 type
@@ -57,11 +57,13 @@ type
     function IsValidClientIP(const clientIp: string; clientPort: Word): Boolean;
     function GetNewCallCounter: Int64;
     procedure AddRPCLog(const Sender: string; const Message: string);
+
+    class property Instance: TRPCServer read GetInstance;
+
     property Port: Word read FPort write FPort;
     property Active: Boolean read FActive write SetActive;
     property WalletKeys: TWalletKeysExt read FWalletKeys write FWalletKeys;
     //
-    class property Instance: TRPCServer read GetInstance;
     property JSON20Strict: Boolean read FJSON20Strict write FJSON20Strict;
     property IniFileName: AnsiString read FIniFileName write SetIniFileName;
     property LogFileName: AnsiString read GetLogFileName write SetLogFileName;

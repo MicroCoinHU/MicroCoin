@@ -12,10 +12,10 @@ unit MicroCoin.RPC.Handler;
 
 interface
 
-uses UThread, UNode, SysUtils, Classes, blcksock,
+uses UThread, SysUtils, Classes, blcksock,
   Synautil, Math, UCrypto, Generics.Collections,
   MicroCoin.Account.Data, MicroCoin.BlockChain.Block,
-  MicroCoin.RPC.PluginManager,
+  MicroCoin.RPC.PluginManager, MicroCoin.Node.Node,
   MicroCoin.Account.Storage, MicroCoin.BlockChain.BlockHeader,
   MicroCoin.Transaction.TransferMoney, MicroCoin.Transaction.ChangeKey,
   MicroCoin.Transaction.ListAccount, MicroCoin.Transaction.ChangeAccountInfo,
@@ -55,7 +55,9 @@ type
 implementation
 
 uses
-  UAES, UWalletKeys, UECIES, UConst, MicroCoin.RPC.Server, ULog, Variants, UNetProtocol, UTime;
+  UAES, MicroCoin.Net.ConnectionManager,
+  MicroCoin.Net.NodeServer,
+  MicroCoin.Net.Client, MicroCoin.Net.Connection, UWalletKeys, UECIES, UConst, MicroCoin.RPC.Server, ULog, Variants, UTime;
 
 constructor TRPCHandler.Create(hsock: TSocket);
 begin
@@ -520,11 +522,11 @@ var
     nc: TNetConnection;
     Obj: TPCJSONObject;
   begin
-    l := TNetData.NetData.NetConnections.LockList;
+    l := TConnectionManager.NetData.NetConnections.LockList;
     try
       for i := 0 to l.Count - 1 do
       begin
-        nc := TNetData.NetData.Connection(i);
+        nc := TConnectionManager.NetData.Connection(i);
         Obj := jsonresponse.GetAsArray('result').GetAsObject(i);
         Obj.GetAsVariant('server').Value := not(nc is TNetServerClient);
         Obj.GetAsVariant('ip').Value := nc.Client.RemoteHost;
@@ -538,7 +540,7 @@ var
         Obj.GetAsVariant('timediff').Value := nc.TimestampDiff;
       end;
     finally
-      TNetData.NetData.NetConnections.UnlockList;
+      TConnectionManager.NetData.NetConnections.UnlockList;
     end;
   end;
 
@@ -2312,46 +2314,9 @@ begin
     TNode.DecodeIpStringToNodeServerAddressArray(params.AsString('nodes', ''), nsaarr);
     for i := low(nsaarr) to high(nsaarr) do
     begin
-      TNetData.NetData.AddServer(nsaarr[i]);
+      TConnectionManager.NetData.AddServer(nsaarr[i]);
     end;
     jsonresponse.GetAsVariant('result').Value := length(nsaarr);
-    Result := true;
-  end
-  else if (method = 'getwalletpubkeys') then
-  begin
-    // Returns JSON array with pubkeys in wallet
-    k := params.AsInteger('max', 100);
-    j := params.AsInteger('start', 0);
-    jsonarr := jsonresponse.GetAsArray('result');
-    for i := 0 to TRPCServer.Instance.WalletKeys.Count - 1 do
-    begin
-      if (i >= j) then
-      begin
-        jso := jsonarr.GetAsObject(jsonarr.Count);
-        jso.GetAsVariant('name').Value := TRPCServer.Instance.WalletKeys.Key[i].name;
-        jso.GetAsVariant('can_use').Value := (TRPCServer.Instance.WalletKeys.Key[i].CryptedKey <> '');
-        FillPublicKeyObject(TRPCServer.Instance.WalletKeys.Key[i].AccountKey, jso);
-      end;
-      if (k > 0) and ((i + 1) >= (j + k)) then
-        break;
-    end;
-    Result := true;
-  end
-  else if (method = 'getwalletpubkey') then
-  begin
-    if not(CapturePubKey('', OPR.newKey, ErrorDesc)) then
-    begin
-      ErrorNum := CT_RPC_ErrNum_InvalidPubKey;
-      exit;
-    end;
-    i := TRPCServer.Instance.WalletKeys.AccountsKeyList.IndexOfAccountKey(OPR.newKey);
-    if (i < 0) then
-    begin
-      ErrorNum := CT_RPC_ErrNum_NotFound;
-      ErrorDesc := 'Public key not found in wallet';
-      exit;
-    end;
-    FillPublicKeyObject(TRPCServer.Instance.WalletKeys.AccountsKeyList.AccountKey[i], GetResultObject);
     Result := true;
   end
   else if (method = 'getblock') then
@@ -2800,14 +2765,14 @@ begin
     if FNode.IsReady(ansistr) then
     begin
       GetResultObject.GetAsVariant('ready_s').Value := ansistr;
-      if TNetData.NetData.NetStatistics.ActiveConnections > 0 then
+      if TConnectionManager.NetData.NetStatistics.ActiveConnections > 0 then
       begin
         GetResultObject.GetAsVariant('ready').Value := true;
-        if TNetData.NetData.IsDiscoveringServers then
+        if TConnectionManager.NetData.IsDiscoveringServers then
         begin
           GetResultObject.GetAsVariant('status_s').Value := 'Discovering servers';
         end
-        else if TNetData.NetData.IsGettingNewBlockChainFromClient then
+        else if TConnectionManager.NetData.IsGettingNewBlockChainFromClient then
         begin
           GetResultObject.GetAsVariant('status_s').Value := 'Obtaining new blockchain';
         end
@@ -2834,16 +2799,16 @@ begin
     GetResultObject.GetAsVariant('blocks').Value := FNode.Bank.BlocksCount;
     GetResultObject.GetAsVariant('sbh').Value := TCrypto.ToHexaString(FNode.Bank.LastOperationBlock.initial_safe_box_hash);
     GetResultObject.GetAsVariant('pow').Value := TCrypto.ToHexaString(FNode.Bank.LastOperationBlock.proof_of_work);
-    GetResultObject.GetAsObject('netstats').GetAsVariant('active').Value := TNetData.NetData.NetStatistics.ActiveConnections;
-    GetResultObject.GetAsObject('netstats').GetAsVariant('clients').Value := TNetData.NetData.NetStatistics.ClientsConnections;
-    GetResultObject.GetAsObject('netstats').GetAsVariant('servers').Value := TNetData.NetData.NetStatistics.ServersConnectionsWithResponse;
-    GetResultObject.GetAsObject('netstats').GetAsVariant('servers_t').Value := TNetData.NetData.NetStatistics.ServersConnections;
-    GetResultObject.GetAsObject('netstats').GetAsVariant('total').Value := TNetData.NetData.NetStatistics.TotalConnections;
-    GetResultObject.GetAsObject('netstats').GetAsVariant('tclients').Value := TNetData.NetData.NetStatistics.TotalClientsConnections;
-    GetResultObject.GetAsObject('netstats').GetAsVariant('tservers').Value := TNetData.NetData.NetStatistics.TotalServersConnections;
-    GetResultObject.GetAsObject('netstats').GetAsVariant('breceived').Value := TNetData.NetData.NetStatistics.BytesReceived;
-    GetResultObject.GetAsObject('netstats').GetAsVariant('bsend').Value := TNetData.NetData.NetStatistics.BytesSend;
-    nsaarr := TNetData.NetData.GetValidNodeServers(true, 20);
+    GetResultObject.GetAsObject('netstats').GetAsVariant('active').Value := TConnectionManager.NetData.NetStatistics.ActiveConnections;
+    GetResultObject.GetAsObject('netstats').GetAsVariant('clients').Value := TConnectionManager.NetData.NetStatistics.ClientsConnections;
+    GetResultObject.GetAsObject('netstats').GetAsVariant('servers').Value := TConnectionManager.NetData.NetStatistics.ServersConnectionsWithResponse;
+    GetResultObject.GetAsObject('netstats').GetAsVariant('servers_t').Value := TConnectionManager.NetData.NetStatistics.ServersConnections;
+    GetResultObject.GetAsObject('netstats').GetAsVariant('total').Value := TConnectionManager.NetData.NetStatistics.TotalConnections;
+    GetResultObject.GetAsObject('netstats').GetAsVariant('tclients').Value := TConnectionManager.NetData.NetStatistics.TotalClientsConnections;
+    GetResultObject.GetAsObject('netstats').GetAsVariant('tservers').Value := TConnectionManager.NetData.NetStatistics.TotalServersConnections;
+    GetResultObject.GetAsObject('netstats').GetAsVariant('breceived').Value := TConnectionManager.NetData.NetStatistics.BytesReceived;
+    GetResultObject.GetAsObject('netstats').GetAsVariant('bsend').Value := TConnectionManager.NetData.NetStatistics.BytesSend;
+    nsaarr := TConnectionManager.NetData.GetValidNodeServers(true, 20);
     for i := low(nsaarr) to high(nsaarr) do
     begin
       jso := GetResultObject.GetAsArray('nodeservers').GetAsObject(i);
@@ -3019,7 +2984,7 @@ begin
   begin
     // Stops communications to other nodes
     FNode.NetServer.Active := false;
-    TNetData.NetData.NetConnectionsActive := false;
+    TConnectionManager.NetData.NetConnectionsActive := false;
     jsonresponse.GetAsVariant('result').Value := true;
     Result := true;
   end
@@ -3027,7 +2992,7 @@ begin
   begin
     // Stops communications to other nodes
     FNode.NetServer.Active := true;
-    TNetData.NetData.NetConnectionsActive := true;
+    TConnectionManager.NetData.NetConnectionsActive := true;
     jsonresponse.GetAsVariant('result').Value := true;
     Result := true;
   end

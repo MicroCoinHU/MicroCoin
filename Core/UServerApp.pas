@@ -32,7 +32,8 @@ uses
   Messages,
 {$ENDIF}
   SyncObjs,
-  UOpenSSL, UCrypto, UNode, MicroCoin.BlockChain.FileStorage, UFolderHelper, UWalletKeys, UConst, ULog, UNetProtocol,
+  MicroCoin.Node.Node,
+  UOpenSSL, UCrypto, MicroCoin.BlockChain.FileStorage, UFolderHelper, UWalletKeys, UConst, ULog,
   MicroCoin.RPC.Server;
 
 type
@@ -89,7 +90,7 @@ var
 implementation
 
 uses
-  SysUtils, Classes;
+  SysUtils, Classes, MicroCoin.Net.ConnectionManager;
 
 { TMicroCoinServerApp }
 
@@ -312,7 +313,7 @@ begin
   Log(sltInfo, 'Stop');
   FreeAndNil(FRPC);
   FNode.NetServer.Active := False;
-  TNetData.NetData.Free;
+  TConnectionManager.NetData.Free;
   FreeAndNil(FNode);
   Log(sltInfo, 'Finalized');
 end;

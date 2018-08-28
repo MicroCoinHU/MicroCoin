@@ -13,7 +13,8 @@ unit MicroCoin.Account.RPC;
 interface
 
 uses Sysutils, classes, MicroCoin.RPC.Handler, MicroCOin.Account.Data,
-     Unode, Uconst, MicroCoin.Common.Lists, MicroCoin.RPC.Server,
+     Uconst, MicroCoin.Common.Lists, MicroCoin.RPC.Server,
+     MicroCoin.Node.Node,
      MicroCoin.Account.AccountKey, MicroCoin.RPC.PluginManager, UJsonFunctions, UCrypto;
 
 type
@@ -22,6 +23,7 @@ type
   strict protected
     procedure FillAccountObject(const Account: TAccount; jsonobj: TPCJSONObject);
     function CapturePubKey(AParams : TPCJSONObject; const prefix: string; var PubKey: TAccountKey; var errortxt: string): Boolean;
+    procedure FillPublicKeyObject(const PubKey: TAccountKey; jsonobj: TPCJSONObject);
   public
     [RPCMethod('getaccount')]
     function GetAccount(AParams: TPCJSONObject): TRPCResult;
@@ -33,6 +35,10 @@ type
     function GetWalletAccountsCount(AParams : TPCJSONObject) : TRPCResult;
     [RPCMethod('getwalletcoins')]
     function GetWalletCoins(AParams : TPCJSONObject): TRPCResult;
+    [RPCMethod('getwalletpubkeys')]
+    function GetWalletPubKeys(AParam : TPCJSONObject) : TRPCResult;
+    [RPCMethod('getwalletpubkey')]
+    function GetWalletPubKey(AParam : TPCJSONObject) : TRPCResult;
   end;
 
 implementation
@@ -79,6 +85,14 @@ begin
     Result := true;
 end;
 
+procedure TRPCAccountPlugin.FillPublicKeyObject(const PubKey: TAccountKey; jsonobj: TPCJSONObject);
+begin
+  jsonobj.GetAsVariant('ec_nid').Value := PubKey.EC_OpenSSL_NID;
+  jsonobj.GetAsVariant('x').Value := TCrypto.ToHexaString(PubKey.x);
+  jsonobj.GetAsVariant('y').Value := TCrypto.ToHexaString(PubKey.y);
+  jsonobj.GetAsVariant('enc_pubkey').Value := TCrypto.ToHexaString(PubKey.ToRawString);
+  jsonobj.GetAsVariant('b58_pubkey').Value := (PubKey.AccountPublicKeyExport);
+end;
 
 procedure TRPCAccountPlugin.FillAccountObject(const Account: TAccount; jsonobj: TPCJSONObject);
 begin
@@ -396,6 +410,54 @@ begin
     Result.Response.GetAsVariant('result').Value := ToJSONCurrency(Account.balance);
     Result.Success := true;
   end;
+end;
+
+function TRPCAccountPlugin.GetWalletPubKey(AParam: TPCJSONObject): TRPCResult;
+var
+  newKey : TAccountKey;
+  i : integer;
+begin
+  Result.Success := false;
+  if not(CapturePubKey(AParam, '', newKey, Result.ErrorMessage)) then
+  begin
+    Result.ErrorCode := CT_RPC_ErrNum_InvalidPubKey;
+    exit;
+  end;
+  i := TRPCServer.Instance.WalletKeys.AccountsKeyList.IndexOfAccountKey(newKey);
+  if (i < 0) then
+  begin
+    Result.ErrorCode := CT_RPC_ErrNum_NotFound;
+    Result.ErrorMessage := 'Public key not found in wallet';
+    exit;
+  end;
+  FillPublicKeyObject(TRPCServer.Instance.WalletKeys.AccountsKeyList.AccountKey[i], Result.Response.GetAsObject('result'));
+  Result.Success := true;
+end;
+
+function TRPCAccountPlugin.GetWalletPubKeys(AParam: TPCJSONObject): TRPCResult;
+var
+  k, j, i : integer;
+  jsonarr : TPCJSONArray;
+  jso : TPCJsonObject;
+begin
+  Result.Success := false;
+  Result.ErrorCode := CT_RPC_ErrNum_InternalError;
+  k := AParam.AsInteger('max', 100);
+  j := AParam.AsInteger('start', 0);
+  jsonarr := Result.Response.GetAsArray('result');
+  for i := 0 to TRPCServer.Instance.WalletKeys.Count - 1 do
+  begin
+    if (i >= j) then
+    begin
+      jso := jsonarr.GetAsObject(jsonarr.Count);
+      jso.GetAsVariant('name').Value := TRPCServer.Instance.WalletKeys.Key[i].name;
+      jso.GetAsVariant('can_use').Value := (TRPCServer.Instance.WalletKeys.Key[i].CryptedKey <> '');
+      FillPublicKeyObject(TRPCServer.Instance.WalletKeys.Key[i].AccountKey, jso);
+    end;
+    if (k > 0) and ((i + 1) >= (j + k)) then
+      break;
+  end;
+  Result.Success := true;
 end;
 
 initialization
