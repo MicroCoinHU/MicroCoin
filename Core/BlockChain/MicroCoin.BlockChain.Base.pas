@@ -9,7 +9,7 @@ unit MicroCoin.BlockChain.Base;
   or visit http://www.opensource.org/licenses/mit-license.php.
 
 }
-
+
 interface
 
 uses Classes, MicroCoin.Account.Storage, MicroCoin.BlockChain.BlockHeader;
@@ -17,19 +17,19 @@ uses Classes, MicroCoin.Account.Storage, MicroCoin.BlockChain.BlockHeader;
 type
   TBlockManagerBase = class(TComponent)
   protected
-    function GetBlocksCount : Cardinal; virtual; abstract;
+    function GetBlocksCount: Cardinal; virtual; abstract;
     function GetAccountStorage: TAccountStorage; virtual; abstract;
     function GetLastOperationBlock: TBlockHeader; virtual; abstract;
   public
-    function LoadAccountsFromStream(Stream: TStream; useSecureLoad: Boolean; var errors: AnsiString): Boolean; virtual; abstract;
+    function LoadAccountsFromStream(Stream: TStream; useSecureLoad: Boolean; var errors: AnsiString): Boolean;
+      virtual; abstract;
     property AccountStorage: TAccountStorage read GetAccountStorage;
-    property LastOperationBlock : TBlockHeader read GetLastOperationBlock;
-    property BlocksCount : Cardinal read GetBlocksCount;
+    property LastOperationBlock: TBlockHeader read GetLastOperationBlock;
+    property BlocksCount: Cardinal read GetBlocksCount;
   end;
 
 implementation
 
 { TBank }
-
 
 end.

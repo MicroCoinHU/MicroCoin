@@ -8,31 +8,30 @@ unit MicroCoin.BlockChain.Events;
   or visit http://www.opensource.org/licenses/mit-license.php.
 
 }
-
+
 interface
 
 uses UThread, MicroCoin.Transaction.HashTree,
-     MicroCoin.BlockChain.Block, ULog, SysUtils,
-     MicroCoin.Transaction.Events, MicroCoin.Net.Connection;
+  MicroCoin.BlockChain.Block, ULog, SysUtils,
+  MicroCoin.Transaction.Events, MicroCoin.Net.Connection;
 
 type
 
   TNotifyNewBlockThread = class(TPCThread)
-  FNetConnection: TNetConnection;
-  FSanitizedOperationsHashTree: TTransactionHashTree;
-  FNewBlockOperations: TBlock;
-protected
-  procedure BCExecute; override;
-public
-  constructor Create(NetConnection: TNetConnection; MakeACopyOfNewBlockOperations: TBlock; MakeACopyOfSanitizedOperationsHashTree: TTransactionHashTree);
-  destructor Destroy; override;
+    FNetConnection: TNetConnection;
+    FSanitizedOperationsHashTree: TTransactionHashTree;
+    FNewBlockOperations: TBlock;
+  protected
+    procedure BCExecute; override;
+  public
+    constructor Create(NetConnection: TNetConnection; MakeACopyOfNewBlockOperations: TBlock;
+      MakeACopyOfSanitizedOperationsHashTree: TTransactionHashTree);
+    destructor Destroy; override;
   end;
-
 
 implementation
 
-uses
-  MicroCoin.Net.ConnectionManager;
+uses MicroCoin.Net.ConnectionManager;
 
 procedure TNotifyNewBlockThread.BCExecute;
 begin
@@ -53,7 +52,8 @@ begin
       if FSanitizedOperationsHashTree.OperationsCount > 0 then
       begin
         DebugStep := 'Sending ' + IntToStr(FSanitizedOperationsHashTree.OperationsCount) + ' sanitized operations';
-        TLog.NewLog(ltdebug, Classname, 'Sending ' + IntToStr(FSanitizedOperationsHashTree.OperationsCount) + ' sanitized operations to ' + FNetConnection.ClientRemoteAddr);
+        TLog.NewLog(ltdebug, Classname, 'Sending ' + IntToStr(FSanitizedOperationsHashTree.OperationsCount) +
+          ' sanitized operations to ' + FNetConnection.ClientRemoteAddr);
         TNotifyTransactionThread.Create(FNetConnection, FSanitizedOperationsHashTree);
       end;
       DebugStep := 'Unlocking';
@@ -64,7 +64,8 @@ begin
   DebugStep := 'Finalizing';
 end;
 
-constructor TNotifyNewBlockThread.Create(NetConnection: TNetConnection; MakeACopyOfNewBlockOperations: TBlock; MakeACopyOfSanitizedOperationsHashTree: TTransactionHashTree);
+constructor TNotifyNewBlockThread.Create(NetConnection: TNetConnection; MakeACopyOfNewBlockOperations: TBlock;
+  MakeACopyOfSanitizedOperationsHashTree: TTransactionHashTree);
 begin
   FNetConnection := NetConnection;
   FSanitizedOperationsHashTree := TTransactionHashTree.Create;
@@ -81,6 +82,5 @@ begin
   FreeAndNil(FNewBlockOperations);
   inherited;
 end;
-
 
 end.

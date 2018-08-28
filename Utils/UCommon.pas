@@ -32,50 +32,10 @@ type
       class procedure Swap(var Values : array of T; Item1Index, Item2Index : Integer);
     end;
 
-
-{ Converts a string to hexidecimal format }
-function String2Hex(const Buffer: AnsiString): AnsiString;
-
-{ Binary-safe StrComp replacement. StrComp will return 0 for when str1 and str2 both start with NUL character. }
-function BinStrComp(const Str1, Str2 : AnsiString): Integer;
-
-
 implementation
 
 uses
   Classes, SysUtils, Math;
-
-function String2Hex(const Buffer: AnsiString): AnsiString;
-var
-  n: Integer;
-begin
-  Result := '';
-  for n := 1 to Length(Buffer) do
-    Result := LowerCase(Result + IntToHex(Ord(Buffer[n]), 2));
-end;
-
-function BinStrComp(const Str1, Str2: AnsiString): integer;
-var Str1Len, Str2Len, i : Integer;
-begin
-   Str1Len := Length(Str1);
-   Str2Len := Length(Str2);
-   if (Str1Len < Str2Len) then
-     Result := -1
-   else if (Str1Len > Str2Len) then
-     Result := 1
-   else begin
-     Result := 0;
-     For i:= 1 to Str1Len do begin
-       if Str1[i] < Str2[i] then begin
-         Result := -1;
-         break;
-       end else if Str1[i] > Str2[i] then begin
-         Result := 1;
-         break;
-       end
-     end;
-   end;
-end;
 
 class procedure TArrayTool<T>.Swap(var Values : array of T; Item1Index, Item2Index : Integer);
 var temp : T; len, recSize : Integer; itemSize : Integer;

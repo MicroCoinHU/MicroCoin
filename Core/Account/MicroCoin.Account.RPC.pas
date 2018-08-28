@@ -12,118 +12,119 @@ unit MicroCoin.Account.RPC;
 
 interface
 
-uses Sysutils, classes, MicroCoin.RPC.Handler, MicroCOin.Account.Data,
-     Uconst, MicroCoin.Common.Lists, MicroCoin.RPC.Server,
-     MicroCoin.Node.Node,
-     MicroCoin.Account.AccountKey, MicroCoin.RPC.PluginManager, UJsonFunctions, UCrypto;
+uses Sysutils, classes, MicroCoin.RPC.Handler, MicroCoin.Account.Data, Uconst, MicroCoin.Common.Lists,
+  MicroCoin.RPC.Server, MicroCoin.Node.Node, MicroCoin.Account.AccountKey, MicroCoin.RPC.PluginManager, UJsonFunctions,
+  UCrypto;
 
 type
 
   TRPCAccountPlugin = class(TRPCPlugin)
   strict protected
-    procedure FillAccountObject(const Account: TAccount; jsonobj: TPCJSONObject);
-    function CapturePubKey(AParams : TPCJSONObject; const prefix: string; var PubKey: TAccountKey; var errortxt: string): Boolean;
-    procedure FillPublicKeyObject(const PubKey: TAccountKey; jsonobj: TPCJSONObject);
+    procedure FillAccountObject(const AAccount: TAccount; AJsonObject: TPCJSONObject);
+    function CapturePubKey(AParams: TPCJSONObject; const APrefix: string; var APubKey: TAccountKey;
+      var RErrorText: string): Boolean;
+    procedure FillPublicKeyObject(const APubKey: TAccountKey; AJsonObject: TPCJSONObject);
   public
     [RPCMethod('getaccount')]
     function GetAccount(AParams: TPCJSONObject): TRPCResult;
     [RPCMethod('findaccounts')]
-    function FindAccounts(AParams : TPCJSONObject) : TRPCResult;
+    function FindAccounts(AParams: TPCJSONObject): TRPCResult;
     [RPCMethod('getwalletaccounts')]
-    function GetWalletAccounts(AParams : TPCJSONObject) : TRPCResult;
+    function GetWalletAccounts(AParams: TPCJSONObject): TRPCResult;
     [RPCMethod('getwalletaccountscount')]
-    function GetWalletAccountsCount(AParams : TPCJSONObject) : TRPCResult;
+    function GetWalletAccountsCount(AParams: TPCJSONObject): TRPCResult;
     [RPCMethod('getwalletcoins')]
-    function GetWalletCoins(AParams : TPCJSONObject): TRPCResult;
+    function GetWalletCoins(AParams: TPCJSONObject): TRPCResult;
     [RPCMethod('getwalletpubkeys')]
-    function GetWalletPubKeys(AParam : TPCJSONObject) : TRPCResult;
+    function GetWalletPubKeys(AParams: TPCJSONObject): TRPCResult;
     [RPCMethod('getwalletpubkey')]
-    function GetWalletPubKey(AParam : TPCJSONObject) : TRPCResult;
+    function GetWalletPubKey(AParams: TPCJSONObject): TRPCResult;
   end;
 
 implementation
 
-function TRPCAccountPlugin.CapturePubKey(AParams : TPCJSONObject; const prefix: string; var PubKey: TAccountKey; var errortxt: string): Boolean;
+function TRPCAccountPlugin.CapturePubKey(AParams: TPCJSONObject; const APrefix: string; var APubKey: TAccountKey;
+  var RErrorText: string): Boolean;
 var
   ansistr: AnsiString;
   auxpubkey: TAccountKey;
 begin
-  PubKey := CT_Account_NUL.accountInfo.AccountKey;
-  errortxt := '';
+  APubKey := CT_Account_NUL.accountInfo.AccountKey;
+  RErrorText := '';
   Result := false;
-  if (AParams.IndexOfName(prefix + 'b58_pubkey') >= 0) then
+  if (AParams.IndexOfName(APrefix + 'b58_pubkey') >= 0) then
   begin
-    if not TAccountKey.AccountPublicKeyImport(AParams.AsString(prefix + 'b58_pubkey', ''), PubKey, ansistr) then
+    if not TAccountKey.AccountPublicKeyImport(AParams.AsString(APrefix + 'b58_pubkey', ''), APubKey, ansistr) then
     begin
-      errortxt := 'Invalid value of param "' + prefix + 'b58_pubkey": ' + ansistr;
+      RErrorText := 'Invalid value of param "' + APrefix + 'b58_pubkey": ' + ansistr;
       exit;
     end;
-    if (AParams.IndexOfName(prefix + 'enc_pubkey') >= 0) then
+    if (AParams.IndexOfName(APrefix + 'enc_pubkey') >= 0) then
     begin
-      auxpubkey := TAccountKey.FromRawString(TCrypto.HexaToRaw(AParams.AsString(prefix + 'enc_pubkey', '')));
-      if (not TAccountKey.EqualAccountKeys(auxpubkey, PubKey)) then
+      auxpubkey := TAccountKey.FromRawString(TCrypto.HexaToRaw(AParams.AsString(APrefix + 'enc_pubkey', '')));
+      if (not TAccountKey.EqualAccountKeys(auxpubkey, APubKey)) then
       begin
-        errortxt := 'Params "' + prefix + 'b58_pubkey" and "' + prefix + 'enc_pubkey" public keys are not the same public key';
+        RErrorText := 'Params "' + APrefix + 'b58_pubkey" and "' + APrefix +
+          'enc_pubkey" public keys are not the same public key';
         exit;
       end;
     end;
   end
   else
   begin
-    if (AParams.IndexOfName(prefix + 'enc_pubkey') < 0) then
+    if (AParams.IndexOfName(APrefix + 'enc_pubkey') < 0) then
     begin
-      errortxt := 'Need param "' + prefix + 'enc_pubkey" or "' + prefix + 'b58_pubkey"';
+      RErrorText := 'Need param "' + APrefix + 'enc_pubkey" or "' + APrefix + 'b58_pubkey"';
       exit;
     end;
-    PubKey := TAccountKey.FromRawString(TCrypto.HexaToRaw(AParams.AsString(prefix + 'enc_pubkey', '')));
+    APubKey := TAccountKey.FromRawString(TCrypto.HexaToRaw(AParams.AsString(APrefix + 'enc_pubkey', '')));
   end;
-  if not PubKey.IsValidAccountKey(ansistr) then
+  if not APubKey.IsValidAccountKey(ansistr) then
   begin
-    errortxt := 'Invalid public key: ' + ansistr;
+    RErrorText := 'Invalid public key: ' + ansistr;
   end
   else
     Result := true;
 end;
 
-procedure TRPCAccountPlugin.FillPublicKeyObject(const PubKey: TAccountKey; jsonobj: TPCJSONObject);
+procedure TRPCAccountPlugin.FillPublicKeyObject(const APubKey: TAccountKey; AJsonObject: TPCJSONObject);
 begin
-  jsonobj.GetAsVariant('ec_nid').Value := PubKey.EC_OpenSSL_NID;
-  jsonobj.GetAsVariant('x').Value := TCrypto.ToHexaString(PubKey.x);
-  jsonobj.GetAsVariant('y').Value := TCrypto.ToHexaString(PubKey.y);
-  jsonobj.GetAsVariant('enc_pubkey').Value := TCrypto.ToHexaString(PubKey.ToRawString);
-  jsonobj.GetAsVariant('b58_pubkey').Value := (PubKey.AccountPublicKeyExport);
+  AJsonObject.GetAsVariant('ec_nid').Value := APubKey.EC_OpenSSL_NID;
+  AJsonObject.GetAsVariant('x').Value := TCrypto.ToHexaString(APubKey.x);
+  AJsonObject.GetAsVariant('y').Value := TCrypto.ToHexaString(APubKey.y);
+  AJsonObject.GetAsVariant('enc_pubkey').Value := TCrypto.ToHexaString(APubKey.ToRawString);
+  AJsonObject.GetAsVariant('b58_pubkey').Value := (APubKey.AccountPublicKeyExport);
 end;
 
-procedure TRPCAccountPlugin.FillAccountObject(const Account: TAccount; jsonobj: TPCJSONObject);
+procedure TRPCAccountPlugin.FillAccountObject(const AAccount: TAccount; AJsonObject: TPCJSONObject);
 begin
-  jsonobj.GetAsVariant('account').Value := Account.Account;
-  jsonobj.GetAsVariant('enc_pubkey').Value := TCrypto.ToHexaString(Account.accountInfo.AccountKey.ToRawString);
-  jsonobj.GetAsVariant('balance').Value := ToJSONCurrency(Account.balance);
-  jsonobj.GetAsVariant('n_operation').Value := Account.n_operation;
-  jsonobj.GetAsVariant('updated_b').Value := Account.updated_block;
-  case Account.accountInfo.state of
+  AJsonObject.GetAsVariant('account').Value := AAccount.Account;
+  AJsonObject.GetAsVariant('enc_pubkey').Value := TCrypto.ToHexaString(AAccount.accountInfo.AccountKey.ToRawString);
+  AJsonObject.GetAsVariant('balance').Value := ToJSONCurrency(AAccount.balance);
+  AJsonObject.GetAsVariant('n_operation').Value := AAccount.n_operation;
+  AJsonObject.GetAsVariant('updated_b').Value := AAccount.updated_block;
+  case AAccount.accountInfo.state of
     as_Normal:
-      jsonobj.GetAsVariant('state').Value := 'normal';
+      AJsonObject.GetAsVariant('state').Value := 'normal';
     as_ForSale:
       begin
-        jsonobj.GetAsVariant('state').Value := 'listed';
-        jsonobj.GetAsVariant('locked_until_block').Value := Account.accountInfo.locked_until_block;
-        jsonobj.GetAsVariant('price').Value := Account.accountInfo.price;
-        jsonobj.GetAsVariant('seller_account').Value := Account.accountInfo.account_to_pay;
-        jsonobj.GetAsVariant('private_sale').Value := (Account.accountInfo.new_publicKey.EC_OpenSSL_NID <> 0);
-        if not(Account.accountInfo.new_publicKey.EC_OpenSSL_NID <> 0) then
+        AJsonObject.GetAsVariant('state').Value := 'listed';
+        AJsonObject.GetAsVariant('locked_until_block').Value := AAccount.accountInfo.locked_until_block;
+        AJsonObject.GetAsVariant('price').Value := AAccount.accountInfo.price;
+        AJsonObject.GetAsVariant('seller_account').Value := AAccount.accountInfo.account_to_pay;
+        AJsonObject.GetAsVariant('private_sale').Value := (AAccount.accountInfo.new_publicKey.EC_OpenSSL_NID <> 0);
+        if not(AAccount.accountInfo.new_publicKey.EC_OpenSSL_NID <> 0) then
         begin
-          jsonobj.GetAsVariant('new_enc_pubkey').Value := TCrypto.ToHexaString(Account.accountInfo.new_publicKey.ToRawString);
+          AJsonObject.GetAsVariant('new_enc_pubkey').Value :=
+            TCrypto.ToHexaString(AAccount.accountInfo.new_publicKey.ToRawString);
         end;
       end
   else
     raise Exception.Create('ERROR DEV 20170425-1');
   end;
-  jsonobj.GetAsVariant('name').Value := Account.name;
-  jsonobj.GetAsVariant('type').Value := Account.account_type;
+  AJsonObject.GetAsVariant('name').Value := AAccount.name;
+  AJsonObject.GetAsVariant('type').Value := AAccount.account_type;
 end;
-
-
 
 function TRPCAccountPlugin.FindAccounts(AParams: TPCJSONObject): TRPCResult;
 var
@@ -241,7 +242,7 @@ begin
   if (c >= 0) and (c < TNode.Node.Bank.AccountsCount) then
   begin
     Account := TNode.Node.Operations.SafeBoxTransaction.Account(c);
-    FillAccountObject(Account, TPCJsonObject(Result.Response).GetAsObject('result'));
+    FillAccountObject(Account, TPCJSONObject(Result.Response).GetAsObject('result'));
     Result.Success := true;
   end
   else
@@ -250,28 +251,28 @@ begin
     if (c = CT_MaxAccount) then
       Result.ErrorMessage := 'Need "account" param'
     else
-     Result.ErrorMessage := 'Account not found: ' + Inttostr(c);
+      Result.ErrorMessage := 'Account not found: ' + Inttostr(c);
   end;
 end;
 
 function TRPCAccountPlugin.GetWalletAccounts(AParams: TPCJSONObject): TRPCResult;
 var
-  jsonArr : TPCJSONArray;
-  i,j,k,l,c : integer;
-  ocl : TOrderedList;
-  Account : TAccount;
-  key : TAccountKey;
+  jsonArr: TPCJsonArray;
+  i, j, k, l, c: integer;
+  ocl: TOrderedList;
+  Account: TAccount;
+  key: TAccountKey;
 begin
   Result.Success := false;
   Result.ErrorCode := CT_RPC_ErrNum_InternalError;
-  jsonarr := Result.Response.GetAsArray('result');
+  jsonArr := Result.Response.GetAsArray('result');
   if (AParams.IndexOfName('enc_pubkey') >= 0) or (AParams.IndexOfName('b58_pubkey') >= 0) then
   begin
     if not(CapturePubKey(AParams, '', key, Result.ErrorMessage)) then
     begin
       Result.ErrorCode := CT_RPC_ErrNum_InvalidPubKey;
-      Result.Success := False;
-      Result.ErrorMessage :=  'Invalid public key';
+      Result.Success := false;
+      Result.ErrorMessage := 'Invalid public key';
       exit;
     end;
     i := TRPCServer.Instance.WalletKeys.AccountsKeyList.IndexOfAccountKey(key);
@@ -289,7 +290,7 @@ begin
       if (j >= l) then
       begin
         Account := TNode.Node.Operations.SafeBoxTransaction.Account(ocl.Get(j));
-        FillAccountObject(Account, jsonarr.GetAsObject(jsonarr.Count));
+        FillAccountObject(Account, jsonArr.GetAsObject(jsonArr.Count));
       end;
       if (k > 0) and ((j + 1) >= (k + l)) then
         break;
@@ -309,7 +310,7 @@ begin
         if (c >= l) then
         begin
           Account := TNode.Node.Operations.SafeBoxTransaction.Account(ocl.Get(j));
-          FillAccountObject(Account, jsonarr.GetAsObject(jsonarr.Count));
+          FillAccountObject(Account, jsonArr.GetAsObject(jsonArr.Count));
         end;
         inc(c);
         if (k > 0) and (c >= (k + l)) then
@@ -318,26 +319,26 @@ begin
       if (k > 0) and (c >= (k + l)) then
         break;
     end;
-    Result.Success := True;
+    Result.Success := true;
   end;
 end;
 
-function TRPCAccountPlugin.GetWalletAccountsCount( AParams: TPCJSONObject): TRPCResult;
+function TRPCAccountPlugin.GetWalletAccountsCount(AParams: TPCJSONObject): TRPCResult;
 var
-  ocl : TOrderedList;
-  i,c : integer;
-  Key : TAccountKey;
+  ocl: TOrderedList;
+  i, c: integer;
+  key: TAccountKey;
 begin
-  Result.Success := False;
+  Result.Success := false;
   Result.ErrorCode := CT_RPC_ErrNum_InternalError;
   if (AParams.IndexOfName('enc_pubkey') >= 0) or (AParams.IndexOfName('b58_pubkey') >= 0) then
   begin
-    if not(CapturePubKey(AParams, '', Key, Result.ErrorMessage)) then
+    if not(CapturePubKey(AParams, '', key, Result.ErrorMessage)) then
     begin
       Result.ErrorCode := CT_RPC_ErrNum_InvalidPubKey;
       exit;
     end;
-    i := TRPCServer.Instance.WalletKeys.AccountsKeyList.IndexOfAccountKey(Key);
+    i := TRPCServer.Instance.WalletKeys.AccountsKeyList.IndexOfAccountKey(key);
     if (i < 0) then
     begin
       Result.ErrorCode := CT_RPC_ErrNum_NotFound;
@@ -364,12 +365,12 @@ end;
 
 function TRPCAccountPlugin.GetWalletCoins(AParams: TPCJSONObject): TRPCResult;
 var
- newKey : TAccountKey;
- i,j,c: integer;
- ocl : TOrderedList;
- Account : TAccount;
+  newKey: TAccountKey;
+  i, j, c: integer;
+  ocl: TOrderedList;
+  Account: TAccount;
 begin
-  Result.Success := False;
+  Result.Success := false;
   Result.ErrorCode := CT_RPC_ErrNum_InternalError;
   if (AParams.IndexOfName('enc_pubkey') >= 0) or (AParams.IndexOfName('b58_pubkey') >= 0) then
   begin
@@ -412,13 +413,13 @@ begin
   end;
 end;
 
-function TRPCAccountPlugin.GetWalletPubKey(AParam: TPCJSONObject): TRPCResult;
+function TRPCAccountPlugin.GetWalletPubKey(AParams: TPCJSONObject): TRPCResult;
 var
-  newKey : TAccountKey;
-  i : integer;
+  newKey: TAccountKey;
+  i: integer;
 begin
   Result.Success := false;
-  if not(CapturePubKey(AParam, '', newKey, Result.ErrorMessage)) then
+  if not(CapturePubKey(AParams, '', newKey, Result.ErrorMessage)) then
   begin
     Result.ErrorCode := CT_RPC_ErrNum_InvalidPubKey;
     exit;
@@ -430,29 +431,30 @@ begin
     Result.ErrorMessage := 'Public key not found in wallet';
     exit;
   end;
-  FillPublicKeyObject(TRPCServer.Instance.WalletKeys.AccountsKeyList.AccountKey[i], Result.Response.GetAsObject('result'));
+  FillPublicKeyObject(TRPCServer.Instance.WalletKeys.AccountsKeyList.AccountKey[i],
+    Result.Response.GetAsObject('result'));
   Result.Success := true;
 end;
 
-function TRPCAccountPlugin.GetWalletPubKeys(AParam: TPCJSONObject): TRPCResult;
+function TRPCAccountPlugin.GetWalletPubKeys(AParams: TPCJSONObject): TRPCResult;
 var
-  k, j, i : integer;
-  jsonarr : TPCJSONArray;
-  jso : TPCJsonObject;
+  k, j, i: integer;
+  jsonArr: TPCJsonArray;
+  jso: TPCJSONObject;
 begin
   Result.Success := false;
   Result.ErrorCode := CT_RPC_ErrNum_InternalError;
-  k := AParam.AsInteger('max', 100);
-  j := AParam.AsInteger('start', 0);
-  jsonarr := Result.Response.GetAsArray('result');
+  k := AParams.AsInteger('max', 100);
+  j := AParams.AsInteger('start', 0);
+  jsonArr := Result.Response.GetAsArray('result');
   for i := 0 to TRPCServer.Instance.WalletKeys.Count - 1 do
   begin
     if (i >= j) then
     begin
-      jso := jsonarr.GetAsObject(jsonarr.Count);
-      jso.GetAsVariant('name').Value := TRPCServer.Instance.WalletKeys.Key[i].name;
-      jso.GetAsVariant('can_use').Value := (TRPCServer.Instance.WalletKeys.Key[i].CryptedKey <> '');
-      FillPublicKeyObject(TRPCServer.Instance.WalletKeys.Key[i].AccountKey, jso);
+      jso := jsonArr.GetAsObject(jsonArr.Count);
+      jso.GetAsVariant('name').Value := TRPCServer.Instance.WalletKeys.key[i].name;
+      jso.GetAsVariant('can_use').Value := (TRPCServer.Instance.WalletKeys.key[i].CryptedKey <> '');
+      FillPublicKeyObject(TRPCServer.Instance.WalletKeys.key[i].AccountKey, jso);
     end;
     if (k > 0) and ((i + 1) >= (j + k)) then
       break;
@@ -461,6 +463,7 @@ begin
 end;
 
 initialization
- TRPCManager.RegisterPlugin(TRPCAccountPlugin.Create);
+
+TRPCManager.RegisterPlugin(TRPCAccountPlugin.Create);
 
 end.

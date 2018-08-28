@@ -9,7 +9,7 @@ unit MicroCoin.Account.Data;
   or visit http://www.opensource.org/licenses/mit-license.php.
 
 }
-
+
 interface
 
 uses Classes, Sysutils, MicroCoin.Account.AccountKey, UCrypto, UConst, UBaseTypes;
@@ -40,6 +40,7 @@ type
   end;
 
   PAccount = ^TAccount;
+
   TAccount = record
     Account: Cardinal; // FIXED value. Account number
     AccountInfo: TAccountInfo;
@@ -48,10 +49,12 @@ type
     n_operation: Cardinal; // count number of owner operations (when receive, this is not updated)
     name: TRawBytes; // Protocol 2. Unique name
     account_type: Word; // Protocol 2. Layer 2 use case
-    previous_updated_block: Cardinal; // New Build 1.0.8 -> Only used to store this info to storage. It helps App to search when an account was updated. NOT USED FOR HASH CALCULATIONS!
+    previous_updated_block: Cardinal;
+    // New Build 1.0.8 -> Only used to store this info to storage. It helps App to search when an account was updated. NOT USED FOR HASH CALCULATIONS!
     class function IsAccountBlockedByProtocol(account_number, blocks_count: Cardinal): Boolean; static;
     class function AccountNumberToAccountTxtNumber(account_number: Cardinal): AnsiString; static;
-    class function AccountTxtNumberToAccountNumber(const account_txt_number: AnsiString; var account_number: Cardinal): Boolean; static;
+    class function AccountTxtNumberToAccountNumber(const account_txt_number: AnsiString; var account_number: Cardinal)
+      : Boolean; static;
     class function AccountBlock(const account_number: Cardinal): Cardinal; static;
   end;
 
@@ -68,7 +71,6 @@ type
     function GetPointer(Index: Integer): PAccount; overload;
     function Find(const account_number: Cardinal; var Index: Integer): Boolean;
   end;
-
 
   TMemAccount = record // TAccount with less memory usage
     // account number is discarded (-4 bytes)
@@ -107,12 +109,12 @@ type
 type
   PBlockAccount = ^TMemBlockAccount;
 
-
 const
-  CT_AccountInfo_NUL: TAccountInfo = (state: as_Unknown; AccountKey: (EC_OpenSSL_NID: 0; x: ''; y: ''); locked_until_block: 0; price: 0; account_to_pay: 0;
-    new_publicKey: (EC_OpenSSL_NID: 0; x: ''; y: ''));
-  CT_Account_NUL: TAccount = (Account: 0; AccountInfo: (state: as_Unknown; AccountKey: (EC_OpenSSL_NID: 0; x: ''; y: ''); locked_until_block: 0; price: 0; account_to_pay: 0;
-    new_publicKey: (EC_OpenSSL_NID: 0; x: ''; y: '')); balance: 0; updated_block: 0; n_operation: 0; name: ''; account_type: 0; previous_updated_block: 0);
+  CT_AccountInfo_NUL: TAccountInfo = (state: as_Unknown; AccountKey: (EC_OpenSSL_NID: 0; x: ''; y: '');
+    locked_until_block: 0; price: 0; account_to_pay: 0; new_publicKey: (EC_OpenSSL_NID: 0; x: ''; y: ''));
+  CT_Account_NUL: TAccount = (Account: 0; AccountInfo: (state: as_Unknown; AccountKey: (EC_OpenSSL_NID: 0; x: '';
+    y: ''); locked_until_block: 0; price: 0; account_to_pay: 0; new_publicKey: (EC_OpenSSL_NID: 0; x: ''; y: ''));
+    balance: 0; updated_block: 0; n_operation: 0; name: ''; account_type: 0; previous_updated_block: 0);
 
 implementation
 
@@ -191,9 +193,11 @@ end;
 
 class function TAccountInfo.EqualAccountInfos(const accountInfo1, accountInfo2: TAccountInfo): Boolean;
 begin
-  Result := (accountInfo1.state = accountInfo2.state) and (TAccountKey.EqualAccountKeys(accountInfo1.AccountKey, accountInfo2.AccountKey))
-    and (accountInfo1.locked_until_block = accountInfo2.locked_until_block) and (accountInfo1.price = accountInfo2.price)
-    and (accountInfo1.account_to_pay = accountInfo2.account_to_pay) and (TAccountKey.EqualAccountKeys(accountInfo1.new_publicKey, accountInfo2.new_publicKey));
+  Result := (accountInfo1.state = accountInfo2.state) and
+    (TAccountKey.EqualAccountKeys(accountInfo1.AccountKey, accountInfo2.AccountKey)) and
+    (accountInfo1.locked_until_block = accountInfo2.locked_until_block) and (accountInfo1.price = accountInfo2.price)
+    and (accountInfo1.account_to_pay = accountInfo2.account_to_pay) and
+    (TAccountKey.EqualAccountKeys(accountInfo1.new_publicKey, accountInfo2.new_publicKey));
 end;
 
 function TAccountInfo.IsLocked(blocks_count: Cardinal): Boolean;
@@ -275,7 +279,8 @@ begin
   Result := inttostr(account_number) + '-' + inttostr(an);
 end;
 
-class function TAccount.AccountTxtNumberToAccountNumber(const account_txt_number: AnsiString; var account_number: Cardinal): Boolean;
+class function TAccount.AccountTxtNumberToAccountNumber(const account_txt_number: AnsiString;
+  var account_number: Cardinal): Boolean;
 var
   i: Integer;
   char1: AnsiChar;
@@ -319,8 +324,7 @@ var
   waitBlocks: Integer;
 begin
   // Update protocol
-  if blocks_count >= CT_V2BlockNumber
-  then
+  if blocks_count >= CT_V2BlockNumber then
     waitBlocks := CT_WaitNewBlocksBeforeTransactionV2
   else
     waitBlocks := CT_WaitNewBlocksBeforeTransaction;
@@ -412,8 +416,7 @@ end;
 
 function TOrderedAccountList.Get(Index: Integer): TAccount;
 begin
-  Result := GetPointer(Index)^;
+  Result := GetPointer(index)^;
 end;
 
 end.
-

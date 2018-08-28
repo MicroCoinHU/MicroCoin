@@ -9,12 +9,12 @@ unit MicroCoin.Account.Transaction;
   or visit http://www.opensource.org/licenses/mit-license.php.
 
 }
-
+
 interface
 
 uses Sysutils, classes, UCrypto, MicroCoin.Common.Lists, UConst,
-     MicroCoin.Account.AccountKey, MicroCoin.Account.Data, MicroCoin.Common,
-     MicroCoin.Account.Storage, MicroCoin.BlockChain.BlockHeader, ULog;
+  MicroCoin.Account.AccountKey, MicroCoin.Account.Data, MicroCoin.Common,
+  MicroCoin.Account.Storage, MicroCoin.BlockChain.BlockHeader, ULog;
 
 type
 
@@ -32,10 +32,12 @@ type
   public
     constructor Create(AccountStorage: TAccountStorage);
     destructor Destroy; override;
-    function TransferAmount(sender, target: Cardinal; n_operation: Cardinal; amount, fee: UInt64; var errors: AnsiString): Boolean;
-    function UpdateAccountInfo(signer_account, signer_n_operation, target_account: Cardinal; AccountInfo: TAccountInfo; newName: TRawBytes; newType: Word; fee: UInt64; var errors: AnsiString)
-      : Boolean;
-    function BuyAccount(buyer, account_to_buy, seller: Cardinal; n_operation: Cardinal; amount, account_price, fee: UInt64; const new_account_key: TAccountKey; var errors: AnsiString): Boolean;
+    function TransferAmount(sender, target: Cardinal; n_operation: Cardinal; amount, fee: UInt64;
+      var errors: AnsiString): Boolean;
+    function UpdateAccountInfo(signer_account, signer_n_operation, target_account: Cardinal; AccountInfo: TAccountInfo;
+      newName: TRawBytes; newType: Word; fee: UInt64; var errors: AnsiString): Boolean;
+    function BuyAccount(buyer, account_to_buy, seller: Cardinal; n_operation: Cardinal;
+      amount, account_price, fee: UInt64; const new_account_key: TAccountKey; var errors: AnsiString): Boolean;
     function Commit(const operationBlock: TBlockHeader; var errors: AnsiString): Boolean;
     function Account(account_number: Cardinal): TAccount;
     procedure Rollback;
@@ -43,13 +45,12 @@ type
     property FreezedAccountStorage: TAccountStorage read FFreezedAccounts;
     property TotalFee: Int64 read FTotalFee;
     property TotalBalance: Int64 read FTotalBalance;
-    procedure CopyFrom(transaction: TAccountTransaction);
+    procedure CopyFrom(Transaction: TAccountTransaction);
     procedure CleanTransaction;
     function ModifiedCount: Integer;
     function Modified(Index: Integer): TAccount;
-    property FreezedAccounts : TAccountStorage read FFreezedAccounts;
+    property FreezedAccounts: TAccountStorage read FFreezedAccounts;
   end;
-
 
 implementation
 
@@ -57,18 +58,18 @@ function TAccountTransaction.Account(account_number: Cardinal): TAccount;
 var
   i: Integer;
 begin
-  if FOrderedList.Find(account_number, i)
-  then begin
+  if FOrderedList.Find(account_number, i) then
+  begin
     Result := FOrderedList.Get(i);
-  end else
+  end
+  else
   begin
     Result := FreezedAccountStorage.Account(account_number);
   end;
 end;
 
-function TAccountTransaction.BuyAccount(buyer, account_to_buy,
-  seller: Cardinal; n_operation: Cardinal; amount, account_price, fee: UInt64;
-  const new_account_key: TAccountKey; var errors: AnsiString): Boolean;
+function TAccountTransaction.BuyAccount(buyer, account_to_buy, seller: Cardinal; n_operation: Cardinal;
+  amount, account_price, fee: UInt64; const new_account_key: TAccountKey; var errors: AnsiString): Boolean;
 var
   PaccBuyer, PaccAccountToBuy, PaccSeller: PAccount;
 begin
@@ -79,9 +80,9 @@ begin
     errors := 'Invalid integrity in accounts transaction';
     exit;
   end;
-  if (buyer < 0) or (buyer >= (FFreezedAccounts.blocksCount * CT_AccountsPerBlock)) or
-    (account_to_buy < 0) or (account_to_buy >= (FFreezedAccounts.blocksCount * CT_AccountsPerBlock)) or
-    (seller < 0) or (seller >= (FFreezedAccounts.blocksCount * CT_AccountsPerBlock)) then
+  if (buyer < 0) or (buyer >= (FFreezedAccounts.blocksCount * CT_AccountsPerBlock)) or (account_to_buy < 0) or
+    (account_to_buy >= (FFreezedAccounts.blocksCount * CT_AccountsPerBlock)) or (seller < 0) or
+    (seller >= (FFreezedAccounts.blocksCount * CT_AccountsPerBlock)) then
   begin
     errors := 'Invalid account number on buy';
     exit;
@@ -195,8 +196,7 @@ begin
   FAccountNames_Deleted.Clear;
 end;
 
-function TAccountTransaction.Commit(const operationBlock: TBlockHeader;
-  var errors: AnsiString): Boolean;
+function TAccountTransaction.Commit(const operationBlock: TBlockHeader; var errors: AnsiString): Boolean;
 var
   i, j: Integer;
   b: TAccountStorageEntry;
@@ -214,27 +214,27 @@ begin
     for i := 0 to FOrderedList.Count - 1 do
     begin
       Pa := FOrderedList.GetPointer(i);
-      FreezedAccounts.SetAccount(Pa^.Account,
-        Pa^.AccountInfo,
-        Pa^.name,
-        Pa^.account_type,
-        Pa^.balance,
+      FreezedAccounts.SetAccount(Pa^.Account, Pa^.AccountInfo, Pa^.name, Pa^.account_type, Pa^.balance,
         Pa^.n_operation);
     end;
     //
     if (FFreezedAccounts.TotalBalance <> FTotalBalance) then
     begin
-      TLog.NewLog(ltError, Classname, Format('Invalid integrity balance! StrongBox:%d Transaction:%d', [FFreezedAccounts.TotalBalance, FTotalBalance]));
+      TLog.NewLog(ltError, Classname, Format('Invalid integrity balance! StrongBox:%d Transaction:%d',
+        [FFreezedAccounts.TotalBalance, FTotalBalance]));
     end;
     if (FreezedAccounts.TotalFee <> TotalFee) then
     begin
-      TLog.NewLog(ltError, Classname, Format('Invalid integrity fee! StrongBox:%d Transaction:%d', [FFreezedAccounts.TotalFee, FTotalFee]));
+      TLog.NewLog(ltError, Classname, Format('Invalid integrity fee! StrongBox:%d Transaction:%d',
+        [FFreezedAccounts.TotalFee, FTotalFee]));
     end;
     b := FFreezedAccounts.AddNew(operationBlock);
     if (b.accounts[0].balance <> (operationBlock.reward + FTotalFee)) then
     begin
-      TLog.NewLog(ltError, Classname, Format('Invalid integrity reward! Account:%d Balance:%d  Reward:%d Fee:%d (Reward+Fee:%d)',
-        [b.accounts[0].Account, b.accounts[0].balance, operationBlock.reward, FTotalFee, operationBlock.reward + FTotalFee]));
+      TLog.NewLog(ltError, Classname,
+        Format('Invalid integrity reward! Account:%d Balance:%d  Reward:%d Fee:%d (Reward+Fee:%d)',
+        [b.accounts[0].Account, b.accounts[0].balance, operationBlock.reward, FTotalFee,
+        operationBlock.reward + FTotalFee]));
     end;
     CleanTransaction;
     //
@@ -256,24 +256,24 @@ begin
   end;
 end;
 
-procedure TAccountTransaction.CopyFrom(transaction: TAccountTransaction);
+procedure TAccountTransaction.CopyFrom(Transaction: TAccountTransaction);
 var
   i: Integer;
   P: PAccount;
 begin
-  if transaction = Self then
+  if Transaction = Self then
     exit;
-  if transaction.FFreezedAccounts <> FFreezedAccounts then
+  if Transaction.FFreezedAccounts <> FFreezedAccounts then
     raise Exception.Create('Invalid Freezed accounts to copy');
   CleanTransaction;
-  for i := 0 to transaction.FOrderedList.Count - 1 do
+  for i := 0 to Transaction.FOrderedList.Count - 1 do
   begin
-    P := transaction.FOrderedList.GetPointer(i);
+    P := Transaction.FOrderedList.GetPointer(i);
     FOrderedList.Add(P^);
   end;
-  FPreviusHash := transaction.FPreviusHash;
-  FTotalBalance := transaction.FTotalBalance;
-  FTotalFee := transaction.FTotalFee;
+  FPreviusHash := Transaction.FPreviusHash;
+  FTotalBalance := Transaction.FTotalBalance;
+  FTotalFee := Transaction.FTotalFee;
 end;
 
 constructor TAccountTransaction.Create(AccountStorage: TAccountStorage);
@@ -301,10 +301,12 @@ var
   i: Integer;
   P: PAccount;
 begin
-  if FOrderedList.Find(account_number, i)
-  then begin
+  if FOrderedList.Find(account_number, i) then
+  begin
     Result := FOrderedList.GetPointer(i)
-  end else begin
+  end
+  else
+  begin
     i := FOrderedList.Add(FreezedAccountStorage.Account(account_number));
     Result := FOrderedList.GetPointer(i);
   end;
@@ -325,8 +327,8 @@ begin
   CleanTransaction;
 end;
 
-function TAccountTransaction.TransferAmount(sender, target: Cardinal;
-  n_operation: Cardinal; amount, fee: UInt64; var errors: AnsiString): Boolean;
+function TAccountTransaction.TransferAmount(sender, target: Cardinal; n_operation: Cardinal; amount, fee: UInt64;
+  var errors: AnsiString): Boolean;
 var
   intSender, intTarget: Integer;
   PaccSender, PaccTarget: PAccount;
@@ -338,8 +340,8 @@ begin
     errors := 'Invalid integrity in accounts transaction';
     exit;
   end;
-  if (sender < 0) or (sender >= (FFreezedAccounts.blocksCount * CT_AccountsPerBlock)) or
-    (target < 0) or (target >= (FFreezedAccounts.blocksCount * CT_AccountsPerBlock)) then
+  if (sender < 0) or (sender >= (FFreezedAccounts.blocksCount * CT_AccountsPerBlock)) or (target < 0) or
+    (target >= (FFreezedAccounts.blocksCount * CT_AccountsPerBlock)) then
   begin
     errors := 'Invalid sender or target on transfer';
     exit;
@@ -513,6 +515,5 @@ begin
   inc(FTotalFee, fee);
   Result := true;
 end;
-
 
 end.

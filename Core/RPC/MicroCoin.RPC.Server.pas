@@ -42,18 +42,21 @@ type
     FCallsCounter: Int64;
     FValidIPs: AnsiString;
     FNodeNotifyEvents: TNodeNotifyEvents;
+
     class var FInstance: TRPCServer;
+
+    class function GetInstance: TRPCServer; static;
     procedure SetActive(AValue: Boolean);
     procedure SetIniFileName(const Value: AnsiString);
     procedure SetLogFileName(const Value: AnsiString);
     function GetLogFileName: AnsiString;
     procedure SetValidIPs(const Value: AnsiString);
-    class function GetInstance: TRPCServer; static;
   strict private
     procedure OnNodeNewOperation(Sender: TObject);
     constructor Create;
   public
     destructor Destroy; override;
+
     function IsValidClientIP(const clientIp: string; clientPort: Word): Boolean;
     function GetNewCallCounter: Int64;
     procedure AddRPCLog(const Sender: string; const Message: string);

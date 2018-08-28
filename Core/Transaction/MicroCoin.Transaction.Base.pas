@@ -9,11 +9,10 @@ unit MicroCoin.Transaction.Base;
   or visit http://www.opensource.org/licenses/mit-license.php.
 
 }
-
+
 interface
 
-uses
-  SysUtils, Classes, UCrypto, UConst, MicroCoin.Account.AccountKey,
+uses SysUtils, Classes, UCrypto, UConst, MicroCoin.Account.AccountKey,
   MicroCoin.Account.Transaction;
 
 type
@@ -39,20 +38,20 @@ type
     OperationHash: TRawBytes;
     OperationHash_OLD: TRawBytes; // Will include old oeration hash value
     errors: AnsiString;
-    class function Empty : TTransactionData; static;
+    class function Empty: TTransactionData; static;
   end;
-
 
   ITransaction = interface
     ['{54C0B36D-912C-4CC9-B73E-4B8BACB2E053}']
     function SaveToStream(Stream: TStream; SaveExtendedData: Boolean): Boolean;
-    function LoadFromStream(Stream: TStream; LoadExtendedData: Boolean) : Boolean;
+    function LoadFromStream(Stream: TStream; LoadExtendedData: Boolean): Boolean;
     function SaveToStorage(Stream: TStream): Boolean;
     function LoadFromStorage(Stream: TStream; LoadProtocolV2: Boolean): Boolean;
     function SaveToNettransfer(Stream: TStream): Boolean;
     function LoadFromNettransfer(Stream: TStream): Boolean;
 
-    function GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal; var TransactionData: TTransactionData): Boolean;
+    function GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal;
+      var TransactionData: TTransactionData): Boolean;
 
     function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean;
 
@@ -65,44 +64,47 @@ type
     function GetDestinationAccount: Int64;
     function GetSellerAccount: Int64;
     function GetNumberOfTransactions: Cardinal;
-    function GetOpType : byte;
+    function GetOpType: byte;
 
-    function Get_Previous_Signer_updated_block : Cardinal;
-    function Get_Previous_Destination_updated_block : Cardinal;
-    function Get_Previous_Seller_updated_block : Cardinal;
+    function Get_Previous_Signer_updated_block: Cardinal;
+    function Get_Previous_Destination_updated_block: Cardinal;
+    function Get_Previous_Seller_updated_block: Cardinal;
 
     procedure Set_Previous_Destination_updated_block(const Value: Cardinal);
     procedure Set_Previous_Seller_updated_block(const Value: Cardinal);
     procedure Set_Previous_Signer_updated_block(const Value: Cardinal);
 
-    function Get_HasValidSignature : Boolean;
-    function GetTag : integer;
-    procedure SetTag(Value : integer);
+    function Get_HasValidSignature: Boolean;
+    function GetTag: Integer;
+    procedure SetTag(Value: Integer);
 
     function Sha256: TRawBytes;
 
-    function TransactionHash(Block: Cardinal) : TRawBytes;
-    function TransactionHash_OLD(Block: Cardinal) : TRawBytes;
+    function TransactionHash(Block: Cardinal): TRawBytes;
+    function TransactionHash_OLD(Block: Cardinal): TRawBytes;
 
     procedure AffectedAccounts(list: TList);
     procedure InitializeData;
 
-    function ToString : string;
+    function ToString: string;
 
-    property Previous_Signer_updated_block: Cardinal read Get_Previous_Signer_updated_block write Set_Previous_Signer_updated_block;
-    property Previous_Destination_updated_block: Cardinal read Get_Previous_Destination_updated_block write Set_Previous_Destination_updated_block;
-    property Previous_Seller_updated_block: Cardinal read Get_Previous_Seller_updated_block write Set_Previous_Seller_updated_block;
+    property Previous_Signer_updated_block: Cardinal read Get_Previous_Signer_updated_block
+      write Set_Previous_Signer_updated_block;
+    property Previous_Destination_updated_block: Cardinal read Get_Previous_Destination_updated_block
+      write Set_Previous_Destination_updated_block;
+    property Previous_Seller_updated_block: Cardinal read Get_Previous_Seller_updated_block
+      write Set_Previous_Seller_updated_block;
     property HasValidSignature: Boolean read Get_HasValidSignature;
 
-    property Fee : UInt64 read GetFee;
-    property Amount : Int64 read GetAmount;
-    property Payload : TRawBytes read GetPayload;
-    property SignerAccount : Cardinal read GetSignerAccount;
-    property DestinationAccount : Int64 read GetDestinationAccount;
-    property SellerAccount : Int64 read GetSellerAccount;
+    property Fee: UInt64 read GetFee;
+    property Amount: Int64 read GetAmount;
+    property Payload: TRawBytes read GetPayload;
+    property SignerAccount: Cardinal read GetSignerAccount;
+    property DestinationAccount: Int64 read GetDestinationAccount;
+    property SellerAccount: Int64 read GetSellerAccount;
     property NumberOfTransactions: Cardinal read GetNumberOfTransactions;
-    property OpType : byte read GetOpType;
-    property Tag : integer read GetTag write SetTag;
+    property OpType: byte read GetOpType;
+    property Tag: Integer read GetTag write SetTag;
 
   end;
 
@@ -124,7 +126,7 @@ begin
   Result.OpSubtype := 0;
   Result.AffectedAccount := 0;
   Result.OperationTxt := '';
-  Result.Amount:=0;
+  Result.Amount := 0;
   Result.Fee := 0;
   Result.OriginalPayload := '';
   Result.PrintablePayload := '';
@@ -132,6 +134,5 @@ begin
   Result.OperationHash_OLD := '';
   Result.errors := '';
 end;
-
 
 end.

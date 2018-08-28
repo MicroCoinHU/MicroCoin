@@ -7,7 +7,7 @@ unit MicroCoin.Net.Utils;
   Distributed under the MIT software license, see the accompanying file LICENSE
   or visit http://www.opensource.org/licenses/mit-license.php.
 }
-
+
 interface
 
 uses UThread;
@@ -20,10 +20,9 @@ type
 
 implementation
 
-uses
- MicroCoin.Net.Connection,
- MicroCoin.Node.Node,
- MicroCoin.BlockChain.BlockHeader, MicroCoin.Net.NodeServer, ULog, MicroCoin.Net.ConnectionManager, Classes, Sysutils;
+uses MicroCoin.Net.Connection,
+  MicroCoin.Node.Node,
+  MicroCoin.BlockChain.BlockHeader, MicroCoin.Net.NodeServer, ULog, MicroCoin.Net.ConnectionManager, Classes, Sysutils;
 
 procedure TThreadGetNewBlockChainFromClient.BCExecute;
 var
@@ -47,7 +46,8 @@ begin
     begin
       if TConnectionManager.NetData.GetConnection(i, nc) then
       begin
-        if (nc.RemoteAccumulatedWork > maxWork) and (nc.RemoteAccumulatedWork > TNode.Node.Bank.AccountStorage.WorkSum) then
+        if (nc.RemoteAccumulatedWork > maxWork) and (nc.RemoteAccumulatedWork > TNode.Node.Bank.AccountStorage.WorkSum)
+        then
         begin
           maxWork := nc.RemoteAccumulatedWork;
           iMax := i;
@@ -78,7 +78,8 @@ begin
       begin
         if (TConnectionManager.NetData.GetConnection(i, nc)) then
         begin
-          if (nc.RemoteOperationBlock.Block >= TNode.Node.Bank.BlocksCount) and (nc.RemoteOperationBlock.Block >= lop.Block) then
+          if (nc.RemoteOperationBlock.Block >= TNode.Node.Bank.BlocksCount) and
+            (nc.RemoteOperationBlock.Block >= lop.Block) then
           begin
             lop := nc.RemoteOperationBlock;
           end;
@@ -106,7 +107,8 @@ begin
       if (candidates.Count > 1) then
         i := Random(candidates.Count); // i = 0..count-1
       nc := TNetConnection(candidates[i]);
-      TConnectionManager.NetData.GetNewBlockChainFromClient(nc, Format('Candidate block: %d sum: %d', [nc.RemoteOperationBlock.Block, nc.RemoteAccumulatedWork]));
+      TConnectionManager.NetData.GetNewBlockChainFromClient(nc, Format('Candidate block: %d sum: %d',
+        [nc.RemoteOperationBlock.Block, nc.RemoteAccumulatedWork]));
     end;
   finally
     candidates.Free;

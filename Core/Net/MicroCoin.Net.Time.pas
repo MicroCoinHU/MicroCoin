@@ -7,7 +7,7 @@ unit MicroCoin.Net.Time;
   Distributed under the MIT software license, see the accompanying file LICENSE
   or visit http://www.opensource.org/licenses/mit-license.php.
 }
-
+
 interface
 
 uses Sysutils, classes, UThread, SyncObjs, UTime, ULog, UConst;
@@ -37,7 +37,8 @@ type
   TNetworkAdjustedTimeReg = record
     clientIp: AnsiString; // Client IP allows only 1 connection per IP (not using port)
     TimeOffset: Integer;
-    counter: Integer; // To prevent a time attack from a single IP with multiple connections, only 1 will be used for calc NAT
+    counter: Integer;
+    // To prevent a time attack from a single IP with multiple connections, only 1 will be used for calc NAT
   end;
 
   PNetworkAdjustedTimeReg = ^TNetworkAdjustedTimeReg;
@@ -66,7 +67,8 @@ begin
     Inc(P^.counter);
     Inc(FTotalCounter);
     UpdateMedian(l);
-    TLog.NewLog(ltdebug, Classname, Format('AddNewIp (%s,%d) - Total:%d/%d Offset:%d', [clientIp, clientTimestamp, l.Count, FTotalCounter, FTimeOffset]));
+    TLog.NewLog(ltdebug, Classname, Format('AddNewIp (%s,%d) - Total:%d/%d Offset:%d', [clientIp, clientTimestamp,
+      l.Count, FTotalCounter, FTimeOffset]));
   finally
     FTimesList.UnlockList;
   end;
@@ -149,9 +151,11 @@ begin
     end;
     UpdateMedian(l);
     if (i >= 0) then
-      TLog.NewLog(ltdebug, Classname, Format('RemoveIp (%s) - Total:%d/%d Offset:%d', [clientIp, l.Count, FTotalCounter, FTimeOffset]))
+      TLog.NewLog(ltdebug, Classname, Format('RemoveIp (%s) - Total:%d/%d Offset:%d', [clientIp, l.Count, FTotalCounter,
+        FTimeOffset]))
     else
-      TLog.NewLog(ltError, Classname, Format('RemoveIp not found (%s) - Total:%d/%d Offset:%d', [clientIp, l.Count, FTotalCounter, FTimeOffset]))
+      TLog.NewLog(ltError, Classname, Format('RemoveIp not found (%s) - Total:%d/%d Offset:%d',
+        [clientIp, l.Count, FTotalCounter, FTimeOffset]))
   finally
     FTimesList.UnlockList;
   end;
@@ -176,7 +180,8 @@ begin
   end
   else if ((list.Count mod 2) = 0) then
   begin
-    FTimeOffset := (PNetworkAdjustedTimeReg(list[(list.Count div 2) - 1])^.TimeOffset + PNetworkAdjustedTimeReg(list[(list.Count div 2)])^.TimeOffset) div 2;
+    FTimeOffset := (PNetworkAdjustedTimeReg(list[(list.Count div 2) - 1])^.TimeOffset +
+      PNetworkAdjustedTimeReg(list[(list.Count div 2)])^.TimeOffset) div 2;
   end
   else
   begin
@@ -189,10 +194,10 @@ begin
     begin
       s := s + ',' + Inttostr(PNetworkAdjustedTimeReg(list[i])^.TimeOffset);
     end;
-    TLog.NewLog(ltInfo, Classname, Format('Updated NAT median offset. My offset is now %d (before %d) based on %d/%d connections %s', [FTimeOffset, last, list.Count, FTotalCounter, s]));
+    TLog.NewLog(ltInfo, Classname,
+      Format('Updated NAT median offset. My offset is now %d (before %d) based on %d/%d connections %s',
+      [FTimeOffset, last, list.Count, FTotalCounter, s]));
   end;
 end;
-
-
 
 end.

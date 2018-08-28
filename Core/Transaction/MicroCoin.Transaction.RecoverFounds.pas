@@ -1,6 +1,8 @@
 unit MicroCoin.Transaction.RecoverFounds;
-{
-  This unit contains code from PascalCoin:
+
+{
+
+  This unit contains code from PascalCoin:
 
   Copyright (c) Albert Molina 2016 - 2018 original code from PascalCoin https://pascalcoin.org/
 
@@ -19,7 +21,7 @@ uses MicroCoin.Transaction.Base, MicroCoin.Transaction.Transaction,
 type
 
   TRecoverFoundsData = record
-    account: Cardinal;
+    Account: Cardinal;
     n_operation: Cardinal;
     fee: UInt64;
   end;
@@ -43,8 +45,7 @@ type
     function GetNumberOfTransactions: Cardinal; override;
     procedure AffectedAccounts(list: TList); override;
     constructor Create(account_number, n_operation: Cardinal; fee: UInt64);
-    function GetTransactionData(Block: Cardinal;
-      Affected_account_number: Cardinal;
+    function GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal;
       var TransactionData: TTransactionData): Boolean; override;
     property Data: TRecoverFoundsData read FData;
     function toString: string; override;
@@ -52,45 +53,50 @@ type
   end;
 
 const
-  CT_TOpRecoverFoundsData_NUL: TRecoverFoundsData = (account: 0; n_operation: 0; fee: 0);
+  CT_TOpRecoverFoundsData_NUL: TRecoverFoundsData = (Account: 0; n_operation: 0; fee: 0);
 
 implementation
 
 procedure TRecoverFoundsTransaction.AffectedAccounts(list: TList);
 begin
-  list.Add(TObject(FData.account));
+  list.Add(TObject(FData.Account));
 end;
 
 constructor TRecoverFoundsTransaction.Create(account_number, n_operation: Cardinal; fee: UInt64);
 begin
   inherited Create;
-  FData.account := account_number;
+  FData.Account := account_number;
   FData.n_operation := n_operation;
   FData.fee := fee;
   FHasValidSignature := true; // Recover founds doesn't need a signature
 end;
 
-function TRecoverFoundsTransaction.ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean;
+function TRecoverFoundsTransaction.ApplyTransaction(AccountTransaction: TAccountTransaction;
+  var errors: AnsiString): Boolean;
 var
   acc: TAccount;
 begin
   Result := false;
-  if TAccount.IsAccountBlockedByProtocol(FData.account, AccountTransaction.FreezedAccountStorage.BlocksCount) then
+  if TAccount.IsAccountBlockedByProtocol(FData.Account, AccountTransaction.FreezedAccountStorage.BlocksCount) then
   begin
     errors := 'account is blocked for protocol';
     Exit;
   end;
-  acc := AccountTransaction.account(FData.account);
-  if (acc.updated_block + CT_RecoverFoundsWaitInactiveCount >= AccountTransaction.FreezedAccountStorage.BlocksCount) then
+  acc := AccountTransaction.Account(FData.Account);
+  if (acc.updated_block + CT_RecoverFoundsWaitInactiveCount >= AccountTransaction.FreezedAccountStorage.BlocksCount)
+  then
   begin
-    errors := Format('Account is active to recover founds! Account %d Updated %d + %d >= BlockCount : %d', [FData.account, acc.updated_block, CT_RecoverFoundsWaitInactiveCount,
+    errors := Format('Account is active to recover founds! Account %d Updated %d + %d >= BlockCount : %d',
+      [FData.Account, acc.updated_block, CT_RecoverFoundsWaitInactiveCount,
       AccountTransaction.FreezedAccountStorage.BlocksCount]);
     Exit;
   end;
   // Build 1.0.8 ... there was a BUG. Need to prevent recent created accounts
-  if (TAccount.AccountBlock(FData.account) + CT_RecoverFoundsWaitInactiveCount >= AccountTransaction.FreezedAccountStorage.BlocksCount) then
+  if (TAccount.AccountBlock(FData.Account) + CT_RecoverFoundsWaitInactiveCount >=
+    AccountTransaction.FreezedAccountStorage.BlocksCount) then
   begin
-    errors := Format('AccountBlock is active to recover founds! AccountBlock %d + %d >= BlockCount : %d', [TAccount.AccountBlock(FData.account), CT_RecoverFoundsWaitInactiveCount,
+    errors := Format('AccountBlock is active to recover founds! AccountBlock %d + %d >= BlockCount : %d',
+      [TAccount.AccountBlock(FData.Account), CT_RecoverFoundsWaitInactiveCount,
       AccountTransaction.FreezedAccountStorage.BlocksCount]);
     Exit;
   end;
@@ -110,7 +116,7 @@ begin
     Exit;
   end;
   FPrevious_Signer_updated_block := acc.updated_block;
-  Result := AccountTransaction.TransferAmount(FData.account, FData.account, FData.n_operation, 0, FData.fee, errors);
+  Result := AccountTransaction.TransferAmount(FData.Account, FData.Account, FData.n_operation, 0, FData.fee, errors);
 end;
 
 function TRecoverFoundsTransaction.GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes;
@@ -123,7 +129,7 @@ begin
   begin
     ms := TMemoryStream.Create;
     try
-      ms.Write(FData.account, Sizeof(FData.account));
+      ms.Write(FData.Account, Sizeof(FData.Account));
       ms.Write(FData.n_operation, Sizeof(FData.n_operation));
       ms.Write(FData.fee, Sizeof(FData.fee));
       ms.Position := 0;
@@ -146,7 +152,7 @@ begin
   Result := false;
   if Stream.Size - Stream.Position < 16 then
     Exit;
-  Stream.Read(FData.account, Sizeof(FData.account));
+  Stream.Read(FData.Account, Sizeof(FData.Account));
   Stream.Read(FData.n_operation, Sizeof(FData.n_operation));
   Stream.Read(FData.fee, Sizeof(FData.fee));
   Result := true;
@@ -174,7 +180,7 @@ end;
 
 function TRecoverFoundsTransaction.SaveToStream(Stream: TStream; SaveExtendedData: Boolean): Boolean;
 begin
-  Stream.Write(FData.account, Sizeof(FData.account));
+  Stream.Write(FData.Account, Sizeof(FData.Account));
   Stream.Write(FData.n_operation, Sizeof(FData.n_operation));
   Stream.Write(FData.fee, Sizeof(FData.fee));
   Result := true;
@@ -182,11 +188,10 @@ end;
 
 function TRecoverFoundsTransaction.GetSignerAccount: Cardinal;
 begin
-  Result := FData.account;
+  Result := FData.Account;
 end;
 
-function TRecoverFoundsTransaction.GetTransactionData(Block,
-  Affected_account_number: Cardinal;
+function TRecoverFoundsTransaction.GetTransactionData(Block, Affected_account_number: Cardinal;
   var TransactionData: TTransactionData): Boolean;
 begin
   TransactionData.OpSubtype := CT_OpSubtype_Recover;
@@ -212,9 +217,9 @@ end;
 
 function TRecoverFoundsTransaction.toString: string;
 begin
-  Result := Format('Recover founds of account %s fee:%s (n_op:%d)', [
-    TAccount.AccountNumberToAccountTxtNumber(FData.account),
-    TCurrencyUtils.FormatMoney(FData.fee), FData.n_operation]);
+  Result := Format('Recover founds of account %s fee:%s (n_op:%d)',
+    [TAccount.AccountNumberToAccountTxtNumber(FData.Account), TCurrencyUtils.FormatMoney(FData.fee),
+    FData.n_operation]);
 end;
 
 initialization

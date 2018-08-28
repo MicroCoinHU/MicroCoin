@@ -5,8 +5,27 @@ unit MicroCoin.Common;
 
   Distributed under the MIT software license, see the accompanying file LICENSE
   or visit http://www.opensource.org/licenses/mit-license.php.
+
+  Copyright 2018 MicroCoin Developers
+
+  Permission is hereby granted, free of charge, to any person obtaining a copy of this
+  software and associated documentation files (the "Software"), to deal in the Software
+  without restriction, including without limitation the rights to use, copy, modify, merge,
+  publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons
+  to whom the Software is furnished to do so, subject to the following conditions:
+
+  The above copyright notice and this permission notice shall be included in all copies or
+  substantial portions of the Software.
+
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+  INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+  PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
+  FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+  ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
+
 }
-
+
 interface
 
 uses SysUtils;
@@ -17,34 +36,67 @@ type
 
   TResult<T> = record
   public
-    IsSuccess : boolean;
-    ErrorCode : TErrorCode;
-    ErrorMessage : string;
-    PreferredException : ExceptClass;
-    OriginalException : Exception;
-    Payload : T;
+    IsSuccess: boolean;
+    ErrorCode: TErrorCode;
+    ErrorMessage: string;
+    PreferredException: ExceptClass;
+    OriginalException: Exception;
+    Payload: T;
     procedure RaiseException;
-    class function CreateFromException(E : Exception) : TResult<T>; static;
+    class function CreateFromException(E: Exception): TResult<T>; static;
   end;
 
   TCurrencyUtils = class
   public
     class function FormatMoney(Money: Int64): AnsiString;
-    class function TxtToMoney(const moneytxt : AnsiString; var money : Int64) : Boolean;
+    class function TxtToMoney(const moneytxt: AnsiString; var Money: Int64): boolean;
   end;
 
+function BinStrCompare(const Str1, Str2: AnsiString): Integer;
+
 implementation
+
+function BinStrCompare(const Str1, Str2: AnsiString): Integer;
+var
+  Str1Len, Str2Len, i: Integer;
+begin
+  Str1Len := Length(Str1);
+  Str2Len := Length(Str2);
+  if (Str1Len < Str2Len) then
+    Result := -1
+  else if (Str1Len > Str2Len) then
+    Result := 1
+  else
+  begin
+    Result := 0;
+    for i := 1 to Str1Len do
+    begin
+      if Str1[i] = Str2[i]
+      then continue;
+      if Str1[i] < Str2[i] then
+      begin
+        Result := -1;
+        break;
+      end
+      else if Str1[i] > Str2[i] then
+      begin
+        Result := 1;
+        break;
+      end
+    end;
+  end;
+end;
 
 class function TCurrencyUtils.FormatMoney(Money: Int64): AnsiString;
 begin
   Result := FormatFloat('#,###0.0000', (Money / 10000));
 end;
 
-class function TCurrencyUtils.TxtToMoney(Const moneytxt : AnsiString; var money : Int64) : Boolean;
+class function TCurrencyUtils.TxtToMoney(const moneytxt: AnsiString; var Money: Int64): boolean;
 var
   s: AnsiString;
 begin
-  money := 0;
+  Money := 0;
   if trim(moneytxt) = '' then
   begin
     Result := true;
@@ -59,9 +111,11 @@ begin
     begin
       s := StringReplace(moneytxt, FormatSettings.ThousandSeparator, '', [rfReplaceAll]);
     end;
-    money := Round(StrToFloat(s) * 10000);
+    Money := Round(StrToFloat(s) * 10000);
     Result := true;
-  except on E:Exception do begin
+  except
+    on E: Exception do
+    begin
       Result := false;
     end;
   end;
@@ -74,7 +128,7 @@ begin
   Result.IsSuccess := false;
   Result.ErrorCode := ecException;
   Result.ErrorMessage := E.Message;
-  Result.PreferredException := ExceptClass( E.ClassType );
+  Result.PreferredException := ExceptClass(E.ClassType);
 end;
 
 procedure TResult<T>.RaiseException;

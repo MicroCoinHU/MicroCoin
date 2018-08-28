@@ -7,7 +7,7 @@ unit MicroCoin.Net.Events;
   Distributed under the MIT software license, see the accompanying file LICENSE
   or visit http://www.opensource.org/licenses/mit-license.php.
 }
-
+
 interface
 
 uses UThread, Classes;
@@ -42,9 +42,11 @@ type
   public
     constructor Create(ANetData: INetNotificationSource);
 
-    property NotifyOnReceivedHelloMessage: Boolean read FNotifyOnReceivedHelloMessage write FNotifyOnReceivedHelloMessage;
+    property NotifyOnReceivedHelloMessage: Boolean read FNotifyOnReceivedHelloMessage
+      write FNotifyOnReceivedHelloMessage;
     property NotifyOnStatisticsChanged: Boolean read FNotifyOnStatisticsChanged write FNotifyOnStatisticsChanged;
-    property NotifyOnNetConnectionsUpdated: Boolean read FNotifyOnNetConnectionsUpdated write FNotifyOnNetConnectionsUpdated;
+    property NotifyOnNetConnectionsUpdated: Boolean read FNotifyOnNetConnectionsUpdated
+      write FNotifyOnNetConnectionsUpdated;
     property NotifyOnNodeServersUpdated: Boolean read FNotifyOnNodeServersUpdated write FNotifyOnNodeServersUpdated;
     property NotifyOnBlackListUpdated: Boolean read FNotifyOnBlackListUpdated write FNotifyOnBlackListUpdated;
 
@@ -56,12 +58,9 @@ procedure TNetDataNotifyEventsThread.BCExecute;
 begin
   while (not Terminated) do
   begin
-    if (FNotifyOnReceivedHelloMessage) or
-       (FNotifyOnStatisticsChanged) or
-       (FNotifyOnNetConnectionsUpdated) or
-       (FNotifyOnNodeServersUpdated) or
-       (FNotifyOnBlackListUpdated)
-    then begin
+    if (FNotifyOnReceivedHelloMessage) or (FNotifyOnStatisticsChanged) or (FNotifyOnNetConnectionsUpdated) or
+      (FNotifyOnNodeServersUpdated) or (FNotifyOnBlackListUpdated) then
+    begin
       Synchronize(SynchronizedNotify);
     end;
     sleep(10);

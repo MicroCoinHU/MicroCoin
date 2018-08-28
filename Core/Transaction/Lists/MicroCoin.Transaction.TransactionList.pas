@@ -9,12 +9,12 @@ unit MicroCoin.Transaction.TransactionList;
   or visit http://www.opensource.org/licenses/mit-license.php.
 
 }
-
+
 interface
 
 uses SysUtils, Classes, MicroCoin.Transaction.Base, UThread,
-     MicroCoin.Account.Storage, MicroCoin.Account.AccountKey,
-     MicroCoin.Common.Lists, UCrypto, UConst, ULog;
+  MicroCoin.Account.Storage, MicroCoin.Account.AccountKey,
+  MicroCoin.Common.Lists, UCrypto, UConst, ULog;
 
 type
   TTransactionList = class
@@ -24,22 +24,20 @@ type
   public
     constructor Create;
     destructor Destroy; override;
-    procedure Add(Const TransactionData: TTransactionData);
+    procedure Add(const TransactionData: TTransactionData);
     function Count: Integer;
     procedure Delete(index: Integer);
     procedure Clear;
     property TransactionData[index: Integer]: TTransactionData read GetTransactionData; default;
-  End;
-
-
+  end;
 
 implementation
 
-Type
+type
   POperationResume = ^TTransactionData;
 
 procedure TTransactionList.Add(const TransactionData: TTransactionData);
-Var
+var
   P: POperationResume;
 begin
   New(P);
@@ -48,7 +46,7 @@ begin
 end;
 
 procedure TTransactionList.Clear;
-Var
+var
   P: POperationResume;
   i: Integer;
   l: TList;
@@ -67,15 +65,15 @@ begin
 end;
 
 function TTransactionList.Count: Integer;
-Var
+var
   l: TList;
 begin
   l := FList.LockList;
-  Try
+  try
     Result := l.Count;
-  Finally
+  finally
     FList.UnlockList;
-  End;
+  end;
 end;
 
 constructor TTransactionList.Create;
@@ -84,18 +82,18 @@ begin
 end;
 
 procedure TTransactionList.Delete(index: Integer);
-Var
+var
   P: POperationResume;
   l: TList;
 begin
   l := FList.LockList;
-  Try
+  try
     P := l[index];
     l.Delete(index);
     Dispose(P);
-  Finally
+  finally
     FList.UnlockList;
-  End;
+  end;
 end;
 
 destructor TTransactionList.Destroy;
@@ -105,9 +103,8 @@ begin
   inherited;
 end;
 
-function TTransactionList.GetTransactionData(index: Integer)
-  : TTransactionData;
-Var
+function TTransactionList.GetTransactionData(index: Integer): TTransactionData;
+var
   l: TList;
 begin
   l := FList.LockList;
@@ -120,6 +117,5 @@ begin
     FList.UnlockList;
   end;
 end;
-
 
 end.

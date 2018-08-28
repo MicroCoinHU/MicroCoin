@@ -44,20 +44,15 @@ type
     FData: TOpListAccountData;
   protected
     procedure InitializeData; override;
-    function SaveToStream(Stream: TStream; SaveExtendedData: Boolean)
-      : Boolean; override;
-    function LoadFromStream(Stream: TStream; LoadExtendedData: Boolean)
-      : Boolean; override;
+    function SaveToStream(Stream: TStream; SaveExtendedData: Boolean): Boolean; override;
+    function LoadFromStream(Stream: TStream; LoadExtendedData: Boolean): Boolean; override;
   public
-    class function GetOperationHashToSign(const operation: TOpListAccountData)
-      : TRawBytes;
-    class function DoSignOperation(key: TECPrivateKey;
-      var operation: TOpListAccountData): Boolean;
+    class function GetOperationHashToSign(const operation: TOpListAccountData): TRawBytes;
+    class function DoSignOperation(key: TECPrivateKey; var operation: TOpListAccountData): Boolean;
     function IsPrivateSale: Boolean;
     function IsDelist: Boolean; virtual; abstract;
     function GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes; override;
-    function ApplyTransaction(AccountTransaction: TAccountTransaction;
-      var errors: AnsiString): Boolean; override;
+    function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean; override;
     function GetAmount: Int64; override;
     function GetFee: UInt64; override;
     function GetPayload: TRawBytes; override;
@@ -73,31 +68,29 @@ type
   TOpListAccountForSale = class(TOpListAccount)
   public
     function GetOpType: Byte; override;
-    constructor CreateListAccountForSale(account_signer, n_operation,
-      account_target: Cardinal; account_price, fee: UInt64;
-      account_to_pay: Cardinal; new_public_key: TAccountKey;
-      locked_until_block: Cardinal; key: TECPrivateKey; payload: TRawBytes);
+    constructor CreateListAccountForSale(account_signer, n_operation, account_target: Cardinal;
+      account_price, fee: UInt64; account_to_pay: Cardinal; new_public_key: TAccountKey; locked_until_block: Cardinal;
+      key: TECPrivateKey; payload: TRawBytes);
     function IsDelist: Boolean; override;
-    function GetTransactionData(Block: Cardinal;
-      Affected_account_number: Cardinal; var TransactionData: TTransactionData)
-      : Boolean; override;
+    function GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal;
+      var TransactionData: TTransactionData): Boolean; override;
   end;
 
   TOpDelistAccountForSale = class(TOpListAccount)
   public
     function GetOpType: Byte; override;
-    constructor CreateDelistAccountForSale(account_signer, n_operation,
-      account_target: Cardinal; fee: UInt64; key: TECPrivateKey;
-      payload: TRawBytes);
+    constructor CreateDelistAccountForSale(account_signer, n_operation, account_target: Cardinal; fee: UInt64;
+      key: TECPrivateKey; payload: TRawBytes);
     function IsDelist: Boolean; override;
-    function GetTransactionData(Block: Cardinal;
-      Affected_account_number: Cardinal; var TransactionData: TTransactionData)
-      : Boolean; override;
+    function GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal;
+      var TransactionData: TTransactionData): Boolean; override;
   end;
 
 const
-  CT_TOpListAccountData_NUL: TOpListAccountData = (account_signer: 0; account_target: 0; operation_type: lat_Unknown; n_operation: 0; account_price: 0; account_to_pay: 0; fee: 0; payload: '';
-    public_key: (EC_OpenSSL_NID: 0; x: ''; y: ''); new_public_key: (EC_OpenSSL_NID: 0; x: ''; y: ''); locked_until_block: 0; sign: (r: ''; s: ''));
+  CT_TOpListAccountData_NUL: TOpListAccountData = (account_signer: 0; account_target: 0; operation_type: lat_Unknown;
+    n_operation: 0; account_price: 0; account_to_pay: 0; fee: 0; payload: '';
+    public_key: (EC_OpenSSL_NID: 0; x: ''; y: ''); new_public_key: (EC_OpenSSL_NID: 0; x: ''; y: '');
+    locked_until_block: 0; sign: (r: ''; s: ''));
 
 implementation
 
@@ -108,8 +101,7 @@ begin
     list.Add(TObject(FData.account_target));
 end;
 
-function TOpListAccount.ApplyTransaction(AccountTransaction
-  : TAccountTransaction; var errors: AnsiString): Boolean;
+function TOpListAccount.ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean;
 var
   account_signer, account_target: TAccount;
 begin
@@ -119,34 +111,31 @@ begin
     errors := 'List/Delist Account is not allowed on Protocol 1';
     exit;
   end;
-  if (FData.account_signer >= AccountTransaction.FreezedAccountStorage.AccountsCount)
-  then
+  if (FData.account_signer >= AccountTransaction.FreezedAccountStorage.AccountsCount) then
   begin
     errors := 'Invalid signer account number';
     exit;
   end;
-  if (FData.account_target >= AccountTransaction.FreezedAccountStorage.AccountsCount)
-  then
+  if (FData.account_target >= AccountTransaction.FreezedAccountStorage.AccountsCount) then
   begin
     errors := 'Invalid target account number';
     exit;
   end;
-  if TAccount.IsAccountBlockedByProtocol(FData.account_signer,
-    AccountTransaction.FreezedAccountStorage.BlocksCount) then
+  if TAccount.IsAccountBlockedByProtocol(FData.account_signer, AccountTransaction.FreezedAccountStorage.BlocksCount)
+  then
   begin
     errors := 'Signer account is blocked for protocol';
     exit;
   end;
-  if TAccount.IsAccountBlockedByProtocol(FData.account_target,
-    AccountTransaction.FreezedAccountStorage.BlocksCount) then
+  if TAccount.IsAccountBlockedByProtocol(FData.account_target, AccountTransaction.FreezedAccountStorage.BlocksCount)
+  then
   begin
     errors := 'Target account is blocked for protocol';
     exit;
   end;
   if not IsDelist then
   begin
-    if (FData.account_to_pay >= AccountTransaction.FreezedAccountStorage.AccountsCount)
-    then
+    if (FData.account_to_pay >= AccountTransaction.FreezedAccountStorage.AccountsCount) then
     begin
       errors := 'Invalid account to pay number';
       exit;
@@ -156,8 +145,8 @@ begin
       errors := 'Account to pay is itself';
       exit;
     end;
-    if TAccount.IsAccountBlockedByProtocol(FData.account_to_pay,
-      AccountTransaction.FreezedAccountStorage.BlocksCount) then
+    if TAccount.IsAccountBlockedByProtocol(FData.account_to_pay, AccountTransaction.FreezedAccountStorage.BlocksCount)
+    then
     begin
       errors := 'Account to pay is blocked for protocol';
       exit;
@@ -167,13 +156,11 @@ begin
       errors := 'Account for sale price must be > 0';
       exit;
     end;
-    if (FData.locked_until_block >
-      (AccountTransaction.FreezedAccountStorage.BlocksCount +
+    if (FData.locked_until_block > (AccountTransaction.FreezedAccountStorage.BlocksCount +
       CT_MaxFutureBlocksLockedAccount)) then
     begin
-      errors := 'Invalid locked block: Current block ' +
-        Inttostr(AccountTransaction.FreezedAccountStorage.BlocksCount) +
-        ' cannot lock to block ' + Inttostr(FData.locked_until_block);
+      errors := 'Invalid locked block: Current block ' + Inttostr(AccountTransaction.FreezedAccountStorage.BlocksCount)
+        + ' cannot lock to block ' + Inttostr(FData.locked_until_block);
       exit;
     end;
     if IsPrivateSale then
@@ -195,8 +182,8 @@ begin
   if (FData.account_signer <> FData.account_target) then
   begin
     // Both accounts must have same PUBLIC KEY!
-    if not TAccountKey.EqualAccountKeys(account_signer.accountInfo.AccountKey,
-      account_target.accountInfo.AccountKey) then
+    if not TAccountKey.EqualAccountKeys(account_signer.accountInfo.AccountKey, account_target.accountInfo.AccountKey)
+    then
     begin
       errors := 'Signer and affected accounts have different public key';
       exit;
@@ -214,8 +201,7 @@ begin
   end;
   if (length(FData.payload) > CT_MaxPayloadSize) then
   begin
-    errors := 'Invalid Payload size:' + Inttostr(length(FData.payload)) +
-      ' (Max: ' + Inttostr(CT_MaxPayloadSize) + ')';
+    errors := 'Invalid Payload size:' + Inttostr(length(FData.payload)) + ' (Max: ' + Inttostr(CT_MaxPayloadSize) + ')';
     exit;
   end;
   // Is locked?
@@ -231,8 +217,7 @@ begin
   end;
   if (IsPrivateSale) then
   begin
-    if TAccountKey.EqualAccountKeys(account_target.accountInfo.AccountKey,
-      FData.new_public_key) then
+    if TAccountKey.EqualAccountKeys(account_target.accountInfo.AccountKey, FData.new_public_key) then
     begin
       errors := 'New public key for private sale is the same public key';
       exit;
@@ -240,19 +225,15 @@ begin
   end;
   //
   // Build 1.4
-  if (FData.public_key.EC_OpenSSL_NID <> CT_TECDSA_Public_Nul.EC_OpenSSL_NID)
-    and (not TAccountKey.EqualAccountKeys(FData.public_key,
-    account_signer.accountInfo.AccountKey)) then
+  if (FData.public_key.EC_OpenSSL_NID <> CT_TECDSA_Public_Nul.EC_OpenSSL_NID) and
+    (not TAccountKey.EqualAccountKeys(FData.public_key, account_signer.accountInfo.AccountKey)) then
   begin
-    errors := Format
-      ('Invalid public key for account %d. Distinct from SafeBox public key! %s <> %s',
-      [FData.account_signer,
-      TCrypto.ToHexaString(FData.public_key.ToRawString),
+    errors := Format('Invalid public key for account %d. Distinct from SafeBox public key! %s <> %s',
+      [FData.account_signer, TCrypto.ToHexaString(FData.public_key.ToRawString),
       TCrypto.ToHexaString(account_signer.accountInfo.AccountKey.ToRawString)]);
     exit;
   end;
-  if not TCrypto.ECDSAVerify(account_signer.accountInfo.AccountKey,
-    GetOperationHashToSign(FData), FData.sign) then
+  if not TCrypto.ECDSAVerify(account_signer.accountInfo.AccountKey, GetOperationHashToSign(FData), FData.sign) then
   begin
     errors := 'Invalid sign';
     FHasValidSignature := false;
@@ -265,13 +246,10 @@ begin
   if IsDelist then
   begin
     account_target.accountInfo.state := as_Normal;
-    account_target.accountInfo.locked_until_block :=
-      CT_AccountInfo_NUL.locked_until_block;
+    account_target.accountInfo.locked_until_block := CT_AccountInfo_NUL.locked_until_block;
     account_target.accountInfo.price := CT_AccountInfo_NUL.price;
-    account_target.accountInfo.account_to_pay :=
-      CT_AccountInfo_NUL.account_to_pay;
-    account_target.accountInfo.new_publicKey :=
-      CT_AccountInfo_NUL.new_publicKey;
+    account_target.accountInfo.account_to_pay := CT_AccountInfo_NUL.account_to_pay;
+    account_target.accountInfo.new_publicKey := CT_AccountInfo_NUL.new_publicKey;
   end
   else
   begin
@@ -281,13 +259,11 @@ begin
     account_target.accountInfo.account_to_pay := FData.account_to_pay;
     account_target.accountInfo.new_publicKey := FData.new_public_key;
   end;
-  Result := AccountTransaction.UpdateAccountInfo(FData.account_signer,
-    FData.n_operation, FData.account_target, account_target.accountInfo,
-    account_target.name, account_target.account_type, FData.fee, errors);
+  Result := AccountTransaction.UpdateAccountInfo(FData.account_signer, FData.n_operation, FData.account_target,
+    account_target.accountInfo, account_target.name, account_target.account_type, FData.fee, errors);
 end;
 
-class function TOpListAccount.DoSignOperation(key: TECPrivateKey;
-  var operation: TOpListAccountData): Boolean;
+class function TOpListAccount.DoSignOperation(key: TECPrivateKey; var operation: TOpListAccountData): Boolean;
 var
   s: AnsiString;
   _sign: TECDSA_SIG;
@@ -301,8 +277,7 @@ begin
     on E: Exception do
     begin
       Result := false;
-      TLog.NewLog(lterror, ClassName,
-        'Error signing Account for sale operation: ' + E.Message);
+      TLog.NewLog(lterror, ClassName, 'Error signing Account for sale operation: ' + E.Message);
     end;
   end;
 end;
@@ -313,8 +288,7 @@ begin
   Result := inherited GetBufferForOpHash(true);
 end;
 
-class function TOpListAccount.GetOperationHashToSign(const operation
-  : TOpListAccountData): TRawBytes;
+class function TOpListAccount.GetOperationHashToSign(const operation: TOpListAccountData): TRawBytes;
 var
   ms: TMemoryStream;
   s: AnsiString;
@@ -329,8 +303,7 @@ begin
     ms.Write(operation.fee, Sizeof(operation.fee));
     if length(operation.payload) > 0 then
       ms.WriteBuffer(operation.payload[1], length(operation.payload));
-    ms.Write(operation.public_key.EC_OpenSSL_NID,
-      Sizeof(operation.public_key.EC_OpenSSL_NID));
+    ms.Write(operation.public_key.EC_OpenSSL_NID, Sizeof(operation.public_key.EC_OpenSSL_NID));
     if length(operation.public_key.x) > 0 then
       ms.WriteBuffer(operation.public_key.x[1], length(operation.public_key.x));
     if length(operation.public_key.y) > 0 then
@@ -338,8 +311,7 @@ begin
     s := operation.new_public_key.ToRawString;
     if length(s) > 0 then
       ms.WriteBuffer(s[1], length(s));
-    ms.Write(operation.locked_until_block,
-      Sizeof(operation.locked_until_block));
+    ms.Write(operation.locked_until_block, Sizeof(operation.locked_until_block));
     ms.Position := 0;
     setlength(Result, ms.Size);
     ms.ReadBuffer(Result[1], ms.Size);
@@ -359,8 +331,7 @@ begin
   Result := (not IsDelist) and (FData.new_public_key.EC_OpenSSL_NID <> 0);
 end;
 
-function TOpListAccount.LoadFromStream(Stream: TStream;
-  LoadExtendedData: Boolean): Boolean;
+function TOpListAccount.LoadFromStream(Stream: TStream; LoadExtendedData: Boolean): Boolean;
 var
   s: AnsiString;
   w: Word;
@@ -384,8 +355,7 @@ begin
   begin
     Stream.Read(FData.account_price, Sizeof(FData.account_price));
     Stream.Read(FData.account_to_pay, Sizeof(FData.account_to_pay));
-    if Stream.Read(FData.public_key.EC_OpenSSL_NID,
-      Sizeof(FData.public_key.EC_OpenSSL_NID)) < 0 then
+    if Stream.Read(FData.public_key.EC_OpenSSL_NID, Sizeof(FData.public_key.EC_OpenSSL_NID)) < 0 then
       exit;
     if TStreamOp.ReadAnsiString(Stream, FData.public_key.x) < 0 then
       exit;
@@ -426,8 +396,7 @@ begin
   Result := FData.payload;
 end;
 
-function TOpListAccount.SaveToStream(Stream: TStream;
-  SaveExtendedData: Boolean): Boolean;
+function TOpListAccount.SaveToStream(Stream: TStream; SaveExtendedData: Boolean): Boolean;
 var
   w: Word;
 begin
@@ -447,8 +416,7 @@ begin
   begin
     Stream.Write(FData.account_price, Sizeof(FData.account_price));
     Stream.Write(FData.account_to_pay, Sizeof(FData.account_to_pay));
-    Stream.Write(FData.public_key.EC_OpenSSL_NID,
-      Sizeof(FData.public_key.EC_OpenSSL_NID));
+    Stream.Write(FData.public_key.EC_OpenSSL_NID, Sizeof(FData.public_key.EC_OpenSSL_NID));
     TStreamOp.WriteAnsiString(Stream, FData.public_key.x);
     TStreamOp.WriteAnsiString(Stream, FData.public_key.y);
     TStreamOp.WriteAnsiString(Stream, FData.new_public_key.ToRawString);
@@ -486,15 +454,12 @@ begin
   case FData.operation_type of
     lat_ListForSale:
       begin
-        if (FData.new_public_key.EC_OpenSSL_NID = CT_TECDSA_Public_Nul.
-          EC_OpenSSL_NID) then
+        if (FData.new_public_key.EC_OpenSSL_NID = CT_TECDSA_Public_Nul.EC_OpenSSL_NID) then
         begin
-          Result := Format
-            ('List account %s for sale price %s locked until block:%d fee:%s (n_op:%d) payload size:%d',
+          Result := Format('List account %s for sale price %s locked until block:%d fee:%s (n_op:%d) payload size:%d',
             [TAccount.AccountNumberToAccountTxtNumber(FData.account_target),
-            TCurrencyUtils.FormatMoney(FData.account_price),
-            FData.locked_until_block, TCurrencyUtils.FormatMoney(FData.fee),
-            FData.n_operation, length(FData.payload)])
+            TCurrencyUtils.FormatMoney(FData.account_price), FData.locked_until_block,
+            TCurrencyUtils.FormatMoney(FData.fee), FData.n_operation, length(FData.payload)])
         end
         else
         begin
@@ -502,28 +467,24 @@ begin
             ('List account %s for private sale price %s reserved for %s locked until block:%d fee:%s (n_op:%d) payload size:%d',
             [TAccount.AccountNumberToAccountTxtNumber(FData.account_target),
             TCurrencyUtils.FormatMoney(FData.account_price),
-            TAccountKey.GetECInfoTxt(FData.new_public_key.EC_OpenSSL_NID),
-            FData.locked_until_block, TCurrencyUtils.FormatMoney(FData.fee),
-            FData.n_operation, length(FData.payload)])
+            TAccountKey.GetECInfoTxt(FData.new_public_key.EC_OpenSSL_NID), FData.locked_until_block,
+            TCurrencyUtils.FormatMoney(FData.fee), FData.n_operation, length(FData.payload)])
         end;
       end;
     lat_DelistAccount:
       begin
-        Result := Format
-          ('Delist account %s for sale fee:%s (n_op:%d) payload size:%d',
-          [TAccount.AccountNumberToAccountTxtNumber(FData.account_target),
-          TCurrencyUtils.FormatMoney(FData.fee), FData.n_operation,
-          length(FData.payload)])
+        Result := Format('Delist account %s for sale fee:%s (n_op:%d) payload size:%d',
+          [TAccount.AccountNumberToAccountTxtNumber(FData.account_target), TCurrencyUtils.FormatMoney(FData.fee),
+          FData.n_operation, length(FData.payload)])
       end;
   else
     Result := 'ERROR DEV 20170414-2';
   end;
 end;
 
-constructor TOpListAccountForSale.CreateListAccountForSale(account_signer,
-  n_operation, account_target: Cardinal; account_price, fee: UInt64;
-  account_to_pay: Cardinal; new_public_key: TAccountKey;
-  locked_until_block: Cardinal; key: TECPrivateKey; payload: TRawBytes);
+constructor TOpListAccountForSale.CreateListAccountForSale(account_signer, n_operation, account_target: Cardinal;
+  account_price, fee: UInt64; account_to_pay: Cardinal; new_public_key: TAccountKey; locked_until_block: Cardinal;
+  key: TECPrivateKey; payload: TRawBytes);
 begin
   inherited Create;
   FData.account_signer := account_signer;
@@ -540,8 +501,7 @@ begin
   FData.locked_until_block := locked_until_block;
   if not DoSignOperation(key, FData) then
   begin
-    TLog.NewLog(lterror, ClassName,
-      'Error signing a new list account for sale operation');
+    TLog.NewLog(lterror, ClassName, 'Error signing a new list account for sale operation');
     FHasValidSignature := false;
   end
   else
@@ -558,35 +518,30 @@ begin
   Result := CT_Op_ListAccountForSale;
 end;
 
-function TOpListAccountForSale.GetTransactionData(Block, Affected_account_number
-  : Cardinal; var TransactionData: TTransactionData): Boolean;
+function TOpListAccountForSale.GetTransactionData(Block, Affected_account_number: Cardinal;
+  var TransactionData: TTransactionData): Boolean;
 begin
   if IsPrivateSale then
   begin
     TransactionData.OpSubtype := CT_OpSubtype_ListAccountForPrivateSale;
-    TransactionData.OperationTxt := 'List account ' +
-      TAccount.AccountNumberToAccountTxtNumber(Data.account_target) +
-      ' for private sale price ' + TCurrencyUtils.FormatMoney(Data.account_price)
-      + ' MCC pay to ' + TAccount.AccountNumberToAccountTxtNumber
-      (Data.account_to_pay);
+    TransactionData.OperationTxt := 'List account ' + TAccount.AccountNumberToAccountTxtNumber(Data.account_target) +
+      ' for private sale price ' + TCurrencyUtils.FormatMoney(Data.account_price) + ' MCC pay to ' +
+      TAccount.AccountNumberToAccountTxtNumber(Data.account_to_pay);
   end
   else
   begin
     TransactionData.OpSubtype := CT_OpSubtype_ListAccountForPublicSale;
-    TransactionData.OperationTxt := 'List account ' +
-      TAccount.AccountNumberToAccountTxtNumber(Data.account_target) +
-      ' for sale price ' + TCurrencyUtils.FormatMoney(Data.account_price) +
-      ' MCC pay to ' + TAccount.AccountNumberToAccountTxtNumber
-      (Data.account_to_pay);
+    TransactionData.OperationTxt := 'List account ' + TAccount.AccountNumberToAccountTxtNumber(Data.account_target) +
+      ' for sale price ' + TCurrencyUtils.FormatMoney(Data.account_price) + ' MCC pay to ' +
+      TAccount.AccountNumberToAccountTxtNumber(Data.account_to_pay);
   end;
   TransactionData.newKey := Data.new_public_key;
   TransactionData.SellerAccount := GetSellerAccount;
   Result := true;
 end;
 
-constructor TOpDelistAccountForSale.CreateDelistAccountForSale(account_signer,
-  n_operation, account_target: Cardinal; fee: UInt64; key: TECPrivateKey;
-  payload: TRawBytes);
+constructor TOpDelistAccountForSale.CreateDelistAccountForSale(account_signer, n_operation, account_target: Cardinal;
+  fee: UInt64; key: TECPrivateKey; payload: TRawBytes);
 begin
   inherited Create;
   FData.account_signer := account_signer;
@@ -614,21 +569,18 @@ begin
   Result := CT_Op_DelistAccount;
 end;
 
-function TOpDelistAccountForSale.GetTransactionData(Block,
-  Affected_account_number: Cardinal;
+function TOpDelistAccountForSale.GetTransactionData(Block, Affected_account_number: Cardinal;
   var TransactionData: TTransactionData): Boolean;
 begin
   TransactionData.OpSubtype := CT_OpSubtype_DelistAccount;
-  TransactionData.OperationTxt := 'Delist account ' +
-    TAccount.AccountNumberToAccountTxtNumber(Data.account_target) +
+  TransactionData.OperationTxt := 'Delist account ' + TAccount.AccountNumberToAccountTxtNumber(Data.account_target) +
     ' for sale';
   Result := true;
   TransactionData.OriginalPayload := GetPayload;
   if TCrypto.IsHumanReadable(TransactionData.OriginalPayload) then
     TransactionData.PrintablePayload := TransactionData.OriginalPayload
   else
-    TransactionData.PrintablePayload :=
-      TCrypto.ToHexaString(TransactionData.OriginalPayload);
+    TransactionData.PrintablePayload := TCrypto.ToHexaString(TransactionData.OriginalPayload);
   TransactionData.OperationHash := TransactionHash(Block);
   if (Block < CT_Protocol_Upgrade_v2_MinBlock) then
   begin

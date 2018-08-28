@@ -7,11 +7,11 @@ unit MicroCoin.Net.Protocol;
   Distributed under the MIT software license, see the accompanying file LICENSE
   or visit http://www.opensource.org/licenses/mit-license.php.
 }
-
+
 interface
 
 uses MicroCoin.BlockChain.BlockHeader,
-     MicroCoin.Net.NodeServer;
+  MicroCoin.Net.NodeServer;
 
 const
 
@@ -19,7 +19,8 @@ const
   CT_MagicResponse = $0002;
   CT_MagicAutoSend = $0003;
 
-  CT_NetOp_Hello = $0001; // Sends my last operationblock + servers. Receive last operationblock + servers + same operationblock number of sender
+  CT_NetOp_Hello = $0001;
+  // Sends my last operationblock + servers. Receive last operationblock + servers + same operationblock number of sender
   CT_NetOp_Error = $0002;
   CT_NetOp_Message = $0003;
   CT_NetOp_GetBlocks = $0010;
@@ -54,7 +55,7 @@ type
 
   TNetHeaderData = record
     header_type: TNetTransferType;
-    protocol: TNetProtocolVersion;
+    Protocol: TNetProtocolVersion;
     operation: Word;
     request_id: Cardinal;
     buffer_data_length: Cardinal;
@@ -65,8 +66,8 @@ type
   end;
 
 const
-  CT_NetHeaderData: TNetHeaderData = (header_type: ntp_unknown; protocol: (protocol_version: 0; protocol_available: 0); operation: 0; request_id: 0; buffer_data_length: 0; is_error: false;
-    error_code: 0; error_text: '');
+  CT_NetHeaderData: TNetHeaderData = (header_type: ntp_unknown; Protocol: (protocol_version: 0; protocol_available: 0);
+    operation: 0; request_id: 0; buffer_data_length: 0; is_error: false; error_code: 0; error_text: '');
 
 type
 
@@ -74,8 +75,6 @@ type
     last_operation: TBlockHeader;
     servers_address: array of TNodeServer;
   end;
-
-
 
 implementation
 

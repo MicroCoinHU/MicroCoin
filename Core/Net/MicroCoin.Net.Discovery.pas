@@ -8,7 +8,7 @@ unit MicroCoin.Net.Discovery;
   Distributed under the MIT software license, see the accompanying file LICENSE
   or visit http://www.opensource.org/licenses/mit-license.php.
 }
-
+
 interface
 
 uses UThread, MicroCoin.Net.NodeServer, SysUtils, Classes;
@@ -38,7 +38,8 @@ begin
   if Terminated then
     exit;
 
-  TLog.NewLog(ltInfo, Classname, 'Starting discovery of connection ' + FNodeServerAddress.ip + ':' + Inttostr(FNodeServerAddress.port));
+  TLog.NewLog(ltInfo, Classname, 'Starting discovery of connection ' + FNodeServerAddress.ip + ':' +
+    Inttostr(FNodeServerAddress.port));
   Pnsa := nil;
   DebugStep := 'Locking list';
   // Register attempt

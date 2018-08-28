@@ -9,7 +9,7 @@ unit MicroCoin.BlockChain.Protocol;
   or visit http://www.opensource.org/licenses/mit-license.php.
 
 }
-
+
 interface
 
 uses UCrypto, SysUtils, Classes, MicroCoin.BlockChain.BlockHeader, UConst;
@@ -247,7 +247,8 @@ begin
   Result := 0;
   if length(target) > 32 then
   begin
-    raise Exception.Create('Invalid target to compact: ' + TCrypto.ToHexaString(target) + ' (' + inttostr(length(target)) + ')');
+    raise Exception.Create('Invalid target to compact: ' + TCrypto.ToHexaString(target) + ' (' +
+      inttostr(length(target)) + ')');
   end;
   SetLength(raw, 32);
   FillChar(raw[1], 32, 0);
@@ -258,7 +259,8 @@ begin
   target := raw;
 
   bn := TBigNum.Create(0);
-  bn2 := TBigNum.Create('8000000000000000000000000000000000000000000000000000000000000000'); // First bit 1 followed by 0
+  bn2 := TBigNum.Create('8000000000000000000000000000000000000000000000000000000000000000');
+  // First bit 1 followed by 0
   try
     bn.RawValue := target;
     nbits := 0;

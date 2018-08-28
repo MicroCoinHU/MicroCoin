@@ -7,7 +7,7 @@ unit MicroCoin.Node.Events;
   Distributed under the MIT software license, see the accompanying file LICENSE
   or visit http://www.opensource.org/licenses/mit-license.php.
 }
-
+
 interface
 
 uses MicroCoin.Node.Node, Sysutils, classes, MicroCoin.Net.Connection, UThread, UCrypto, ULog;
@@ -53,7 +53,6 @@ type
     property OnNodeMessageEvent: TNodeMessageEvent read FOnNodeMessageEvent write FOnNodeMessageEvent;
     property Messages: TStringList read FMessages;
   end;
-
 
 implementation
 
@@ -166,8 +165,10 @@ begin
       begin
         for i := 0 to FNodeNotifyEvents.FMessages.Count - 1 do
         begin
-          DebugStep := 'Notify OnNodeMessageEvent ' + IntToStr(i + 1) + '/' + IntToStr(FNodeNotifyEvents.FMessages.Count);
-          FNodeNotifyEvents.FOnNodeMessageEvent(TNetConnection(FNodeNotifyEvents.FMessages.Objects[i]), FNodeNotifyEvents.FMessages.Strings[i]);
+          DebugStep := 'Notify OnNodeMessageEvent ' + IntToStr(i + 1) + '/' +
+            IntToStr(FNodeNotifyEvents.FMessages.Count);
+          FNodeNotifyEvents.FOnNodeMessageEvent(TNetConnection(FNodeNotifyEvents.FMessages.Objects[i]),
+            FNodeNotifyEvents.FMessages.Strings[i]);
         end;
       end;
       FNodeNotifyEvents.FMessages.Clear;
@@ -175,10 +176,10 @@ begin
   except
     on e: Exception do
     begin
-      TLog.NewLog(lterror, Classname, 'Exception inside a Synchronized process: ' + e.Classname + ':' + e.Message + ' Step:' + DebugStep);
+      TLog.NewLog(lterror, Classname, 'Exception inside a Synchronized process: ' + e.Classname + ':' + e.Message +
+        ' Step:' + DebugStep);
     end;
   end;
 end;
-
 
 end.

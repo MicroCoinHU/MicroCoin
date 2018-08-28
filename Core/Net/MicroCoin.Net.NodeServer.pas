@@ -7,7 +7,7 @@ unit MicroCoin.Net.NodeServer;
   Distributed under the MIT software license, see the accompanying file LICENSE
   or visit http://www.opensource.org/licenses/mit-license.php.
 }
-
+
 interface
 
 type
@@ -29,8 +29,9 @@ type
   PNodeServerAddress = ^TNodeServer;
 
 const
-  CT_TNodeServerAddress_NUL: TNodeServer = (ip: ''; port: 0; last_connection: 0; last_connection_by_server: 0;{ netConnection: nil; }its_myself: false; last_attempt_to_connect: 0;
-    total_failed_attemps_to_connect: 0; is_blacklisted: false; BlackListText: '');
+  CT_TNodeServerAddress_NUL: TNodeServer = (ip: ''; port: 0; last_connection: 0; last_connection_by_server: 0;
+    { netConnection: nil; } its_myself: false; last_attempt_to_connect: 0; total_failed_attemps_to_connect: 0;
+    is_blacklisted: false; BlackListText: '');
 
 implementation
 

@@ -9,14 +9,12 @@ unit MicroCoin.BlockChain.Block;
   or visit http://www.opensource.org/licenses/mit-license.php.
 
 }
-
+
 interface
 
-uses
-  SysUtils, Classes, UTime, MicroCoin.Account.Transaction, MicroCoin.Transaction.HashTree,
+uses SysUtils, Classes, UTime, MicroCoin.Account.Transaction, MicroCoin.Transaction.HashTree,
   MicroCoin.BlockChain.BlockHeader, UConst, UCrypto, MicroCoin.Account.AccountKey, Ulog,
   MicroCoin.BlockChain.Protocol, MicroCoin.BlockChain.Base, MicroCoin.Transaction.Base, UThread;
-
 
 type
   TBlock = class(TComponent)
@@ -174,7 +172,8 @@ begin
   FStreamPoW.WriteBuffer(FDigest_Part3[1], length(FDigest_Part3));
   FStreamPoW.Write(FOperationBlock.timestamp, 4);
   FStreamPoW.Write(FOperationBlock.nonce, 4);
-  TCrypto.DoDoubleSha256(FStreamPoW.Memory, length(FDigest_Part1) + length(FDigest_Part2_Payload) + length(FDigest_Part3) + 8, PoW);
+  TCrypto.DoDoubleSha256(FStreamPoW.Memory, length(FDigest_Part1) + length(FDigest_Part2_Payload) +
+    length(FDigest_Part3) + 8, PoW);
 end;
 
 procedure TBlock.Calc_Digest_Parts;
@@ -215,7 +214,8 @@ begin
       end;
       FOperationBlock.Block := bank.BlocksCount;
       FOperationBlock.reward := TMicroCoinProtocol.GetRewardForNewLine(bank.BlocksCount);
-      FOperationBlock.compact_target := bank.AccountStorage.GetActualCompactTargetHash(FOperationBlock.protocol_version = CT_PROTOCOL_2);
+      FOperationBlock.compact_target := bank.AccountStorage.GetActualCompactTargetHash
+        (FOperationBlock.protocol_version = CT_PROTOCOL_2);
       FOperationBlock.initial_safe_box_hash := bank.AccountStorage.AccountStorageHash;
       if bank.LastOperationBlock.timestamp > FOperationBlock.timestamp then
         FOperationBlock.timestamp := bank.LastOperationBlock.timestamp;
@@ -278,7 +278,8 @@ begin
     lastopb := FOperationBlock;
     FOperationBlock := Operations.FOperationBlock;
     FOperationBlock.account_key := lastopb.account_key; // Except AddressKey
-    FOperationBlock.compact_target := bank.AccountStorage.GetActualCompactTargetHash(FOperationBlock.protocol_version = CT_PROTOCOL_2);
+    FOperationBlock.compact_target := bank.AccountStorage.GetActualCompactTargetHash
+      (FOperationBlock.protocol_version = CT_PROTOCOL_2);
     FIsOnlyOperationBlock := Operations.FIsOnlyOperationBlock;
     FOperationsHashTree.CopyFromHashTree(Operations.FOperationsHashTree);
     FOperationBlock.operations_hash := FOperationsHashTree.HashTree;
@@ -338,11 +339,16 @@ end;
 class function TBlock.EqualsOperationBlock(const OperationBlock1, OperationBlock2: TBlockHeader): Boolean;
 begin
 
-  Result := (OperationBlock1.Block = OperationBlock2.Block) and (TAccountKey.EqualAccountKeys(OperationBlock1.account_key, OperationBlock2.account_key)) and
-    (OperationBlock1.reward = OperationBlock2.reward) and (OperationBlock1.Fee = OperationBlock2.Fee) and (OperationBlock1.protocol_version = OperationBlock2.protocol_version) and
-    (OperationBlock1.protocol_available = OperationBlock2.protocol_available) and (OperationBlock1.timestamp = OperationBlock2.timestamp) and
-    (OperationBlock1.compact_target = OperationBlock2.compact_target) and (OperationBlock1.nonce = OperationBlock2.nonce) and (OperationBlock1.block_payload = OperationBlock2.block_payload) and
-    (OperationBlock1.initial_safe_box_hash = OperationBlock2.initial_safe_box_hash) and (OperationBlock1.operations_hash = OperationBlock2.operations_hash) and
+  Result := (OperationBlock1.Block = OperationBlock2.Block) and
+    (TAccountKey.EqualAccountKeys(OperationBlock1.account_key, OperationBlock2.account_key)) and
+    (OperationBlock1.reward = OperationBlock2.reward) and (OperationBlock1.Fee = OperationBlock2.Fee) and
+    (OperationBlock1.protocol_version = OperationBlock2.protocol_version) and
+    (OperationBlock1.protocol_available = OperationBlock2.protocol_available) and
+    (OperationBlock1.timestamp = OperationBlock2.timestamp) and
+    (OperationBlock1.compact_target = OperationBlock2.compact_target) and
+    (OperationBlock1.nonce = OperationBlock2.nonce) and (OperationBlock1.block_payload = OperationBlock2.block_payload)
+    and (OperationBlock1.initial_safe_box_hash = OperationBlock2.initial_safe_box_hash) and
+    (OperationBlock1.operations_hash = OperationBlock2.operations_hash) and
     (OperationBlock1.proof_of_work = OperationBlock2.proof_of_work);
 end;
 
@@ -424,7 +430,8 @@ begin
     end
     else
     begin
-      errors := 'Invalid value in protocol header! Found:' + Inttostr(soob) + ' - Check if your application version is Ok';
+      errors := 'Invalid value in protocol header! Found:' + Inttostr(soob) +
+        ' - Check if your application version is Ok';
       exit;
     end;
 
@@ -512,8 +519,9 @@ end;
 
 class function TBlock.OperationBlockToText(OperationBlock: TBlockHeader): AnsiString;
 begin
-  Result := Format('Block:%d Timestamp:%d Reward:%d Fee:%d Target:%d PoW:%s', [OperationBlock.Block, OperationBlock.timestamp, OperationBlock.reward, OperationBlock.Fee, OperationBlock.compact_target,
-    TCrypto.ToHexaString(OperationBlock.proof_of_work)]);
+  Result := Format('Block:%d Timestamp:%d Reward:%d Fee:%d Target:%d PoW:%s',
+    [OperationBlock.Block, OperationBlock.timestamp, OperationBlock.reward, OperationBlock.Fee,
+    OperationBlock.compact_target, TCrypto.ToHexaString(OperationBlock.proof_of_work)]);
 end;
 
 procedure TBlock.SanitizeOperations;
@@ -541,7 +549,8 @@ begin
       end;
       FOperationBlock.Block := bank.BlocksCount;
       FOperationBlock.reward := TMicroCoinProtocol.GetRewardForNewLine(bank.BlocksCount);
-      FOperationBlock.compact_target := bank.AccountStorage.GetActualCompactTargetHash(FOperationBlock.protocol_version = CT_PROTOCOL_2);
+      FOperationBlock.compact_target := bank.AccountStorage.GetActualCompactTargetHash
+        (FOperationBlock.protocol_version = CT_PROTOCOL_2);
       FOperationBlock.initial_safe_box_hash := bank.AccountStorage.AccountStorageHash;
       if bank.LastOperationBlock.timestamp > FOperationBlock.timestamp then
         FOperationBlock.timestamp := bank.LastOperationBlock.timestamp;
@@ -572,7 +581,8 @@ begin
           inc(n);
           aux.AddTransactionToHashTree(op);
           inc(FOperationBlock.Fee, op.Fee);
-          TLog.NewLog(ltdebug, Classname, 'Sanitizing (pos:' + Inttostr(i + 1) + '/' + Inttostr(lastn) + '): ' + op.ToString);
+          TLog.NewLog(ltdebug, Classname, 'Sanitizing (pos:' + Inttostr(i + 1) + '/' + Inttostr(lastn) + '): ' +
+            op.ToString);
         end;
       end;
     finally
@@ -601,7 +611,8 @@ begin
   Result := SaveBlockToStreamExt(save_only_OperationBlock, Stream, false);
 end;
 
-function TBlock.SaveBlockToStreamExt(save_only_OperationBlock: Boolean; Stream: TStream; SaveToStorage: Boolean): Boolean;
+function TBlock.SaveBlockToStreamExt(save_only_OperationBlock: Boolean; Stream: TStream;
+  SaveToStorage: Boolean): Boolean;
 var
   soob: Byte;
 begin
@@ -827,21 +838,26 @@ begin
     // Check OperationsHash value is valid
     if FOperationsHashTree.HashTree <> OperationBlock.operations_hash then
     begin
-      errors := 'Invalid Operations Hash ' + TCrypto.ToHexaString(OperationBlock.operations_hash) + '<>' + TCrypto.ToHexaString(FOperationsHashTree.HashTree);
+      errors := 'Invalid Operations Hash ' + TCrypto.ToHexaString(OperationBlock.operations_hash) + '<>' +
+        TCrypto.ToHexaString(FOperationsHashTree.HashTree);
       exit;
     end;
     // Check OperationBlock with SafeBox info:
-    if (SafeBoxTransaction.FreezedAccountStorage.TotalBalance <> (SafeBoxTransaction.TotalBalance + SafeBoxTransaction.TotalFee)) then
+    if (SafeBoxTransaction.FreezedAccountStorage.TotalBalance <> (SafeBoxTransaction.TotalBalance +
+      SafeBoxTransaction.TotalFee)) then
     begin
       errors := Format('Invalid integrity balance at SafeBox. Actual Balance:%d  New Balance:(%d + fee %d = %d)',
-        [SafeBoxTransaction.FreezedAccountStorage.TotalBalance, SafeBoxTransaction.TotalBalance, SafeBoxTransaction.TotalFee, SafeBoxTransaction.TotalBalance + SafeBoxTransaction.TotalFee]);
+        [SafeBoxTransaction.FreezedAccountStorage.TotalBalance, SafeBoxTransaction.TotalBalance,
+        SafeBoxTransaction.TotalFee, SafeBoxTransaction.TotalBalance + SafeBoxTransaction.TotalFee]);
       exit;
     end;
     // Check fee value
     if (SafeBoxTransaction.TotalFee <> OperationBlock.Fee) then
     begin
-      errors := Format('Invalid fee integrity at SafeBoxTransaction. New Balance:(%d + fee %d = %d)  OperationBlock.fee:%d',
-        [SafeBoxTransaction.TotalBalance, SafeBoxTransaction.TotalFee, SafeBoxTransaction.TotalBalance + SafeBoxTransaction.TotalFee, OperationBlock.Fee]);
+      errors := Format
+        ('Invalid fee integrity at SafeBoxTransaction. New Balance:(%d + fee %d = %d)  OperationBlock.fee:%d',
+        [SafeBoxTransaction.TotalBalance, SafeBoxTransaction.TotalFee, SafeBoxTransaction.TotalBalance +
+        SafeBoxTransaction.TotalFee, OperationBlock.Fee]);
       exit;
     end;
 
@@ -860,6 +876,5 @@ procedure TBlock.Unlock;
 begin
   FOperationsLock.Release;
 end;
-
 
 end.

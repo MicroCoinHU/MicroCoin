@@ -9,7 +9,7 @@ unit MicroCoin.Net.Client;
   or visit http://www.opensource.org/licenses/mit-license.php.
 
 }
-
+
 interface
 
 uses UThread, MicroCoin.Net.Connection, Sysutils, Classes, ULog, MicroCoin.Net.ConnectionManager;
@@ -71,7 +71,8 @@ end;
 destructor TNetClient.Destroy;
 begin
   TLog.NewLog(ltdebug, Classname, 'Starting TNetClient.Destroy');
-  if not assigned(FNetClientThread) then exit;
+  if not assigned(FNetClientThread) then
+    exit;
   FNetClientThread.OnTerminate := nil;
   if not FNetClientThread.Terminated then
   begin
@@ -90,6 +91,5 @@ begin
     Connected := false;
   end;
 end;
-
 
 end.

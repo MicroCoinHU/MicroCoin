@@ -1,12 +1,23 @@
 unit MicroCoin.RPC.PluginManager;
 
 {
+  Copyright 2018 MicroCoin Developers
 
-  Copyright (c) MicroCoin Developers 2018
+  Permission is hereby granted, free of charge, to any person obtaining a copy of this
+  software and associated documentation files (the "Software"), to deal in the Software
+  without restriction, including without limitation the rights to use, copy, modify, merge,
+  publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons
+  to whom the Software is furnished to do so, subject to the following conditions:
 
-  Distributed under the MIT software license, see the accompanying file LICENSE
-  or visit http://www.opensource.org/licenses/mit-license.php.
+  The above copyright notice and this permission notice shall be included in all copies or
+  substantial portions of the Software.
 
+  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
+  INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
+  PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE
+  FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+  ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+  SOFTWARE.
 }
 
 interface
@@ -17,16 +28,17 @@ type
 
   RPCMethodAttribute = class(TCustomAttribute)
   strict private
-    FRPCMethod : string;
+    FRPCMethod: string;
   public
-    constructor Create(AMethod : string);
-    property RPCMethod : string read FRPCMethod;
+    constructor Create(AMethod: string);
+
+    property RPCMethod: string read FRPCMethod;
   end;
 
   TRPCResult = record
   private
-    FResponse : TPCJSONObject;
-    function GetResponse : TPCJSONObject;
+    FResponse: TPCJSONObject;
+    function GetResponse: TPCJSONObject;
   public
     Success: Boolean;
     ErrorCode: integer;
@@ -35,7 +47,6 @@ type
   end;
 
   THandler = function(AParams: TPCJSONObject): TRPCResult of object;
-
 
   TRPCManager = class
   strict private
@@ -52,7 +63,6 @@ type
     function ToJSONCurrency(microCoins: Int64): Real;
     function ToMicroCoins(jsonCurr: Real): Int64;
   end;
-
 
 implementation
 
@@ -85,10 +95,10 @@ end;
 
 class procedure TRPCManager.RegisterPlugin(AHandler: TObject);
 var
-  rttiContext : TRttiContext;
-  method : TRTTIMethod;
-  attr : TCustomAttribute;
-  rpchandler : THandler;
+  rttiContext: TRttiContext;
+  method: TRTTIMethod;
+  attr: TCustomAttribute;
+  rpchandler: THandler;
 begin
   TLog.NewLog(ltInfo, ClassName, Format('Registering RPC Plugin %s', [AHandler.ClassName]));
   rttiContext := TRttiContext.Create;
@@ -110,10 +120,10 @@ end;
 
 class procedure TRPCManager.UnRegisterPlugin(AHandler: TObject);
 var
-  rttiContext : TRttiContext;
-  method : TRTTIMethod;
-  attr : TCustomAttribute;
-  rpchandler : THandler;
+  rttiContext: TRttiContext;
+  method: TRTTIMethod;
+  attr: TCustomAttribute;
+  rpchandler: THandler;
 begin
   TLog.NewLog(ltInfo, ClassName, Format('UnRegistering RPC Plugin %s', [AHandler.ClassName]));
   rttiContext := TRttiContext.Create;
@@ -126,8 +136,8 @@ begin
         TMethod(rpchandler).Code := method.CodeAddress;
         TMethod(rpchandler).Data := AHandler;
         FHandlers.Remove(RPCMethodAttribute(attr).RPCMethod);
-        TLog.NewLog(ltdebug, ClassName, Format('Removed RPC handler %s -> %s.%s',
-          [RPCMethodAttribute(attr).RPCMethod, AHandler.ClassName, method.Name]));
+        TLog.NewLog(ltdebug, ClassName, Format('Removed RPC handler %s -> %s.%s', [RPCMethodAttribute(attr).RPCMethod,
+          AHandler.ClassName, method.Name]));
       end;
     end;
   end;
@@ -138,7 +148,8 @@ end;
 
 function TRPCResult.GetResponse: TPCJSONObject;
 begin
-  if FResponse = nil then FResponse := TPCJSONObject.Create;
+  if FResponse = nil then
+    FResponse := TPCJSONObject.Create;
   Result := FResponse;
 end;
 

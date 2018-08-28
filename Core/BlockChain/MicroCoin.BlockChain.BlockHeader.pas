@@ -9,7 +9,7 @@ unit MicroCoin.BlockChain.BlockHeader;
   or visit http://www.opensource.org/licenses/mit-license.php.
 
 }
-
+
 interface
 
 uses Sysutils, classes, UCrypto, MicroCoin.Account.AccountKey;
@@ -34,8 +34,9 @@ type
   end;
 
 const
-  CT_OperationBlock_NUL: TBlockHeader = (block: 0; account_key: (EC_OpenSSL_NID: 0; x: ''; y: ''); reward: 0; fee: 0; protocol_version: 0;
-    protocol_available: 0; timestamp: 0; compact_target: 0; nonce: 0; block_payload: ''; operations_hash: ''; proof_of_work: '');
+  CT_OperationBlock_NUL: TBlockHeader = (block: 0; account_key: (EC_OpenSSL_NID: 0; x: ''; y: ''); reward: 0; fee: 0;
+    protocol_version: 0; protocol_available: 0; timestamp: 0; compact_target: 0; nonce: 0; block_payload: '';
+    operations_hash: ''; proof_of_work: '');
 
 implementation
 

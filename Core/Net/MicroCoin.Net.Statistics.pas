@@ -7,7 +7,7 @@ unit MicroCoin.Net.Statistics;
   Distributed under the MIT software license, see the accompanying file LICENSE
   or visit http://www.opensource.org/licenses/mit-license.php.
 }
-
+
 interface
 
 type
@@ -27,8 +27,9 @@ type
   end;
 
 const
-    CT_TNetStatistics_NUL: TNetStatistics = (ActiveConnections: 0; ClientsConnections: 0; ServersConnections: 0; ServersConnectionsWithResponse: 0; TotalConnections: 0; TotalClientsConnections: 0;
-    TotalServersConnections: 0; BytesReceived: 0; BytesSend: 0; NodeServersListCount: 0; NodeServersDeleted: 0);
+  CT_TNetStatistics_NUL: TNetStatistics = (ActiveConnections: 0; ClientsConnections: 0; ServersConnections: 0;
+    ServersConnectionsWithResponse: 0; TotalConnections: 0; TotalClientsConnections: 0; TotalServersConnections: 0;
+    BytesReceived: 0; BytesSend: 0; NodeServersListCount: 0; NodeServersDeleted: 0);
 
 implementation
 

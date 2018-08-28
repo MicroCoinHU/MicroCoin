@@ -9,29 +9,27 @@ unit MicroCoin.Account.Storage;
   or visit http://www.opensource.org/licenses/mit-license.php.
 
 }
-
+
 interface
 
 uses SysUtils, classes, UCrypto, UThread, MicroCoin.Common.Lists,
-     MicroCoin.Account.Data, MicroCoin.Account.AccountKey, MicroCoin.BlockChain.BlockHeader,
-     UConst, UBaseTypes, ULog, MicroCoin.BlockChain.Protocol;
+  MicroCoin.Account.Data, MicroCoin.Account.AccountKey, MicroCoin.BlockChain.BlockHeader,
+  UConst, UBaseTypes, ULog, MicroCoin.BlockChain.Protocol;
 
 type
 
   TAccountStorage = class;
 
   TAccountStorageEntry = record
-    Blockheader: TBlockHeader;
+    BlockHeader: TBlockHeader;
     accounts: array [0 .. CT_AccountsPerBlock - 1] of TAccount;
     block_hash: AnsiString; // Calculated on every block change (on create and on accounts updated)
     accumulatedWork: UInt64; // Accumulated work (previous + target) this value can be calculated.
   end;
 
   TAccountStorageHeader = record
-    protocol: Word;
-    startBlock,
-      endBlock,
-      blocksCount: Cardinal;
+    Protocol: Word;
+    startBlock, endBlock, blocksCount: Cardinal;
     AccountStorageHash: TRawBytes;
   end;
 
@@ -53,16 +51,19 @@ type
     function DoUpgradeToProtocol2: Boolean;
     constructor Create;
     destructor Destroy; override;
-    procedure SetAccount(account_number: Cardinal; const newAccountInfo: TAccountInfo; const newName: TRawBytes; newType: Word; newBalance: UInt64; newN_operation: Cardinal);
-    function AddNew(const blockChain: TBlockHeader): TAccountStorageEntry;
+    procedure SetAccount(account_number: Cardinal; const newAccountInfo: TAccountInfo; const newName: TRawBytes;
+      newType: Word; newBalance: UInt64; newN_operation: Cardinal);
+    function AddNew(const BlockChain: TBlockHeader): TAccountStorageEntry;
     function AccountsCount: Integer;
     function blocksCount: Integer;
     procedure CopyFrom(accounts: TAccountStorage);
     class function CalcBlockHash(const block: TAccountStorageEntry; useProtocol2Method: Boolean): TRawBytes;
     class function BlockAccountToText(const block: TAccountStorageEntry): AnsiString;
-    function LoadFromStream(stream: TStream; checkAll: Boolean; var LastReadBlock: TAccountStorageEntry; var errors: AnsiString): Boolean;
+    function LoadFromStream(stream: TStream; checkAll: Boolean; var LastReadBlock: TAccountStorageEntry;
+      var errors: AnsiString): Boolean;
     class function LoadHeaderFromStream(stream: TStream; var sbHeader: TAccountStorageHeader): Boolean;
-    class function SaveHeaderToStream(stream: TStream; protocol: Word; OffsetStartBlock, OffsetEndBlock, CurrentBlocksCount: Cardinal): Boolean;
+    class function SaveHeaderToStream(stream: TStream; Protocol: Word;
+      OffsetStartBlock, OffsetEndBlock, CurrentBlocksCount: Cardinal): Boolean;
     class function MustSaved(blocksCount: Cardinal): Boolean;
     procedure SaveEntryToStream(stream: TStream; nBlock: Cardinal);
     procedure SaveToStream(stream: TStream; FromBlock, ToBlock: Cardinal);
@@ -70,7 +71,8 @@ type
     class function ConcatStream(Source1, Source2, dest: TStream; var errors: AnsiString): Boolean;
     class function AccountNameIsValid(const new_name: TRawBytes; var errors: AnsiString): Boolean;
 
-    function IsValidNewBlockHeader(const newOperationBlock: TBlockHeader; validateHash: Boolean; var errors: AnsiString): Boolean;
+    function IsValidNewBlockHeader(const newOperationBlock: TBlockHeader; validateHash: Boolean;
+      var errors: AnsiString): Boolean;
     function GetActualTargetHash(UseProtocolV2: Boolean): TRawBytes;
     function GetActualCompactTargetHash(UseProtocolV2: Boolean): Cardinal;
     function FindAccountByName(aName: AnsiString): Integer;
@@ -88,7 +90,7 @@ type
     property CurrentProtocol: Integer read FCurrentProtocol;
     function CanUpgradeToProtocol2: Boolean;
     procedure CheckMemory;
-    property TotalFee : Int64 read FTotalFee;
+    property TotalFee: Int64 read FTotalFee;
     property ListOfOrderedAccountKeysList: TList read FListOfOrderedAccountKeysList;
   end;
 
@@ -118,7 +120,8 @@ type
 
 const
   CT_AccountChunkIdentificator = 'SafeBoxChunk';
-  CT_AccountStorageHeader_NUL: TAccountStorageHeader = (protocol: 0; startBlock: 0; endBlock: 0; blocksCount: 0; AccountStorageHash: '');
+  CT_AccountStorageHeader_NUL: TAccountStorageHeader = (Protocol: 0; startBlock: 0; endBlock: 0; blocksCount: 0;
+    AccountStorageHash: '');
 
 implementation
 
@@ -126,23 +129,24 @@ implementation
 
 const
 
-  CT_BlockAccount_NUL: TAccountStorageEntry = (
-    Blockheader: (block: 0; account_key: (EC_OpenSSL_NID: 0; x: ''; y: ''); reward: 0; fee: 0; protocol_version: 0;
-    protocol_available: 0; timestamp: 0; compact_target: 0; nonce: 0; block_payload: ''; operations_hash: ''; proof_of_work: '');
-    accounts: (
-    (Account: 0; AccountInfo: (state: as_Unknown; AccountKey: (EC_OpenSSL_NID: 0; x: ''; y: ''); locked_until_block: 0; price: 0; account_to_pay: 0; new_publicKey: (EC_OpenSSL_NID: 0; x: ''; y: ''));
-    balance: 0; updated_block: 0; n_operation: 0; name: ''; account_type: 0; previous_updated_block: 0),
-    (Account: 0; AccountInfo: (state: as_Unknown; AccountKey: (EC_OpenSSL_NID: 0; x: ''; y: ''); locked_until_block: 0; price: 0; account_to_pay: 0; new_publicKey: (EC_OpenSSL_NID: 0; x: ''; y: ''));
-    balance: 0; updated_block: 0; n_operation: 0; name: ''; account_type: 0; previous_updated_block: 0),
-    (Account: 0; AccountInfo: (state: as_Unknown; AccountKey: (EC_OpenSSL_NID: 0; x: ''; y: ''); locked_until_block: 0; price: 0; account_to_pay: 0; new_publicKey: (EC_OpenSSL_NID: 0; x: ''; y: ''));
-    balance: 0; updated_block: 0; n_operation: 0; name: ''; account_type: 0; previous_updated_block: 0),
-    (Account: 0; AccountInfo: (state: as_Unknown; AccountKey: (EC_OpenSSL_NID: 0; x: ''; y: ''); locked_until_block: 0; price: 0; account_to_pay: 0; new_publicKey: (EC_OpenSSL_NID: 0; x: ''; y: ''));
-    balance: 0; updated_block: 0; n_operation: 0; name: ''; account_type: 0; previous_updated_block: 0),
-    (Account: 0; AccountInfo: (state: as_Unknown; AccountKey: (EC_OpenSSL_NID: 0; x: ''; y: ''); locked_until_block: 0; price: 0; account_to_pay: 0; new_publicKey: (EC_OpenSSL_NID: 0; x: ''; y: ''));
-    balance: 0; updated_block: 0; n_operation: 0; name: ''; account_type: 0; previous_updated_block: 0)
-    );
-    block_hash: '';
-    accumulatedWork: 0);
+  CT_BlockAccount_NUL: TAccountStorageEntry = (BlockHeader: (block: 0; account_key: (EC_OpenSSL_NID: 0; x: ''; y: '');
+    reward: 0; fee: 0; protocol_version: 0; protocol_available: 0; timestamp: 0; compact_target: 0; nonce: 0;
+    block_payload: ''; operations_hash: ''; proof_of_work: '');
+    accounts: ((Account: 0; AccountInfo: (state: as_Unknown; AccountKey: (EC_OpenSSL_NID: 0; x: ''; y: '');
+    locked_until_block: 0; price: 0; account_to_pay: 0; new_publicKey: (EC_OpenSSL_NID: 0; x: ''; y: '')); balance: 0;
+    updated_block: 0; n_operation: 0; name: ''; account_type: 0; previous_updated_block: 0), (Account: 0;
+    AccountInfo: (state: as_Unknown; AccountKey: (EC_OpenSSL_NID: 0; x: ''; y: ''); locked_until_block: 0; price: 0;
+    account_to_pay: 0; new_publicKey: (EC_OpenSSL_NID: 0; x: ''; y: '')); balance: 0; updated_block: 0; n_operation: 0;
+    name: ''; account_type: 0; previous_updated_block: 0), (Account: 0; AccountInfo: (state: as_Unknown;
+    AccountKey: (EC_OpenSSL_NID: 0; x: ''; y: ''); locked_until_block: 0; price: 0; account_to_pay: 0;
+    new_publicKey: (EC_OpenSSL_NID: 0; x: ''; y: '')); balance: 0; updated_block: 0; n_operation: 0; name: '';
+    account_type: 0; previous_updated_block: 0), (Account: 0; AccountInfo: (state: as_Unknown;
+    AccountKey: (EC_OpenSSL_NID: 0; x: ''; y: ''); locked_until_block: 0; price: 0; account_to_pay: 0;
+    new_publicKey: (EC_OpenSSL_NID: 0; x: ''; y: '')); balance: 0; updated_block: 0; n_operation: 0; name: '';
+    account_type: 0; previous_updated_block: 0), (Account: 0; AccountInfo: (state: as_Unknown;
+    AccountKey: (EC_OpenSSL_NID: 0; x: ''; y: ''); locked_until_block: 0; price: 0; account_to_pay: 0;
+    new_publicKey: (EC_OpenSSL_NID: 0; x: ''; y: '')); balance: 0; updated_block: 0; n_operation: 0; name: '';
+    account_type: 0; previous_updated_block: 0)); block_hash: ''; accumulatedWork: 0);
 
 procedure ToTMemAccount(const Source: TAccount; var dest: TMemAccount);
 {$IFDEF uselowmem}
@@ -194,19 +198,19 @@ var
 {$ENDIF}
 begin
 {$IFDEF uselowmem}
-  Source.Blockheader.account_key.ToRawString(raw);
+  Source.BlockHeader.account_key.ToRawString(raw);
   TBaseType.To256RawBytes(raw, dest.blockchainInfo.account_key);
-  dest.blockchainInfo.reward := Source.Blockheader.reward;
-  dest.blockchainInfo.fee := Source.Blockheader.fee;
-  dest.blockchainInfo.protocol_version := Source.Blockheader.protocol_version;
-  dest.blockchainInfo.protocol_available := Source.Blockheader.protocol_available;
-  dest.blockchainInfo.timestamp := Source.Blockheader.timestamp;
-  dest.blockchainInfo.compact_target := Source.Blockheader.compact_target;
-  dest.blockchainInfo.nonce := Source.Blockheader.nonce;
-  TBaseType.To256RawBytes(Source.Blockheader.block_payload, dest.blockchainInfo.block_payload);
-  TBaseType.To32Bytes(Source.Blockheader.initial_safe_box_hash, dest.blockchainInfo.initial_safe_box_hash);
-  TBaseType.To32Bytes(Source.Blockheader.operations_hash, dest.blockchainInfo.operations_hash);
-  TBaseType.To32Bytes(Source.Blockheader.proof_of_work, dest.blockchainInfo.proof_of_work);
+  dest.blockchainInfo.reward := Source.BlockHeader.reward;
+  dest.blockchainInfo.fee := Source.BlockHeader.fee;
+  dest.blockchainInfo.protocol_version := Source.BlockHeader.protocol_version;
+  dest.blockchainInfo.protocol_available := Source.BlockHeader.protocol_available;
+  dest.blockchainInfo.timestamp := Source.BlockHeader.timestamp;
+  dest.blockchainInfo.compact_target := Source.BlockHeader.compact_target;
+  dest.blockchainInfo.nonce := Source.BlockHeader.nonce;
+  TBaseType.To256RawBytes(Source.BlockHeader.block_payload, dest.blockchainInfo.block_payload);
+  TBaseType.To32Bytes(Source.BlockHeader.initial_safe_box_hash, dest.blockchainInfo.initial_safe_box_hash);
+  TBaseType.To32Bytes(Source.BlockHeader.operations_hash, dest.blockchainInfo.operations_hash);
+  TBaseType.To32Bytes(Source.BlockHeader.proof_of_work, dest.blockchainInfo.proof_of_work);
 
   for i := low(Source.accounts) to high(Source.accounts) do
   begin
@@ -227,20 +231,20 @@ var
 {$ENDIF}
 begin
 {$IFDEF uselowmem}
-  dest.Blockheader.block := block_number;
+  dest.BlockHeader.block := block_number;
   TBaseType.ToRawBytes(Source.blockchainInfo.account_key, raw);
-  TAccountKey.FromRawString(raw, dest.Blockheader.account_key);
-  dest.Blockheader.reward := Source.blockchainInfo.reward;
-  dest.Blockheader.fee := Source.blockchainInfo.fee;
-  dest.Blockheader.protocol_version := Source.blockchainInfo.protocol_version;
-  dest.Blockheader.protocol_available := Source.blockchainInfo.protocol_available;
-  dest.Blockheader.timestamp := Source.blockchainInfo.timestamp;
-  dest.Blockheader.compact_target := Source.blockchainInfo.compact_target;
-  dest.Blockheader.nonce := Source.blockchainInfo.nonce;
-  TBaseType.ToRawBytes(Source.blockchainInfo.block_payload, dest.Blockheader.block_payload);
-  TBaseType.ToRawBytes(Source.blockchainInfo.initial_safe_box_hash, dest.Blockheader.initial_safe_box_hash);
-  TBaseType.ToRawBytes(Source.blockchainInfo.operations_hash, dest.Blockheader.operations_hash);
-  TBaseType.ToRawBytes(Source.blockchainInfo.proof_of_work, dest.Blockheader.proof_of_work);
+  TAccountKey.FromRawString(raw, dest.BlockHeader.account_key);
+  dest.BlockHeader.reward := Source.blockchainInfo.reward;
+  dest.BlockHeader.fee := Source.blockchainInfo.fee;
+  dest.BlockHeader.protocol_version := Source.blockchainInfo.protocol_version;
+  dest.BlockHeader.protocol_available := Source.blockchainInfo.protocol_available;
+  dest.BlockHeader.timestamp := Source.blockchainInfo.timestamp;
+  dest.BlockHeader.compact_target := Source.blockchainInfo.compact_target;
+  dest.BlockHeader.nonce := Source.blockchainInfo.nonce;
+  TBaseType.ToRawBytes(Source.blockchainInfo.block_payload, dest.BlockHeader.block_payload);
+  TBaseType.ToRawBytes(Source.blockchainInfo.initial_safe_box_hash, dest.BlockHeader.initial_safe_box_hash);
+  TBaseType.ToRawBytes(Source.blockchainInfo.operations_hash, dest.BlockHeader.operations_hash);
+  TBaseType.ToRawBytes(Source.blockchainInfo.proof_of_work, dest.BlockHeader.proof_of_work);
 
   for i := low(Source.accounts) to high(Source.accounts) do
   begin
@@ -253,7 +257,6 @@ begin
 {$ENDIF}
 end;
 
-
 function TAccountStorage.Account(account_number: Cardinal): TAccount;
 var
   b: Cardinal;
@@ -261,20 +264,21 @@ begin
   b := account_number div CT_AccountsPerBlock;
   if (b < 0) or (b >= FBlockAccountsList.Count) then
     raise Exception.Create('Invalid account: ' + inttostr(account_number));
-  ToTAccount(PBlockAccount(FBlockAccountsList.Items[b])^.accounts[account_number mod CT_AccountsPerBlock], account_number, Result);
+  ToTAccount(PBlockAccount(FBlockAccountsList.Items[b])^.accounts[account_number mod CT_AccountsPerBlock],
+    account_number, Result);
 end;
 
-function TAccountStorage.AddNew(const blockChain: TBlockHeader): TAccountStorageEntry;
+function TAccountStorage.AddNew(const BlockChain: TBlockHeader): TAccountStorageEntry;
 var
   i, base_addr: Integer;
   P: PBlockAccount;
   accs: array of Cardinal;
 begin
   Result := CT_BlockAccount_NUL;
-  Result.Blockheader := blockChain;
-  if blockChain.block <> blocksCount then
+  Result.BlockHeader := BlockChain;
+  if BlockChain.block <> blocksCount then
     raise Exception.Create('ERROR DEV 20170427-2');
-  if blockChain.fee <> FTotalFee then
+  if BlockChain.fee <> FTotalFee then
     raise Exception.Create('ERROR DEV 20170427-3');
   base_addr := blocksCount * CT_AccountsPerBlock;
   SetLength(accs, length(Result.accounts));
@@ -283,20 +287,20 @@ begin
     Result.accounts[i] := CT_Account_NUL;
     Result.accounts[i].Account := base_addr + i;
     Result.accounts[i].AccountInfo.state := as_Normal;
-    Result.accounts[i].AccountInfo.AccountKey := blockChain.account_key;
+    Result.accounts[i].AccountInfo.AccountKey := BlockChain.account_key;
     Result.accounts[i].updated_block := blocksCount;
     Result.accounts[i].n_operation := 0;
     if i = low(Result.accounts) then
     begin
       // Only first account wins the reward + fee
-      Result.accounts[i].balance := blockChain.reward + blockChain.fee;
+      Result.accounts[i].balance := BlockChain.reward + BlockChain.fee;
     end
     else
     begin
     end;
     accs[i] := base_addr + i;
   end;
-  inc(FWorkSum, Result.Blockheader.compact_target);
+  inc(FWorkSum, Result.BlockHeader.compact_target);
   Result.accumulatedWork := FWorkSum;
   // Calc block hash
   Result.block_hash := CalcBlockHash(Result, FCurrentProtocol >= CT_PROTOCOL_2);
@@ -306,9 +310,9 @@ begin
 
   FBlockAccountsList.Add(P);
   FBufferBlocksHash := FBufferBlocksHash + Result.block_hash;
-  inc(FTotalBalance, blockChain.reward + blockChain.fee);
-  Dec(FTotalFee, blockChain.fee);
-  AccountKeyListAddAccounts(blockChain.account_key, accs);
+  inc(FTotalBalance, BlockChain.reward + BlockChain.fee);
+  Dec(FTotalFee, BlockChain.fee);
+  AccountKeyListAddAccounts(BlockChain.account_key, accs);
   // Calculating new value of safebox
   FAccountStorageHash := CalculateHash;
 end;
@@ -347,8 +351,7 @@ end;
 
 class function TAccountStorage.BlockAccountToText(const block: TAccountStorageEntry): AnsiString;
 begin
-  Result := Format('Block:%d Timestamp:%d BlockHash:%s',
-    [block.Blockheader.block, block.Blockheader.timestamp,
+  Result := Format('Block:%d Timestamp:%d BlockHash:%s', [block.BlockHeader.block, block.BlockHeader.timestamp,
     TCrypto.ToHexaString(block.block_hash)]);
 end;
 
@@ -371,7 +374,7 @@ begin
     if (not useProtocol2Method) then
     begin
       // PROTOCOL 1 BlockHash calculation
-      ms.Write(block.Blockheader.block, 4); // Little endian
+      ms.Write(block.BlockHeader.block, 4); // Little endian
       for i := low(block.accounts) to high(block.accounts) do
       begin
         ms.Write(block.accounts[i].Account, 4); // Little endian
@@ -381,12 +384,12 @@ begin
         ms.Write(block.accounts[i].updated_block, 4); // Little endian
         ms.Write(block.accounts[i].n_operation, 4); // Little endian
       end;
-      ms.Write(block.Blockheader.timestamp, 4); // Little endian
+      ms.Write(block.BlockHeader.timestamp, 4); // Little endian
     end
     else
     begin
       // PROTOCOL 2 BlockHash calculation
-      block.Blockheader.SaveToStream(ms);
+      block.BlockHeader.SaveToStream(ms);
       for i := low(block.accounts) to high(block.accounts) do
       begin
         ms.Write(block.accounts[i].Account, 4); // Little endian
@@ -410,8 +413,7 @@ begin
   end;
 end;
 
-function TAccountStorage.CalcBlockHashRateInKhs(block_number: Cardinal;
-  Previous_blocks_average: Cardinal): Int64;
+function TAccountStorage.CalcBlockHashRateInKhs(block_number: Cardinal; Previous_blocks_average: Cardinal): Int64;
 var
   c, t: Cardinal;
   t_sum: Extended;
@@ -443,7 +445,8 @@ begin
         finally
           bn.Free;
         end;
-        t_sum := t_sum + (PBlockAccount(FBlockAccountsList.Items[c])^.blockchainInfo.timestamp - PBlockAccount(FBlockAccountsList.Items[c - 1])^.blockchainInfo.timestamp);
+        t_sum := t_sum + (PBlockAccount(FBlockAccountsList.Items[c])^.blockchainInfo.timestamp -
+          PBlockAccount(FBlockAccountsList.Items[c - 1])^.blockchainInfo.timestamp);
         inc(c);
       end;
       bn_sum.Divide(Previous_blocks_average); // Obtain target average
@@ -622,14 +625,16 @@ begin
     exit;
   // Recalc all BlockAccounts block_hash value
   aux := CalculateHash;
-  TLog.NewLog(ltInfo, Classname, 'Start Upgrade to protocol 2 - Old Hash:' + TCrypto.ToHexaString(FAccountStorageHash) + ' calculated: ' + TCrypto.ToHexaString(aux) + ' Blocks: ' +
-    inttostr(blocksCount));
+  TLog.NewLog(ltInfo, Classname, 'Start Upgrade to protocol 2 - Old Hash:' + TCrypto.ToHexaString(FAccountStorageHash) +
+    ' calculated: ' + TCrypto.ToHexaString(aux) + ' Blocks: ' + inttostr(blocksCount));
   FBufferBlocksHash := '';
   for block_number := 0 to blocksCount - 1 do
   begin
 {$IFDEF uselowmem}
-    TBaseType.To32Bytes(CalcBlockHash(block(block_number), true), PBlockAccount(FBlockAccountsList.Items[block_number])^.block_hash);
-    FBufferBlocksHash := FBufferBlocksHash + TBaseType.ToRawBytes(PBlockAccount(FBlockAccountsList.Items[block_number])^.block_hash);
+    TBaseType.To32Bytes(CalcBlockHash(block(block_number), true), PBlockAccount(FBlockAccountsList.Items[block_number])
+      ^.block_hash);
+    FBufferBlocksHash := FBufferBlocksHash + TBaseType.ToRawBytes(PBlockAccount(FBlockAccountsList.Items[block_number])
+      ^.block_hash);
 {$ELSE}
     PBlockAccount(FBlockAccountsList.Items[block_number])^.block_hash := CalcBlockHash(block(block_number), true);
     FBufferBlocksHash := FBufferBlocksHash + PBlockAccount(FBlockAccountsList.Items[block_number])^.block_hash;
@@ -646,7 +651,8 @@ begin
   FLock.Release;
 end;
 
-function TAccountStorage.LoadFromStream(stream: TStream; checkAll: Boolean; var LastReadBlock: TAccountStorageEntry; var errors: AnsiString): Boolean;
+function TAccountStorage.LoadFromStream(stream: TStream; checkAll: Boolean; var LastReadBlock: TAccountStorageEntry;
+  var errors: AnsiString): Boolean;
 var
   iblock, iacc: Cardinal;
   s: AnsiString;
@@ -669,7 +675,7 @@ begin
         exit;
       end;
       errors := 'Invalid version or corrupted stream';
-      case sbHeader.protocol of
+      case sbHeader.Protocol of
         CT_PROTOCOL_1:
           FCurrentProtocol := 1;
         CT_PROTOCOL_2:
@@ -677,9 +683,11 @@ begin
       else
         exit;
       end;
-      if (sbHeader.blocksCount = 0) or (sbHeader.startBlock <> 0) or (sbHeader.endBlock <> (sbHeader.blocksCount - 1)) then
+      if (sbHeader.blocksCount = 0) or (sbHeader.startBlock <> 0) or (sbHeader.endBlock <> (sbHeader.blocksCount - 1))
+      then
       begin
-        errors := Format('Stream contains blocks from %d to %d (of %d blocks). Not valid', [sbHeader.startBlock, sbHeader.endBlock, sbHeader.blocksCount]);
+        errors := Format('Stream contains blocks from %d to %d (of %d blocks). Not valid',
+          [sbHeader.startBlock, sbHeader.endBlock, sbHeader.blocksCount]);
         exit;
       end;
       // Offset zone
@@ -702,24 +710,27 @@ begin
       errors := 'Corrupted stream';
       for iblock := 0 to sbHeader.blocksCount - 1 do
       begin
-        errors := 'Corrupted stream reading block blockchain ' + inttostr(iblock + 1) + '/' + inttostr(sbHeader.blocksCount);
+        errors := 'Corrupted stream reading block blockchain ' + inttostr(iblock + 1) + '/' +
+          inttostr(sbHeader.blocksCount);
         if (checkAll) then
         begin
           if (offsets[iblock] <> stream.Position - posOffsetZone) then
           begin
-            errors := errors + Format(' - offset[%d]:%d <> %d Position:%d offset:%d', [iblock, offsets[iblock], stream.Position - posOffsetZone, stream.Position, posOffsetZone]);
+            errors := errors + Format(' - offset[%d]:%d <> %d Position:%d offset:%d',
+              [iblock, offsets[iblock], stream.Position - posOffsetZone, stream.Position, posOffsetZone]);
             exit;
           end;
         end;
 
         block := CT_BlockAccount_NUL;
-        if not TBlockHeader.LoadFromStream(stream, block.Blockheader) then
+        if not TBlockHeader.LoadFromStream(stream, block.BlockHeader) then
           exit;
-        if block.Blockheader.block <> iblock then
+        if block.BlockHeader.block <> iblock then
           exit;
         for iacc := low(block.accounts) to high(block.accounts) do
         begin
-          errors := 'Corrupted stream reading account ' + inttostr(iacc + 1) + '/' + inttostr(length(block.accounts)) + ' of block ' + inttostr(iblock + 1) + '/' + inttostr(sbHeader.blocksCount);
+          errors := 'Corrupted stream reading account ' + inttostr(iacc + 1) + '/' + inttostr(length(block.accounts)) +
+            ' of block ' + inttostr(iblock + 1) + '/' + inttostr(sbHeader.blocksCount);
           if stream.Read(block.accounts[iacc].Account, 4) < 4 then
             exit;
           if TStreamOp.ReadAnsiString(stream, s) < 0 then
@@ -775,7 +786,7 @@ begin
         begin
           // Check is valid:
           // STEP 1: Validate the block
-          if not IsValidNewBlockHeader(block.Blockheader, false, s) then
+          if not IsValidNewBlockHeader(block.BlockHeader, false, s) then
           begin
             errors := errors + ' > ' + s;
             exit;
@@ -789,7 +800,7 @@ begin
           // STEP 3: Check accumulatedWork
           if (iblock > 0) then
           begin
-            if (Self.block(iblock - 1).accumulatedWork) + block.Blockheader.compact_target <> block.accumulatedWork then
+            if (Self.block(iblock - 1).accumulatedWork) + block.BlockHeader.compact_target <> block.accumulatedWork then
             begin
               errors := errors + ' > Invalid accumulatedWork';
               exit;
@@ -815,13 +826,15 @@ begin
 {$ENDIF}
         end;
         LastReadBlock := block;
-        inc(FWorkSum, block.Blockheader.compact_target);
+        inc(FWorkSum, block.BlockHeader.compact_target);
       end;
       if checkAll then
       begin
-        if (offsets[sbHeader.blocksCount] <> 0) and (offsets[sbHeader.blocksCount] <> stream.Position - posOffsetZone) then
+        if (offsets[sbHeader.blocksCount] <> 0) and (offsets[sbHeader.blocksCount] <> stream.Position - posOffsetZone)
+        then
         begin
-          errors := errors + Format(' - Final offset[%d]=%d <> Eof Position:%d offset:%d', [sbHeader.blocksCount, offsets[sbHeader.blocksCount], stream.Position - posOffsetZone, posOffsetZone]);
+          errors := errors + Format(' - Final offset[%d]=%d <> Eof Position:%d offset:%d',
+            [sbHeader.blocksCount, offsets[sbHeader.blocksCount], stream.Position - posOffsetZone, posOffsetZone]);
           exit;
         end;
       end;
@@ -845,7 +858,8 @@ begin
       // Checking saved SafeBoxHash
       if FAccountStorageHash <> savedSBH then
       begin
-        errors := 'Invalid Hash value in stream ' + TCrypto.ToHexaString(FAccountStorageHash) + '<>' + TCrypto.ToHexaString(savedSBH) + ' Last block:' + inttostr(LastReadBlock.Blockheader.block);
+        errors := 'Invalid Hash value in stream ' + TCrypto.ToHexaString(FAccountStorageHash) + '<>' +
+          TCrypto.ToHexaString(savedSBH) + ' Last block:' + inttostr(LastReadBlock.BlockHeader.block);
         exit;
       end;
       Result := true;
@@ -886,7 +900,7 @@ begin
     stream.Read(w, Sizeof(w));
     if not(w in [1, 2]) then
       exit;
-    sbHeader.protocol := w;
+    sbHeader.Protocol := w;
     stream.Read(AccountStorageVersion, 2);
     if AccountStorageVersion <> CT_AccountStorageVersion then
       exit;
@@ -916,16 +930,15 @@ begin
   end;
 end;
 
-class function TAccountStorage.SaveHeaderToStream(stream: TStream;
-  protocol: Word; OffsetStartBlock, OffsetEndBlock,
-  CurrentBlocksCount: Cardinal): Boolean;
+class function TAccountStorage.SaveHeaderToStream(stream: TStream; Protocol: Word;
+  OffsetStartBlock, OffsetEndBlock, CurrentBlocksCount: Cardinal): Boolean;
 var
   c: Cardinal;
 begin
   Result := false;
   // Header zone
   TStreamOp.WriteAnsiString(stream, CT_MagicIdentificator);
-  stream.Write(protocol, Sizeof(protocol));
+  stream.Write(Protocol, Sizeof(Protocol));
   stream.Write(CT_AccountStorageVersion, Sizeof(CT_AccountStorageVersion));
   c := CurrentBlocksCount;
   stream.Write(c, Sizeof(c)); // Save Total blocks of the safebox
@@ -949,7 +962,7 @@ var
 begin
   ws := FWorkSum;
   b := block(nBlock);
-  b.Blockheader.SaveToStream(stream);
+  b.BlockHeader.SaveToStream(stream);
   for iacc := low(b.accounts) to high(b.accounts) do
   begin
     stream.Write(b.accounts[iacc].Account, Sizeof(b.accounts[iacc].Account));
@@ -977,7 +990,8 @@ var
   raw: TRawBytes;
 begin
   if (FromBlock > ToBlock) or (ToBlock >= blocksCount) then
-    raise Exception.Create(Format('Cannot save account storage from %d to %d (currently %d blocks)', [FromBlock, ToBlock, blocksCount]));
+    raise Exception.Create(Format('Cannot save account storage from %d to %d (currently %d blocks)',
+      [FromBlock, ToBlock, blocksCount]));
   StartThreadSafe;
   try
     // Header zone
@@ -1008,7 +1022,7 @@ begin
     if (ToBlock + 1 < blocksCount) then
     begin
       b := block(ToBlock);
-      TStreamOp.WriteAnsiString(stream, b.Blockheader.initial_safe_box_hash);
+      TStreamOp.WriteAnsiString(stream, b.BlockHeader.initial_safe_box_hash);
     end
     else
     begin
@@ -1019,7 +1033,8 @@ begin
   end;
 end;
 
-class function TAccountStorage.CopyChunk(Source, dest: TStream; FromBlock, ToBlock: Cardinal; var errors: AnsiString): Boolean;
+class function TAccountStorage.CopyChunk(Source, dest: TStream; FromBlock, ToBlock: Cardinal;
+  var errors: AnsiString): Boolean;
 var
   iblock: Cardinal;
   raw: TRawBytes;
@@ -1042,14 +1057,18 @@ begin
       errors := 'Invalid stream. Invalid header/version';
       exit;
     end;
-    if (sbHeader.startBlock > FromBlock) or (sbHeader.endBlock < ToBlock) or ((sbHeader.startBlock + sbHeader.blocksCount) < ToBlock) then
+    if (sbHeader.startBlock > FromBlock) or (sbHeader.endBlock < ToBlock) or
+      ((sbHeader.startBlock + sbHeader.blocksCount) < ToBlock) then
     begin
-      errors := Format('Stream contain blocks from %d to %d (of %d). Need between %d and %d !', [sbHeader.startBlock, sbHeader.endBlock, sbHeader.blocksCount, FromBlock, ToBlock]);
+      errors := Format('Stream contain blocks from %d to %d (of %d). Need between %d and %d !',
+        [sbHeader.startBlock, sbHeader.endBlock, sbHeader.blocksCount, FromBlock, ToBlock]);
       exit;
     end;
     destTotalBlocks := ToBlock - FromBlock + 1;
-    TLog.NewLog(ltInfo, Classname, Format('Copy Stream from AccountStorage with %d to %d (of %d sbh:%s) to AccountStorage with %d and %d',
-      [sbHeader.startBlock, sbHeader.endBlock, sbHeader.blocksCount, TCrypto.ToHexaString(sbHeader.AccountStorageHash), FromBlock, ToBlock]));
+    TLog.NewLog(ltInfo, Classname,
+      Format('Copy Stream from AccountStorage with %d to %d (of %d sbh:%s) to AccountStorage with %d and %d',
+      [sbHeader.startBlock, sbHeader.endBlock, sbHeader.blocksCount, TCrypto.ToHexaString(sbHeader.AccountStorageHash),
+      FromBlock, ToBlock]));
     // Read Source Offset zone
     posOffsetZoneSource := Source.Position;
     SetLength(offsetsSource, (sbHeader.endBlock - sbHeader.startBlock) + 2);
@@ -1057,7 +1076,7 @@ begin
     // DEST STREAM:
     // Init dest stream
     // Header zone
-    SaveHeaderToStream(dest, sbHeader.protocol, FromBlock, ToBlock, sbHeader.blocksCount);
+    SaveHeaderToStream(dest, sbHeader.Protocol, FromBlock, ToBlock, sbHeader.blocksCount);
     // Offsets zone
     posOffsetZoneDest := dest.Position;
     SetLength(raw, (destTotalBlocks + 1) * 4); // Cardinal = 4 bytes for each block + End position
@@ -1070,17 +1089,18 @@ begin
       Format('Copying AccountStorage Stream from source Position %d (size:%d) to dest %d bytes - OffsetSource[%d] - OffsetSource[%d]',
       [posOffsetZoneSource + offsetsSource[FromBlock - sbHeader.startBlock], Source.Size,
       offsetsSource[ToBlock - sbHeader.startBlock + 1] - offsetsSource[FromBlock - sbHeader.startBlock],
-      ToBlock - sbHeader.startBlock + 1, FromBlock - sbHeader.startBlock
-      ]));
+      ToBlock - sbHeader.startBlock + 1, FromBlock - sbHeader.startBlock]));
 
     Source.Position := posOffsetZoneSource + offsetsSource[FromBlock - sbHeader.startBlock];
-    dest.CopyFrom(Source, offsetsSource[ToBlock - sbHeader.startBlock + 1] - offsetsSource[FromBlock - sbHeader.startBlock]);
+    dest.CopyFrom(Source, offsetsSource[ToBlock - sbHeader.startBlock + 1] - offsetsSource
+      [FromBlock - sbHeader.startBlock]);
     // Save offsets zone with valid values
     posFinal := dest.Position;
     dest.Position := posOffsetZoneDest;
     for iblock := FromBlock to ToBlock do
     begin
-      offsetsDest[iblock - FromBlock] := offsetsSource[iblock - (sbHeader.startBlock)] - offsetsSource[FromBlock - sbHeader.startBlock] + (posBlocksZoneDest - posOffsetZoneDest);
+      offsetsDest[iblock - FromBlock] := offsetsSource[iblock - (sbHeader.startBlock)] -
+        offsetsSource[FromBlock - sbHeader.startBlock] + (posBlocksZoneDest - posOffsetZoneDest);
     end;
     offsetsDest[high(offsetsDest)] := posFinal - posOffsetZoneDest;
 
@@ -1168,8 +1188,7 @@ class function TAccountStorage.ConcatStream(Source1, Source2, dest: TStream; var
 
 var
   destStartBlock, destEndBlock, nBlock: Cardinal;
-  source1InitialPos, source2InitialPos,
-    destOffsetPos: Int64;
+  source1InitialPos, source2InitialPos, destOffsetPos: Int64;
   ms: TMemoryStream;
   c: Cardinal;
   destOffsets: TArray<Cardinal>;
@@ -1192,17 +1211,18 @@ begin
       exit;
     end;
     // Check SBH and blockcount
-    if (s1Header.AccountStorageHash <> s2Header.AccountStorageHash) or (s1Header.blocksCount <> s2Header.blocksCount) or (s1Header.protocol <> s2Header.protocol) then
+    if (s1Header.AccountStorageHash <> s2Header.AccountStorageHash) or (s1Header.blocksCount <> s2Header.blocksCount) or
+      (s1Header.Protocol <> s2Header.Protocol) then
     begin
       errors := Format('Source1 and Source2 have diff. Source 1 %d %s (protocol %d) Source 2 %d %s (protocol %d)',
-        [s1Header.blocksCount, TCrypto.ToHexaString(s1Header.AccountStorageHash), s1Header.protocol,
-        s2Header.blocksCount, TCrypto.ToHexaString(s2Header.AccountStorageHash), s2Header.protocol]);
+        [s1Header.blocksCount, TCrypto.ToHexaString(s1Header.AccountStorageHash), s1Header.Protocol,
+        s2Header.blocksCount, TCrypto.ToHexaString(s2Header.AccountStorageHash), s2Header.Protocol]);
       exit;
     end;
     // Save dest heaer
     destStartBlock := MinCardinal(s1Header.startBlock, s2Header.startBlock);
     destEndBlock := MaxCardinal(s1Header.endBlock, s2Header.endBlock);
-    SaveHeaderToStream(dest, s1Header.protocol, destStartBlock, destEndBlock, s1Header.blocksCount);
+    SaveHeaderToStream(dest, s1Header.Protocol, destStartBlock, destEndBlock, s1Header.blocksCount);
     // Save offsets
     destOffsetPos := dest.Position;
     SetLength(destOffsets, ((destEndBlock - destStartBlock) + 2));
@@ -1263,7 +1283,8 @@ begin
   errors := '';
   if (length(new_name) < CT_MicroCoin_name_min_length) or (length(new_name) > CT_MicroCoin_name_max_length) then
   begin
-    errors := 'Invalid length:' + inttostr(length(new_name)) + ' (valid from ' + inttostr(CT_MicroCoin_name_max_length) + ' to ' + inttostr(CT_MicroCoin_name_max_length) + ')';
+    errors := 'Invalid length:' + inttostr(length(new_name)) + ' (valid from ' + inttostr(CT_MicroCoin_name_max_length)
+      + ' to ' + inttostr(CT_MicroCoin_name_max_length) + ')';
     exit;
   end;
   for i := 1 to length(new_name) do
@@ -1294,7 +1315,8 @@ begin
   Result := true;
 end;
 
-function TAccountStorage.IsValidNewBlockHeader(const newOperationBlock: TBlockHeader; validateHash: Boolean; var errors: AnsiString): Boolean;
+function TAccountStorage.IsValidNewBlockHeader(const newOperationBlock: TBlockHeader; validateHash: Boolean;
+  var errors: AnsiString): Boolean;
 { This function will check a OperationBlock info as a valid candidate to be included in the safebox
 
   TOperationBlock contains the info of the new block EXCEPT the operations, including only operations_hash value (SHA256 of the Operations)
@@ -1308,7 +1330,7 @@ begin
   Result := false;
   errors := '';
   if blocksCount > 0 then
-    lastBlock := block(blocksCount - 1).Blockheader
+    lastBlock := block(blocksCount - 1).BlockHeader
   else
     lastBlock := CT_OperationBlock_NUL;
   // Check block
@@ -1338,8 +1360,8 @@ begin
       // Protocol must be 1 or 2. If 1 then all prior blocksmust be 1 and never 2 (invalide blockchain version scenario v1...v2...v1)
       if (lastBlock.protocol_version > newOperationBlock.protocol_version) then
       begin
-        errors := 'Invalid MicroCoin protocol version: ' + inttostr(newOperationBlock.protocol_version) + ' Current: ' + inttostr(CurrentProtocol) + ' Previous:' +
-          inttostr(lastBlock.protocol_version);
+        errors := 'Invalid MicroCoin protocol version: ' + inttostr(newOperationBlock.protocol_version) + ' Current: ' +
+          inttostr(CurrentProtocol) + ' Previous:' + inttostr(lastBlock.protocol_version);
         exit;
       end;
       if (newOperationBlock.protocol_version = CT_PROTOCOL_2) then
@@ -1364,8 +1386,8 @@ begin
     // timestamp
     if ((newOperationBlock.timestamp) < (lastBlock.timestamp)) then
     begin
-      errors := 'Invalid timestamp (Back timestamp: New timestamp:' + inttostr(newOperationBlock.timestamp) + ' < last timestamp (' + inttostr(blocksCount - 1) + '):' +
-        inttostr(lastBlock.timestamp) + ')';
+      errors := 'Invalid timestamp (Back timestamp: New timestamp:' + inttostr(newOperationBlock.timestamp) +
+        ' < last timestamp (' + inttostr(blocksCount - 1) + '):' + inttostr(lastBlock.timestamp) + ')';
       exit;
     end;
   end
@@ -1374,9 +1396,11 @@ begin
     if (CT_Zero_Block_Proof_of_work_in_Hexa <> '') then
     begin
       // Check if valid Zero block
-      if not(AnsiSameText(TCrypto.ToHexaString(newOperationBlock.proof_of_work), CT_Zero_Block_Proof_of_work_in_Hexa)) then
+      if not(AnsiSameText(TCrypto.ToHexaString(newOperationBlock.proof_of_work), CT_Zero_Block_Proof_of_work_in_Hexa))
+      then
       begin
-        errors := 'Zero block not valid, Proof of Work invalid: ' + TCrypto.ToHexaString(newOperationBlock.proof_of_work) + '<>' + CT_Zero_Block_Proof_of_work_in_Hexa;
+        errors := 'Zero block not valid, Proof of Work invalid: ' +
+          TCrypto.ToHexaString(newOperationBlock.proof_of_work) + '<>' + CT_Zero_Block_Proof_of_work_in_Hexa;
         exit;
       end;
     end;
@@ -1385,7 +1409,8 @@ begin
   target_hash := GetActualTargetHash(newOperationBlock.protocol_version = CT_PROTOCOL_2);
   if (newOperationBlock.compact_target <> TMicroCoinProtocol.TargetToCompact(target_hash)) then
   begin
-    errors := 'Invalid target found:' + IntToHex(newOperationBlock.compact_target, 8) + ' actual:' + IntToHex(TMicroCoinProtocol.TargetToCompact(target_hash), 8);
+    errors := 'Invalid target found:' + IntToHex(newOperationBlock.compact_target, 8) + ' actual:' +
+      IntToHex(TMicroCoinProtocol.TargetToCompact(target_hash), 8);
     exit;
   end;
   // nonce: Not checked
@@ -1400,7 +1425,8 @@ begin
   begin
     if not(newOperationBlock.block_payload[i] in [#32 .. #254]) then
     begin
-      errors := 'Invalid Miner Payload character at pos ' + inttostr(i) + ' value:' + inttostr(ord(newOperationBlock.block_payload[i]));
+      errors := 'Invalid Miner Payload character at pos ' + inttostr(i) + ' value:' +
+        inttostr(ord(newOperationBlock.block_payload[i]));
       exit;
     end;
   end;
@@ -1410,28 +1436,30 @@ begin
     // TODO: Can use FSafeBoxHash instead of CalcSafeBoxHash ???? Quick speed if possible
     if (newOperationBlock.initial_safe_box_hash <> FAccountStorageHash) then
     begin
-      errors := 'BlockChain Safe box hash invalid: ' + TCrypto.ToHexaString(newOperationBlock.initial_safe_box_hash) + ' var: ' +
-        TCrypto.ToHexaString(FAccountStorageHash) +
-        ' Calculated:' + TCrypto.ToHexaString(CalculateHash);
+      errors := 'BlockChain Safe box hash invalid: ' + TCrypto.ToHexaString(newOperationBlock.initial_safe_box_hash) +
+        ' var: ' + TCrypto.ToHexaString(FAccountStorageHash) + ' Calculated:' + TCrypto.ToHexaString(CalculateHash);
       exit;
     end;
   end;
   // operations_hash: NOT CHECKED WITH OPERATIONS!
   if (length(newOperationBlock.operations_hash) <> 32) then
   begin
-    errors := 'Invalid Operations hash value: ' + TCrypto.ToHexaString(newOperationBlock.operations_hash) + ' length=' + inttostr(length(newOperationBlock.operations_hash));
+    errors := 'Invalid Operations hash value: ' + TCrypto.ToHexaString(newOperationBlock.operations_hash) + ' length=' +
+      inttostr(length(newOperationBlock.operations_hash));
     exit;
   end;
   // proof_of_work:
   TMicroCoinProtocol.CalcProofOfWork(newOperationBlock, PoW);
   if (PoW <> newOperationBlock.proof_of_work) then
   begin
-    errors := 'Proof of work is bad calculated ' + TCrypto.ToHexaString(newOperationBlock.proof_of_work) + ' <> Good: ' + TCrypto.ToHexaString(PoW);
+    errors := 'Proof of work is bad calculated ' + TCrypto.ToHexaString(newOperationBlock.proof_of_work) + ' <> Good: '
+      + TCrypto.ToHexaString(PoW);
     exit;
   end;
   if (newOperationBlock.proof_of_work > target_hash) then
   begin
-    errors := 'Proof of work is higher than target ' + TCrypto.ToHexaString(newOperationBlock.proof_of_work) + ' > ' + TCrypto.ToHexaString(target_hash);
+    errors := 'Proof of work is higher than target ' + TCrypto.ToHexaString(newOperationBlock.proof_of_work) + ' > ' +
+      TCrypto.ToHexaString(target_hash);
     exit;
   end;
   Result := true;
@@ -1459,33 +1487,34 @@ begin
       CalcBack := CT_CalcNewTargetBlocksAverage
     else
       CalcBack := blocksCount - 1;
-    lastBlock := block(blocksCount - 1).Blockheader;
+    lastBlock := block(blocksCount - 1).BlockHeader;
     // Calc new target!
     ts1 := lastBlock.timestamp;
-    ts2 := block(blocksCount - CalcBack - 1).Blockheader.timestamp;
+    ts2 := block(blocksCount - CalcBack - 1).BlockHeader.timestamp;
     tsTeorical := (CalcBack * CT_NewLineSecondsAvg);
     tsReal := (ts1 - ts2);
     if (not UseProtocolV2) then
     begin
-      Result := TMicroCoinProtocol.GetNewTarget(tsTeorical, tsReal, TMicroCoinProtocol.TargetFromCompact(lastBlock.compact_target));
+      Result := TMicroCoinProtocol.GetNewTarget(tsTeorical, tsReal,
+        TMicroCoinProtocol.TargetFromCompact(lastBlock.compact_target));
     end
     else
     begin
       CalcBack := CalcBack div CT_CalcNewTargetLimitChange_SPLIT;
       if CalcBack = 0 then
         CalcBack := 1;
-      ts2 := block(blocksCount - CalcBack - 1).Blockheader.timestamp;
+      ts2 := block(blocksCount - CalcBack - 1).BlockHeader.timestamp;
       tsTeoricalStop := (CalcBack * CT_NewLineSecondsAvg);
       tsRealStop := (ts1 - ts2);
       { Protocol 2 change:
         Only will increase/decrease Target if (CT_CalcNewTargetBlocksAverage DIV 10) needs to increase/decrease too, othewise use
         current Target.
         This will prevent sinusoidal movement and provide more stable hashrate, computing always time from CT_CalcNewTargetBlocksAverage }
-      if ((tsTeorical > tsReal) and (tsTeoricalStop > tsRealStop))
-        or
+      if ((tsTeorical > tsReal) and (tsTeoricalStop > tsRealStop)) or
         ((tsTeorical < tsReal) and (tsTeoricalStop < tsRealStop)) then
       begin
-        Result := TMicroCoinProtocol.GetNewTarget(tsTeorical, tsReal, TMicroCoinProtocol.TargetFromCompact(lastBlock.compact_target));
+        Result := TMicroCoinProtocol.GetNewTarget(tsTeorical, tsReal,
+          TMicroCoinProtocol.TargetFromCompact(lastBlock.compact_target));
       end
       else
       begin
@@ -1514,7 +1543,8 @@ begin
     Result := -1;
 end;
 
-procedure TAccountStorage.SetAccount(account_number: Cardinal; const newAccountInfo: TAccountInfo; const newName: TRawBytes; newType: Word; newBalance: UInt64; newN_operation: Cardinal);
+procedure TAccountStorage.SetAccount(account_number: Cardinal; const newAccountInfo: TAccountInfo;
+  const newName: TRawBytes; newType: Word; newBalance: UInt64; newN_operation: Cardinal);
 var
   iblock: Cardinal;
   i, j, iAccount: Integer;
@@ -1596,7 +1626,6 @@ begin
   TPCThread.ProtectEnterCriticalSection(Self, FLock);
 end;
 
-
 type
   TOrderedAccountKeyList = record
     rawaccountkey: TRawBytes;
@@ -1633,11 +1662,13 @@ begin
           P^.accounts_number.Add(i);
         end;
       end;
-      TLog.NewLog(ltDebug, Classname, Format('Adding account key (%d of %d) %s', [j, FAccountStorage.AccountsCount, TCrypto.ToHexaString(AccountKey.ToRawString)]));
+      TLog.NewLog(ltDebug, Classname, Format('Adding account key (%d of %d) %s', [j, FAccountStorage.AccountsCount,
+        TCrypto.ToHexaString(AccountKey.ToRawString)]));
     end
     else
     begin
-      TLog.NewLog(ltDebug, Classname, Format('Adding account key (no Account List) %s', [TCrypto.ToHexaString(AccountKey.ToRawString)]));
+      TLog.NewLog(ltDebug, Classname, Format('Adding account key (no Account List) %s',
+        [TCrypto.ToHexaString(AccountKey.ToRawString)]));
     end;
   end;
 end;
@@ -1816,6 +1847,5 @@ begin
   P^.accounts_number.Free;
   Dispose(P);
 end;
-
 
 end.

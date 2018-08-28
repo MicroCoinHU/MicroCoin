@@ -9,7 +9,7 @@ unit MicroCoin.BlockChain.Storage;
   or visit http://www.opensource.org/licenses/mit-license.php.
 
 }
-
+
 interface
 
 uses SysUtils, Classes, ULog, MicroCoin.Account.Storage, MicroCoin.BlockChain.Base, MicroCoin.BlockChain.Block;
@@ -19,6 +19,7 @@ type
   TOrphan = AnsiString;
 
   TStorageClass = class of TStorage;
+
   TStorage = class(TComponent)
   private
     FOrphan: TOrphan;
@@ -30,7 +31,8 @@ type
     procedure SetReadOnly(const value: Boolean); virtual;
     function DoLoadBlockChain(Operations: TBlock; Block: Cardinal): Boolean; virtual; abstract;
     function DoSaveBlockChain(Operations: TBlock): Boolean; virtual; abstract;
-    function DoMoveBlockChain(StartBlock: Cardinal; const DestOrphan: TOrphan; DestStorage: TStorage): Boolean; virtual; abstract;
+    function DoMoveBlockChain(StartBlock: Cardinal; const DestOrphan: TOrphan; DestStorage: TStorage): Boolean;
+      virtual; abstract;
     function DoSaveAccountStorage: Boolean; virtual; abstract;
     function DoRestoreAccountStorage(max_block: Int64): Boolean; virtual; abstract;
     procedure DoDeleteBlockChainBlocks(StartingDeleteBlock: Cardinal); virtual; abstract;
@@ -169,6 +171,5 @@ procedure TStorage.SetReadOnly(const value: Boolean);
 begin
   FReadOnly := value;
 end;
-
 
 end.

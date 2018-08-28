@@ -3,8 +3,7 @@ unit MicroCoin.Transaction.Events;
 interface
 
 uses UThread,
-     //MicroCoin.Net.ConnectionManager,
-     MicroCoin.Net.Connection, MicroCoin.Transaction.HashTree;
+  MicroCoin.Net.Connection, MicroCoin.Transaction.HashTree;
 
 type
   TNotifyTransactionThread = class(TPCThread)
@@ -35,7 +34,8 @@ begin
   end;
 end;
 
-constructor TNotifyTransactionThread.Create(NetConnection: TNetConnection; MakeACopyOfOperationsHashTree: TTransactionHashTree);
+constructor TNotifyTransactionThread.Create(NetConnection: TNetConnection;
+  MakeACopyOfOperationsHashTree: TTransactionHashTree);
 begin
   FNetConnection := NetConnection;
   FNetConnection.AddOperationsToBufferForSend(MakeACopyOfOperationsHashTree);

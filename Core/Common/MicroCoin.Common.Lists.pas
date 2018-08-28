@@ -9,13 +9,12 @@ unit MicroCoin.Common.Lists;
   or visit http://www.opensource.org/licenses/mit-license.php.
 
 }
-
+
 interface
+
 {$IFDEF FPC}
 {$MODE DELPHI}
-
-
-{$endif}
+{$ENDIF}
 
 uses SysUtils, classes, UCrypto, UCommon, Generics.Collections, Generics.Defaults;
 
@@ -23,53 +22,56 @@ type
 
   TOrderedList = class
   private
-    FOrderedList : TList<Cardinal>;
-    FDisabledsCount : Integer;
-    FModifiedWhileDisabled : Boolean;
+    FOrderedList: TList<Cardinal>;
+    FDisabledsCount: Integer;
+    FModifiedWhileDisabled: Boolean;
     FOnListChanged: TNotifyEvent;
     procedure NotifyChanged;
   public
     constructor Create;
     destructor Destroy; override;
-    function Add(Value : Cardinal) : Integer;
-    procedure Remove(Value : Cardinal);
+    function Add(Value: Cardinal): Integer;
+    procedure Remove(Value: Cardinal);
     procedure Clear;
-    function Get(index : Integer) : Cardinal;
-    function Count : Integer;
-    function Find(const Value: Cardinal; var Index: Integer): Boolean;
+    function Get(index: Integer): Cardinal;
+    function Count: Integer;
+    function Find(const Value: Cardinal; var index: Integer): Boolean;
     procedure Disable;
     procedure Enable;
-    property OnListChanged : TNotifyEvent read FOnListChanged write FOnListChanged;
-    procedure CopyFrom(Sender : TOrderedList);
-    function ToArray : TArray<Cardinal>;
+    property OnListChanged: TNotifyEvent read FOnListChanged write FOnListChanged;
+    procedure CopyFrom(Sender: TOrderedList);
+    function ToArray: TArray<Cardinal>;
   end;
 
-  TOrderedRawList = Class
+  TOrderedRawList = class
   private
-    FList : TList;
-    function Find(const RawData: TRawBytes; var Index: Integer): Boolean;
+    FList: TList;
+    function Find(const RawData: TRawBytes; var index: Integer): Boolean;
   public
     constructor Create;
-    destructor Destroy; Override;
+    destructor Destroy; override;
     procedure Clear;
-    function Add(Const RawData : TRawBytes; tagValue : Integer = 0) : Integer;
-    function Count : Integer;
-    function Get(index : Integer) : TRawBytes;
-    procedure Delete(index : Integer);
-    procedure SetTag(Const RawData : TRawBytes; newTagValue : Integer);
-    function GetTag(Const RawData : TRawBytes) : Integer; overload;
-    function GetTag(index : Integer) : Integer; overload;
-    function IndexOf(Const RawData : TRawBytes) : Integer;
+    function Add(const RawData: TRawBytes; tagValue: Integer = 0): Integer;
+    function Count: Integer;
+    function Get(index: Integer): TRawBytes;
+    procedure Delete(index: Integer);
+    procedure SetTag(const RawData: TRawBytes; newTagValue: Integer);
+    function GetTag(const RawData: TRawBytes): Integer; overload;
+    function GetTag(index: Integer): Integer; overload;
+    function IndexOf(const RawData: TRawBytes): Integer;
   end;
-
 
 implementation
 
+uses MicroCoin.Common;
+
 function TOrderedList.Add(Value: Cardinal): Integer;
 begin
-  if Find(Value,Result) then exit
-  else begin
-    FOrderedList.Insert(Result,Value);
+  if Find(Value, Result) then
+    exit
+  else
+  begin
+    FOrderedList.Insert(Result, Value);
     NotifyChanged;
   end;
 end;
@@ -81,18 +83,21 @@ begin
 end;
 
 procedure TOrderedList.CopyFrom(Sender: TOrderedList);
-Var i : Integer;
+var
+  i: Integer;
 begin
-  if Self=Sender then exit;
+  if Self = Sender then
+    exit;
   Disable;
-  Try
+  try
     Clear;
-    for I := 0 to Sender.Count - 1 do begin
+    for i := 0 to Sender.Count - 1 do
+    begin
       Add(Sender.Get(i));
     end;
-  Finally
+  finally
     Enable;
-  End;
+  end;
 end;
 
 function TOrderedList.Count: Integer;
@@ -120,33 +125,38 @@ end;
 
 procedure TOrderedList.Enable;
 begin
-  if FDisabledsCount<=0 then raise Exception.Create('Dev error. Invalid disabled counter');
+  if FDisabledsCount <= 0 then
+    raise Exception.Create('Dev error. Invalid disabled counter');
   dec(FDisabledsCount);
-  if (FDisabledsCount=0) And (FModifiedWhileDisabled) then NotifyChanged;
+  if (FDisabledsCount = 0) and (FModifiedWhileDisabled) then
+    NotifyChanged;
 end;
 
-function TOrderedList.Find(const Value: Cardinal; var Index: Integer): Boolean;
-var L, H, I: Integer;
-  C : Int64;
+function TOrderedList.Find(const Value: Cardinal; var index: Integer): Boolean;
+var
+  L, H, i: Integer;
+  C: Int64;
 begin
-  Result := False;
+  Result := false;
   L := 0;
   H := FOrderedList.Count - 1;
   while L <= H do
   begin
-    I := (L + H) shr 1;
-    C := Int64(FOrderedList[I]) - Int64(Value);
-    if C < 0 then L := I + 1 else
+    i := (L + H) shr 1;
+    C := Int64(FOrderedList[i]) - Int64(Value);
+    if C < 0 then
+      L := i + 1
+    else
     begin
-      H := I - 1;
+      H := i - 1;
       if C = 0 then
       begin
         Result := True;
-        L := I;
+        L := i;
       end;
     end;
   end;
-  Index := L;
+  index := L;
 end;
 
 function TOrderedList.Get(index: Integer): Cardinal;
@@ -156,56 +166,69 @@ end;
 
 procedure TOrderedList.NotifyChanged;
 begin
-  if FDisabledsCount>0 then begin
-    FModifiedWhileDisabled := true;
+  if FDisabledsCount > 0 then
+  begin
+    FModifiedWhileDisabled := True;
     exit;
   end;
   FModifiedWhileDisabled := false;
-  if Assigned(FOnListChanged) then FOnListChanged(Self);
+  if Assigned(FOnListChanged) then
+    FOnListChanged(Self);
 end;
 
 procedure TOrderedList.Remove(Value: Cardinal);
-Var i : Integer;
+var
+  i: Integer;
 begin
-  if Find(Value,i) then begin
+  if Find(Value, i) then
+  begin
     FOrderedList.Delete(i);
     NotifyChanged;
   end;
 end;
 
-function TOrderedList.ToArray : TArray<Cardinal>;
-var i : integer;
+function TOrderedList.ToArray: TArray<Cardinal>;
+var
+  i: Integer;
 begin
-  SetLength(Result, self.Count);
-  for i := 0 to self.Count - 1 do
+  SetLength(Result, Self.Count);
+  for i := 0 to Self.Count - 1 do
     Result[i] := Self.Get(i);
 end;
 
+type
+  TRawListData = record
 
-Type TRawListData = Record
-    RawData : TRawBytes;
-    tag : Integer;
-  End;
+    RawData: TRawBytes;
+    tag: Integer;
+  end;
+
   PRawListData = ^TRawListData;
 
-function TOrderedRawList.Add(const RawData: TRawBytes; tagValue : Integer = 0) : Integer;
-Var P : PRawListData;
+function TOrderedRawList.Add(const RawData: TRawBytes; tagValue: Integer = 0): Integer;
+var
+  P: PRawListData;
 begin
-  if Find(RawData,Result) then begin
+  if Find(RawData, Result) then
+  begin
     PRawListData(FList[Result])^.tag := tagValue;
-  end else begin
+  end
+  else
+  begin
     New(P);
     P^.RawData := RawData;
     P^.tag := tagValue;
-    FList.Insert(Result,P);
+    FList.Insert(Result, P);
   end;
 end;
 
 procedure TOrderedRawList.Clear;
-Var P : PRawListData;
-  i : Integer;
+var
+  P: PRawListData;
+  i: Integer;
 begin
-  for i := FList.Count - 1 downto 0 do begin
+  for i := FList.Count - 1 downto 0 do
+  begin
     P := FList[i];
     Dispose(P);
   end;
@@ -223,7 +246,8 @@ begin
 end;
 
 procedure TOrderedRawList.Delete(index: Integer);
-Var P : PRawListData;
+var
+  P: PRawListData;
 begin
   P := PRawListData(FList[index]);
   FList.Delete(index);
@@ -237,29 +261,31 @@ begin
   inherited;
 end;
 
-
-function TOrderedRawList.Find(const RawData: TRawBytes; var Index: Integer): Boolean;
-var L, H, I: Integer;
-  c : Integer;
+function TOrderedRawList.Find(const RawData: TRawBytes; var index: Integer): Boolean;
+var
+  L, H, i: Integer;
+  C: Integer;
 begin
-  Result := False;
+  Result := false;
   L := 0;
   H := FList.Count - 1;
   while L <= H do
   begin
-    I := (L + H) shr 1;
-    c := BinStrComp(PRawListData(FList[i])^.RawData,RawData);
-    if C < 0 then L := I + 1 else
+    i := (L + H) shr 1;
+    C := BinStrCompare(PRawListData(FList[i])^.RawData, RawData);
+    if C < 0 then
+      L := i + 1
+    else
     begin
-      H := I - 1;
+      H := i - 1;
       if C = 0 then
       begin
         Result := True;
-        L := I;
+        L := i;
       end;
     end;
   end;
-  Index := L;
+  index := L;
 end;
 
 function TOrderedRawList.Get(index: Integer): TRawBytes;
@@ -273,24 +299,28 @@ begin
 end;
 
 function TOrderedRawList.GetTag(const RawData: TRawBytes): Integer;
-Var i : Integer;
+var
+  i: Integer;
 begin
-  if not Find(RawData,i) then begin
+  if not Find(RawData, i) then
+  begin
     Result := 0;
-  end else begin
+  end
+  else
+  begin
     Result := PRawListData(FList[i])^.tag;
   end;
 end;
 
 function TOrderedRawList.IndexOf(const RawData: TRawBytes): Integer;
 begin
-  if not Find(RawData,Result) then Result := -1;
+  if not Find(RawData, Result) then
+    Result := -1;
 end;
 
 procedure TOrderedRawList.SetTag(const RawData: TRawBytes; newTagValue: Integer);
 begin
-  Add(RawData,newTagValue);
+  Add(RawData, newTagValue);
 end;
-
 
 end.

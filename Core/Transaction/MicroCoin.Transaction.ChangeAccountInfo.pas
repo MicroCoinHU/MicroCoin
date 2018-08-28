@@ -14,7 +14,8 @@ interface
 
 uses ucrypto, MicroCoin.Transaction.Transaction, SysUtils,
   MicroCoin.Account.Data, MicroCoin.Account.Storage, MicroCoin.BlockChain.BlockHeader, MicroCoin.Account.Transaction,
-  MicroCoin.Common, Classes, MicroCoin.Account.AccountKey, MicroCoin.Transaction.Base, UConst, ULog, MicroCoin.Transaction.Manager;
+  MicroCoin.Common, Classes, MicroCoin.Account.AccountKey, MicroCoin.Transaction.Base, UConst, ULog,
+  MicroCoin.Transaction.Manager;
 
 type
 
@@ -41,19 +42,14 @@ type
     FData: TOpChangeAccountInfoData;
   protected
     procedure InitializeData; override;
-    function SaveToStream(Stream: TStream; SaveExtendedData: Boolean)
-      : Boolean; override;
-    function LoadFromStream(Stream: TStream; LoadExtendedData: Boolean)
-      : Boolean; override;
+    function SaveToStream(Stream: TStream; SaveExtendedData: Boolean): Boolean; override;
+    function LoadFromStream(Stream: TStream; LoadExtendedData: Boolean): Boolean; override;
   public
-    class function GetOperationHashToSign(const op: TOpChangeAccountInfoData)
-      : TRawBytes;
-    class function DoSignOperation(key: TECPrivateKey;
-      var op: TOpChangeAccountInfoData): Boolean;
+    class function GetOperationHashToSign(const op: TOpChangeAccountInfoData): TRawBytes;
+    class function DoSignOperation(key: TECPrivateKey; var op: TOpChangeAccountInfoData): Boolean;
     function GetOpType: Byte; override;
     function GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes; override;
-    function ApplyTransaction(AccountTransaction: TAccountTransaction;
-      var errors: AnsiString): Boolean; override;
+    function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean; override;
     function GetAmount: Int64; override;
     function GetFee: UInt64; override;
     function GetPayload: TRawBytes; override;
@@ -61,23 +57,19 @@ type
     function GetDestinationAccount: Int64; override;
     function GetNumberOfTransactions: Cardinal; override;
     procedure AffectedAccounts(list: TList); override;
-    constructor CreateChangeAccountInfo(account_signer, n_operation,
-      account_target: Cardinal; key: TECPrivateKey; change_key: Boolean;
-      const new_account_key: TAccountKey; change_name: Boolean;
-      const new_name: TRawBytes; change_type: Boolean; const new_type: Word;
-      fee: UInt64; payload: TRawBytes);
-    function GetTransactionData(Block: Cardinal;
-      Affected_account_number: Cardinal; var TransactionData: TTransactionData)
-      : Boolean; override;
+    constructor CreateChangeAccountInfo(account_signer, n_operation, account_target: Cardinal; key: TECPrivateKey;
+      change_key: Boolean; const new_account_key: TAccountKey; change_name: Boolean; const new_name: TRawBytes;
+      change_type: Boolean; const new_type: Word; fee: UInt64; payload: TRawBytes);
+    function GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal;
+      var TransactionData: TTransactionData): Boolean; override;
     property Data: TOpChangeAccountInfoData read FData;
     function toString: string; override;
   end;
 
 const
-  CT_TOpChangeAccountInfoData_NUL: TOpChangeAccountInfoData = (account_signer: 0; account_target: 0; n_operation: 0; fee: 0; payload: ''; public_key: (EC_OpenSSL_NID: 0; x: ''; y: '');
-    changes_type: [];
-    new_accountkey: (EC_OpenSSL_NID: 0; x: ''; y: ''); new_name: ''; new_type: 0;
-    sign: (r: ''; s: ''));
+  CT_TOpChangeAccountInfoData_NUL: TOpChangeAccountInfoData = (account_signer: 0; account_target: 0; n_operation: 0;
+    fee: 0; payload: ''; public_key: (EC_OpenSSL_NID: 0; x: ''; y: ''); changes_type: [];
+    new_accountkey: (EC_OpenSSL_NID: 0; x: ''; y: ''); new_name: ''; new_type: 0; sign: (r: ''; s: ''));
 
 implementation
 
@@ -218,7 +210,8 @@ begin
   Result := inherited GetBufferForOpHash(true);
 end;
 
-function TOpChangeAccountInfo.ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean;
+function TOpChangeAccountInfo.ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString)
+  : Boolean;
 var
   account_signer, account_target: TAccount;
 begin
@@ -228,7 +221,8 @@ begin
     errors := 'Invalid account number';
     exit;
   end;
-  if TAccount.IsAccountBlockedByProtocol(FData.account_signer, AccountTransaction.FreezedAccountStorage.BlocksCount) then
+  if TAccount.IsAccountBlockedByProtocol(FData.account_signer, AccountTransaction.FreezedAccountStorage.BlocksCount)
+  then
   begin
     errors := 'account is blocked for protocol';
     exit;
@@ -240,7 +234,8 @@ begin
       errors := 'Invalid account target number';
       exit;
     end;
-    if TAccount.IsAccountBlockedByProtocol(FData.account_target, AccountTransaction.FreezedAccountStorage.BlocksCount) then
+    if TAccount.IsAccountBlockedByProtocol(FData.account_target, AccountTransaction.FreezedAccountStorage.BlocksCount)
+    then
     begin
       errors := 'Target account is blocked for protocol';
       exit;
@@ -310,11 +305,11 @@ begin
     errors := 'No change';
     exit;
   end;
-  if (FData.public_key.EC_OpenSSL_NID <> CT_TECDSA_Public_Nul.EC_OpenSSL_NID) and (not TAccountKey.EqualAccountKeys(FData.public_key, account_signer.accountInfo.AccountKey)) then
+  if (FData.public_key.EC_OpenSSL_NID <> CT_TECDSA_Public_Nul.EC_OpenSSL_NID) and
+    (not TAccountKey.EqualAccountKeys(FData.public_key, account_signer.accountInfo.AccountKey)) then
   begin
-    errors := Format('Invalid public key for account %d. Distinct from SafeBox public key! %s <> %s', [
-      FData.account_signer,
-      TCrypto.ToHexaString(FData.public_key.ToRawString),
+    errors := Format('Invalid public key for account %d. Distinct from SafeBox public key! %s <> %s',
+      [FData.account_signer, TCrypto.ToHexaString(FData.public_key.ToRawString),
       TCrypto.ToHexaString(account_signer.accountInfo.AccountKey.ToRawString)]);
     exit;
   end;
@@ -326,7 +321,8 @@ begin
       exit;
     end;
     // Check have same public key
-    if not TAccountKey.EqualAccountKeys(account_signer.accountInfo.AccountKey, account_target.accountInfo.AccountKey) then
+    if not TAccountKey.EqualAccountKeys(account_signer.accountInfo.AccountKey, account_target.accountInfo.AccountKey)
+    then
     begin
       errors := 'Signer and target accounts have different public key';
       exit;
@@ -356,10 +352,7 @@ begin
     account_target.account_type := FData.new_type;
   end;
   Result := AccountTransaction.UpdateAccountInfo(FData.account_signer, FData.n_operation, FData.account_target,
-    account_target.accountInfo,
-    account_target.name,
-    account_target.account_type,
-    FData.fee, errors);
+    account_target.accountInfo, account_target.name, account_target.account_type, FData.fee, errors);
 end;
 
 function TOpChangeAccountInfo.GetAmount: Int64;
@@ -382,8 +375,7 @@ begin
   Result := FData.account_signer;
 end;
 
-function TOpChangeAccountInfo.GetTransactionData(Block,
-  Affected_account_number: Cardinal;
+function TOpChangeAccountInfo.GetTransactionData(Block, Affected_account_number: Cardinal;
   var TransactionData: TTransactionData): Boolean;
 
 var
@@ -392,27 +384,23 @@ var
 begin
   TransactionData.DestAccount := GetDestinationAccount;
   s := '';
-  if (public_key in Data.changes_type)
-  then
+  if (public_key in Data.changes_type) then
   begin
     s := 'key';
   end;
-  if (account_name in Data.changes_type)
-  then
+  if (account_name in Data.changes_type) then
   begin
     if s <> '' then
       s := s + ',';
     s := s + 'name';
   end;
-  if (account_type in Data.changes_type)
-  then
+  if (account_type in Data.changes_type) then
   begin
     if s <> '' then
       s := s + ',';
     s := s + 'type';
   end;
-  TransactionData.OperationTxt := 'Changed ' + s + ' of account ' +
-    TAccount.AccountNumberToAccountTxtNumber
+  TransactionData.OperationTxt := 'Changed ' + s + ' of account ' + TAccount.AccountNumberToAccountTxtNumber
     (GetDestinationAccount);
   TransactionData.OpSubtype := CT_OpSubtype_ChangeAccountInfo;
   Result := true;
@@ -446,11 +434,9 @@ begin
     list.Add(TObject(FData.account_target));
 end;
 
-constructor TOpChangeAccountInfo.CreateChangeAccountInfo(account_signer, n_operation,
-  account_target: Cardinal; key: TECPrivateKey; change_key: Boolean;
-  const new_account_key: TAccountKey; change_name: Boolean;
-  const new_name: TRawBytes; change_type: Boolean; const new_type: Word;
-  fee: UInt64; payload: TRawBytes);
+constructor TOpChangeAccountInfo.CreateChangeAccountInfo(account_signer, n_operation, account_target: Cardinal;
+  key: TECPrivateKey; change_key: Boolean; const new_account_key: TAccountKey; change_name: Boolean;
+  const new_name: TRawBytes; change_type: Boolean; const new_type: Word; fee: UInt64; payload: TRawBytes);
 begin
   inherited Create;
   FData.account_signer := account_signer;
@@ -504,10 +490,9 @@ begin
       s := s + ', ';
     s := s + 'new type to ' + Inttostr(FData.new_type);
   end;
-  Result := Format('Change account %s info: %s fee:%s (n_op:%d) payload size:%d', [
-    TAccount.AccountNumberToAccountTxtNumber(FData.account_target),
-    s,
-    TCurrencyUtils.FormatMoney(FData.fee), FData.n_operation, length(FData.payload)]);
+  Result := Format('Change account %s info: %s fee:%s (n_op:%d) payload size:%d',
+    [TAccount.AccountNumberToAccountTxtNumber(FData.account_target), s, TCurrencyUtils.FormatMoney(FData.fee),
+    FData.n_operation, length(FData.payload)]);
 end;
 
 initialization

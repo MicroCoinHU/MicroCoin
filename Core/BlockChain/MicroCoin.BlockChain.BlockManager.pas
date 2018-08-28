@@ -1,6 +1,5 @@
 unit MicroCoin.BlockChain.BlockManager;
 
-
 {
   This unit contains code from PascalCoin:
 
@@ -10,28 +9,28 @@ unit MicroCoin.BlockChain.BlockManager;
   or visit http://www.opensource.org/licenses/mit-license.php.
 
 }
-
+
 {$IFDEF FPC}
 {$MODE Delphi}
 {$ENDIF}
 
 interface
 
-uses
-  Classes, UCrypto, ULog, UThread, SyncObjs,
+uses Classes, UCrypto, ULog, UThread, SyncObjs,
   MicroCoin.Transaction.Base, MicroCoin.BlockChain.Base,
   MicroCoin.Transaction.Manager, MicroCoin.Transaction.HashTree,
   MicroCoin.Account.AccountKey, MicroCoin.BlockChain.BlockHeader,
   MicroCoin.Account.Storage, MicroCoin.Account.Transaction, MicroCoin.BlockChain.Protocol,
   MicroCoin.BlockChain.Storage, MicroCoin.BlockChain.Block;
 
-  {$I ../config.inc}
+{$I ../config.inc}
 
 type
   TBlockManager = class;
   TBlockManagerNotify = class;
 
-  TBlockManagerLog = procedure(Sender: TBlockManager; Operations: TBlock; Logtype: TLogType; Logtxt: AnsiString) of object;
+  TBlockManagerLog = procedure(Sender: TBlockManager; Operations: TBlock; Logtype: TLogType; Logtxt: AnsiString)
+    of object;
 
   TBlockManagerNotify = class(TComponent)
   private
@@ -47,7 +46,6 @@ type
     property BlockManager: TBlockManager read FBlockManager write SetBlockManager;
     property OnNewBlock: TNotifyEvent read FOnNewBlock write FOnNewBlock;
   end;
-
 
   TBlockManager = class(TBlockManagerBase)
   private
@@ -76,7 +74,8 @@ type
     function LoadAccountsFromStream(Stream: TStream; useSecureLoad: Boolean; var errors: AnsiString): Boolean; override;
     procedure Clear;
     function LoadOperations(Operations: TBlock; Block: Cardinal): Boolean;
-    function AddNewBlockChainBlock(Operations: TBlock; MaxAllowedTimestamp: Cardinal; var newBlock: TAccountStorageEntry; var errors: AnsiString): Boolean;
+    function AddNewBlockChainBlock(Operations: TBlock; MaxAllowedTimestamp: Cardinal;
+      var newBlock: TAccountStorageEntry; var errors: AnsiString): Boolean;
     procedure DiskRestoreFromOperations(max_block: Int64);
     procedure NewLog(Operations: TBlock; Logtype: TLogType; Logtxt: AnsiString);
     property OnLog: TBlockManagerLog read FOnLog write FOnLog;
@@ -88,26 +87,25 @@ type
     property LastBlockFound: TBlock read FLastBlockCache;
     property UpgradingToV2: Boolean read FUpgradingToV2;
     property AccountStorage: TAccountStorage read GetAccountStorage;
-    property BlocksCount : Cardinal read GetBlocksCount;
+    property BlocksCount: Cardinal read GetBlocksCount;
   end;
 
 implementation
 
 uses
   {Messages,}
-  SysUtils, Variants, {Graphics,}
+    SysUtils, Variants, {Graphics,}
   {Controls, Forms,}
   {StdCtrls,}
   UTime, UConst;
-
-
 
 function TBlockManager.AccountsCount: Cardinal;
 begin
   Result := FAccountStorage.AccountsCount;
 end;
 
-function TBlockManager.AddNewBlockChainBlock(Operations: TBlock; MaxAllowedTimestamp: Cardinal; var newBlock: TAccountStorageEntry; var errors: AnsiString): Boolean;
+function TBlockManager.AddNewBlockChainBlock(Operations: TBlock; MaxAllowedTimestamp: Cardinal;
+  var newBlock: TAccountStorageEntry; var errors: AnsiString): Boolean;
 var
   buffer, PoW: AnsiString;
   i: Integer;
@@ -125,7 +123,8 @@ begin
       begin
         if ((MaxAllowedTimestamp > 0) and (Operations.OperationBlock.timestamp > MaxAllowedTimestamp)) then
         begin
-          errors := 'Invalid timestamp (Future time: New timestamp ' + Inttostr(Operations.OperationBlock.timestamp) + ' > max allowed ' + Inttostr(MaxAllowedTimestamp) + ')';
+          errors := 'Invalid timestamp (Future time: New timestamp ' + Inttostr(Operations.OperationBlock.timestamp) +
+            ' > max allowed ' + Inttostr(MaxAllowedTimestamp) + ')';
           exit;
         end;
       end;
@@ -145,8 +144,10 @@ begin
       // log it!
       NewLog(Operations, ltupdate,
         Format('New block height:%d nOnce:%d timestamp:%d Operations:%d Fee:%d SafeBoxBalance:%d=%d PoW:%s Operations previous Safe Box hash:%s Future old Safe Box hash for next block:%s',
-        [Operations.OperationBlock.Block, Operations.OperationBlock.nonce, Operations.OperationBlock.timestamp, Operations.Count, Operations.OperationBlock.Fee, AccountStorage.TotalBalance,
-        Operations.SafeBoxTransaction.TotalBalance, TCrypto.ToHexaString(Operations.OperationBlock.proof_of_work), TCrypto.ToHexaString(Operations.OperationBlock.initial_safe_box_hash),
+        [Operations.OperationBlock.Block, Operations.OperationBlock.nonce, Operations.OperationBlock.timestamp,
+        Operations.Count, Operations.OperationBlock.Fee, AccountStorage.TotalBalance,
+        Operations.SafeBoxTransaction.TotalBalance, TCrypto.ToHexaString(Operations.OperationBlock.proof_of_work),
+        TCrypto.ToHexaString(Operations.OperationBlock.initial_safe_box_hash),
         TCrypto.ToHexaString(AccountStorage.AccountStorageHash)]));
       // Save Operations to disk
       if not FIsRestoringFromFile then
@@ -244,7 +245,8 @@ begin
   except
     on E: Exception do
     begin
-      TLog.NewLog(lterror, Classname, 'Error destroying Blockmanager step: ' + step + ' Errors (' + E.Classname + '): ' + E.Message);
+      TLog.NewLog(lterror, Classname, 'Error destroying Blockmanager step: ' + step + ' Errors (' + E.Classname + '): '
+        + E.Message);
       raise;
     end;
   end;
@@ -279,11 +281,13 @@ begin
       begin
         if not Storage.LoadBlockChainBlock(FLastBlockCache, BlocksCount - 1) then
         begin
-          NewLog(nil, lterror, 'Cannot find blockchain ' + Inttostr(BlocksCount - 1) + ' so cannot accept bank current block ' + Inttostr(BlocksCount));
+          NewLog(nil, lterror, 'Cannot find blockchain ' + Inttostr(BlocksCount - 1) +
+            ' so cannot accept bank current block ' + Inttostr(BlocksCount));
           Clear;
         end;
       end;
-      NewLog(nil, ltinfo, 'Start restoring from disk operations (Max ' + Inttostr(max_block) + ') BlockCount: ' + Inttostr(BlocksCount) + ' Orphan: ' + Storage.Orphan);
+      NewLog(nil, ltinfo, 'Start restoring from disk operations (Max ' + Inttostr(max_block) + ') BlockCount: ' +
+        Inttostr(BlocksCount) + ' Orphan: ' + Storage.Orphan);
       Operations := TBlock.Create(Self);
       try
         while ((BlocksCount <= max_block)) do
@@ -323,7 +327,8 @@ begin
       finally
         Operations.Free;
       end;
-      NewLog(nil, ltinfo, 'End restoring from disk operations (Max ' + Inttostr(max_block) + ') Orphan: ' + Storage.Orphan + ' Restored ' + Inttostr(BlocksCount) + ' blocks');
+      NewLog(nil, ltinfo, 'End restoring from disk operations (Max ' + Inttostr(max_block) + ') Orphan: ' +
+        Storage.Orphan + ' Restored ' + Inttostr(BlocksCount) + ' blocks');
     finally
       FIsRestoringFromFile := false;
       FUpgradingToV2 := false;
@@ -335,7 +340,7 @@ end;
 
 function TBlockManager.GetAccountStorage: TAccountStorage;
 begin
- Result := FAccountStorage;
+  Result := FAccountStorage;
 end;
 
 function TBlockManager.GetActualTargetSecondsAverage(BackBlocks: Cardinal): Real;
@@ -363,7 +368,7 @@ end;
 
 function TBlockManager.GetLastOperationBlock: TBlockHeader;
 begin
- Result := FLastOperationBlock;
+  Result := FLastOperationBlock;
 end;
 
 function TBlockManager.GetTargetSecondsAverage(FromBlock, BackBlocks: Cardinal): Real;

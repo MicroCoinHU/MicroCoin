@@ -7,18 +7,18 @@ unit MicroCoin.Node.Node;
   Distributed under the MIT software license, see the accompanying file LICENSE
   or visit http://www.opensource.org/licenses/mit-license.php.
 }
-
+
 interface
 
 uses Classes, MicroCoin.BlockChain.BlockManager, UCrypto,
-     UThread, SyncObjs, ULog, MicroCoin.Transaction.Base,
-     MicroCoin.Common.Lists, MicroCoin.Account.Data,
-     MicroCoin.Transaction.Transaction, MicroCoin.BlockChain.Events,
-     MicroCoin.Net.Connection, MicroCoin.Net.ConnectionManager,
-     MicroCoin.Transaction.Events, MicroCOin.Net.Server, MicroCoin.Net.NodeServer,
-     MicroCoin.BlockChain.Block, MicroCoin.Transaction.TransactionList,
-     MicroCoin.Transaction.HashTree, MicroCoin.Account.Storage,
-     MicroCoin.BlockChain.BlockHeader, Sysutils, UConst, UTime;
+  UThread, SyncObjs, ULog, MicroCoin.Transaction.Base,
+  MicroCoin.Common.Lists, MicroCoin.Account.Data,
+  MicroCoin.Transaction.Transaction, MicroCoin.BlockChain.Events,
+  MicroCoin.Net.Connection, MicroCoin.Net.ConnectionManager,
+  MicroCoin.Transaction.Events, MicroCoin.Net.Server, MicroCoin.Net.NodeServer,
+  MicroCoin.BlockChain.Block, MicroCoin.Transaction.TransactionList,
+  MicroCoin.Transaction.HashTree, MicroCoin.Account.Storage,
+  MicroCoin.BlockChain.BlockHeader, Sysutils, UConst, UTime;
 
 type
 
@@ -38,7 +38,7 @@ type
 {$IFDEF BufferOfFutureOperations}
     FBufferAuxWaitingOperations: TOperationsHashTree;
 {$ENDIF}
-    class var _Node : TNode;
+    class var _Node: TNode;
     procedure OnBankNewBlock(Sender: TObject);
     procedure SetNodeLogFilename(const Value: AnsiString);
     function GetNodeLogFilename: AnsiString;
@@ -46,8 +46,10 @@ type
     procedure Notification(AComponent: TComponent; Operation: TOperation); override;
   public
     class function Node: TNode;
-    class procedure DecodeIpStringToNodeServerAddressArray(const Ips: AnsiString; var NodeServerAddressArray: TNodeServerAddressArray);
-    class function EncodeNodeServerAddressArrayToIpString(const NodeServerAddressArray: TNodeServerAddressArray): AnsiString;
+    class procedure DecodeIpStringToNodeServerAddressArray(const Ips: AnsiString;
+      var NodeServerAddressArray: TNodeServerAddressArray);
+    class function EncodeNodeServerAddressArrayToIpString(const NodeServerAddressArray: TNodeServerAddressArray)
+      : AnsiString;
 
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
@@ -57,15 +59,19 @@ type
     //
     property Operations: TBlock read FOperations;
     //
-    function AddNewBlockChain(SenderConnection: TNetConnection; NewBlockOperations: TBlock; var newBlockAccount: TAccountStorageEntry; var errors: AnsiString): Boolean;
-    function AddOperations(SenderConnection: TNetConnection; Operations: TTransactionHashTree; OperationsResult: TTransactionList; var errors: AnsiString): Integer;
+    function AddNewBlockChain(SenderConnection: TNetConnection; NewBlockOperations: TBlock;
+      var newBlockAccount: TAccountStorageEntry; var errors: AnsiString): Boolean;
+    function AddOperations(SenderConnection: TNetConnection; Operations: TTransactionHashTree;
+      OperationsResult: TTransactionList; var errors: AnsiString): Integer;
     function AddOperation(SenderConnection: TNetConnection; Operation: ITransaction; var errors: AnsiString): Boolean;
     function SendNodeMessage(Target: TNetConnection; TheMessage: AnsiString; var errors: AnsiString): Boolean;
     //
     procedure NotifyBlocksChanged;
     //
-    procedure GetStoredOperationsFromAccount(const OperationsResume: TTransactionList; account_number: Cardinal; MaxDepth, StartOperation, EndOperation: Integer);
-    function FindOperation(const OperationComp: TBlock; const OperationHash: TRawBytes; var Block: Cardinal; var operation_block_index: Integer): Boolean;
+    procedure GetStoredOperationsFromAccount(const OperationsResume: TTransactionList; account_number: Cardinal;
+      MaxDepth, StartOperation, EndOperation: Integer);
+    function FindOperation(const OperationComp: TBlock; const OperationHash: TRawBytes; var Block: Cardinal;
+      var operation_block_index: Integer): Boolean;
     //
     procedure AutoDiscoverNodes(const Ips: AnsiString);
     function IsBlockChainValid(var WhyNot: AnsiString): Boolean;
@@ -78,9 +84,8 @@ type
     property Bank: TBlockManager read FBank;
     property NodeLogFilename: AnsiString read GetNodeLogFilename write SetNodeLogFilename;
     property OperationSequenceLock: TPCCriticalSection read FOperationSequenceLock;
-    property NotifyList : TList read FNotifyList;
+    property NotifyList: TList read FNotifyList;
   end;
-
 
 implementation
 
@@ -90,7 +95,8 @@ resourcestring
   rsAccountSZero = 'Account %s zero fee operations per block limit:%d';
   rsBlockchainRe = 'Blockchain reward';
 
-function TNode.AddNewBlockChain(SenderConnection: TNetConnection; NewBlockOperations: TBlock; var newBlockAccount: TAccountStorageEntry; var errors: AnsiString): Boolean;
+function TNode.AddNewBlockChain(SenderConnection: TNetConnection; NewBlockOperations: TBlock;
+  var newBlockAccount: TAccountStorageEntry; var errors: AnsiString): Boolean;
 var
   i, j: Integer;
   nc: TNetConnection;
@@ -104,18 +110,21 @@ begin
   errors := '';
   if FDisabledsNewBlocksCount > 0 then
   begin
-    TLog.NewLog(lterror, Classname, Format('Cannot Add new BlockChain due is adding disabled - Connection:%s NewBlock:%s', [Inttohex(PtrInt(SenderConnection), 8),
-      TBlock.OperationBlockToText(NewBlockOperations.OperationBlock)]));
+    TLog.NewLog(lterror, Classname,
+      Format('Cannot Add new BlockChain due is adding disabled - Connection:%s NewBlock:%s',
+      [Inttohex(PtrInt(SenderConnection), 8), TBlock.OperationBlockToText(NewBlockOperations.OperationBlock)]));
     errors := 'Adding blocks is disabled';
     exit;
   end;
   if NewBlockOperations.OperationBlock.Block <> Bank.BlocksCount then
   begin
-    errors := 'New block number (' + IntToStr(NewBlockOperations.OperationBlock.Block) + ') not valid! (Expected ' + IntToStr(Bank.BlocksCount) + ')';
+    errors := 'New block number (' + IntToStr(NewBlockOperations.OperationBlock.Block) + ') not valid! (Expected ' +
+      IntToStr(Bank.BlocksCount) + ')';
     exit;
   end;
   OpBlock := NewBlockOperations.OperationBlock;
-  TLog.NewLog(ltdebug, Classname, Format('AddNewBlockChain Connection:%s NewBlock:%s', [Inttohex(PtrInt(SenderConnection), 8), TBlock.OperationBlockToText(OpBlock)]));
+  TLog.NewLog(ltdebug, Classname, Format('AddNewBlockChain Connection:%s NewBlock:%s',
+    [Inttohex(PtrInt(SenderConnection), 8), TBlock.OperationBlockToText(OpBlock)]));
   if not TPCThread.TryProtectEnterCriticalSection(Self, 2000, FLockNodeOperations) then
   begin
     if NewBlockOperations.OperationBlock.Block <> Bank.BlocksCount then
@@ -137,31 +146,40 @@ begin
     ms := TMemoryStream.Create;
     try
       FOperations.SaveBlockToStream(false, ms);
-      Result := Bank.AddNewBlockChainBlock(NewBlockOperations, TConnectionManager.NetData.NetworkAdjustedTime.GetMaxAllowedTimestampForNewBlock, newBlockAccount, errors);
+      Result := Bank.AddNewBlockChainBlock(NewBlockOperations,
+        TConnectionManager.NetData.NetworkAdjustedTime.GetMaxAllowedTimestampForNewBlock, newBlockAccount, errors);
       if Result then
       begin
         if Assigned(SenderConnection) then
         begin
-          FNodeLog.NotifyNewLog(ltupdate, SenderConnection.Classname, Format(';%d;%s;%s;;%d;%d;%d;%s', [OpBlock.Block, SenderConnection.ClientRemoteAddr, OpBlock.block_payload, OpBlock.timestamp,
-            UnivDateTimeToUnix(DateTime2UnivDateTime(Now)), UnivDateTimeToUnix(DateTime2UnivDateTime(Now)) - OpBlock.timestamp, Inttohex(OpBlock.compact_target, 8)]));
+          FNodeLog.NotifyNewLog(ltupdate, SenderConnection.Classname,
+            Format(';%d;%s;%s;;%d;%d;%d;%s', [OpBlock.Block, SenderConnection.ClientRemoteAddr, OpBlock.block_payload,
+            OpBlock.timestamp, UnivDateTimeToUnix(DateTime2UnivDateTime(Now)),
+            UnivDateTimeToUnix(DateTime2UnivDateTime(Now)) - OpBlock.timestamp, Inttohex(OpBlock.compact_target, 8)]));
         end
         else
         begin
-          FNodeLog.NotifyNewLog(ltupdate, Classname, Format(';%d;%s;%s;;%d;%d;%d;%s', [OpBlock.Block, 'NIL', OpBlock.block_payload, OpBlock.timestamp, UnivDateTimeToUnix(DateTime2UnivDateTime(Now)),
-            UnivDateTimeToUnix(DateTime2UnivDateTime(Now)) - OpBlock.timestamp, Inttohex(OpBlock.compact_target, 8)]));
+          FNodeLog.NotifyNewLog(ltupdate, Classname, Format(';%d;%s;%s;;%d;%d;%d;%s',
+            [OpBlock.Block, 'NIL', OpBlock.block_payload, OpBlock.timestamp,
+            UnivDateTimeToUnix(DateTime2UnivDateTime(Now)), UnivDateTimeToUnix(DateTime2UnivDateTime(Now)) -
+            OpBlock.timestamp, Inttohex(OpBlock.compact_target, 8)]));
         end;
       end
       else
       begin
         if Assigned(SenderConnection) then
         begin
-          FNodeLog.NotifyNewLog(lterror, SenderConnection.Classname, Format(';%d;%s;%s;%s;%d;%d;%d;%s', [OpBlock.Block, SenderConnection.ClientRemoteAddr, OpBlock.block_payload, errors,
-            OpBlock.timestamp, UnivDateTimeToUnix(DateTime2UnivDateTime(Now)), UnivDateTimeToUnix(DateTime2UnivDateTime(Now)) - OpBlock.timestamp, Inttohex(OpBlock.compact_target, 8)]));
+          FNodeLog.NotifyNewLog(lterror, SenderConnection.Classname,
+            Format(';%d;%s;%s;%s;%d;%d;%d;%s', [OpBlock.Block, SenderConnection.ClientRemoteAddr, OpBlock.block_payload,
+            errors, OpBlock.timestamp, UnivDateTimeToUnix(DateTime2UnivDateTime(Now)),
+            UnivDateTimeToUnix(DateTime2UnivDateTime(Now)) - OpBlock.timestamp, Inttohex(OpBlock.compact_target, 8)]));
         end
         else
         begin
-          FNodeLog.NotifyNewLog(lterror, Classname, Format(';%d;%s;%s;%s;%d;%d;%d;%s', [OpBlock.Block, 'NIL', OpBlock.block_payload, errors, OpBlock.timestamp,
-            UnivDateTimeToUnix(DateTime2UnivDateTime(Now)), UnivDateTimeToUnix(DateTime2UnivDateTime(Now)) - OpBlock.timestamp, Inttohex(OpBlock.compact_target, 8)]));
+          FNodeLog.NotifyNewLog(lterror, Classname, Format(';%d;%s;%s;%s;%d;%d;%d;%s',
+            [OpBlock.Block, 'NIL', OpBlock.block_payload, errors, OpBlock.timestamp,
+            UnivDateTimeToUnix(DateTime2UnivDateTime(Now)), UnivDateTimeToUnix(DateTime2UnivDateTime(Now)) -
+            OpBlock.timestamp, Inttohex(OpBlock.compact_target, 8)]));
         end;
       end;
       FOperations.Clear(true);
@@ -193,7 +211,8 @@ begin
           TLog.NewLog(ltinfo, Classname, 'Resending ' + IntToStr(opsht.OperationsCount) + ' operations for new block');
           for i := 0 to opsht.OperationsCount - 1 do
           begin
-            TLog.NewLog(ltinfo, Classname, 'Resending (' + IntToStr(i + 1) + '/' + IntToStr(opsht.OperationsCount) + '): ' + opsht.GetOperation(i).ToString);
+            TLog.NewLog(ltinfo, Classname, 'Resending (' + IntToStr(i + 1) + '/' + IntToStr(opsht.OperationsCount) +
+              '): ' + opsht.GetOperation(i).ToString);
           end;
         end;
         // Clean sent operations buffer
@@ -229,7 +248,8 @@ begin
     end;
   finally
     FLockNodeOperations.Release;
-    TLog.NewLog(ltdebug, Classname, Format('Finalizing AddNewBlockChain Connection:%s NewBlock:%s', [Inttohex(PtrInt(SenderConnection), 8), TBlock.OperationBlockToText(OpBlock)]));
+    TLog.NewLog(ltdebug, Classname, Format('Finalizing AddNewBlockChain Connection:%s NewBlock:%s',
+      [Inttohex(PtrInt(SenderConnection), 8), TBlock.OperationBlockToText(OpBlock)]));
   end;
   if Result then
   begin
@@ -251,7 +271,8 @@ begin
   end;
 end;
 
-function TNode.AddOperations(SenderConnection: TNetConnection; Operations: TTransactionHashTree; OperationsResult: TTransactionList; var errors: AnsiString): Integer;
+function TNode.AddOperations(SenderConnection: TNetConnection; Operations: TTransactionHashTree;
+  OperationsResult: TTransactionList; var errors: AnsiString): Integer;
 {$IFDEF BufferOfFutureOperations}
   procedure Process_BufferOfFutureOperations(valids_operations: TOperationsHashTree);
   var
@@ -271,7 +292,8 @@ function TNode.AddOperations(SenderConnection: TNetConnection; Operations: TTran
         ActOp := FBufferAuxWaitingOperations.GetOperation(i);
         if FOperations.AddOperation(true, ActOp, e) then
         begin
-          TLog.NewLog(ltinfo, Classname, Format('AddOperation FromBufferWaitingOperations %d/%d: %s', [i + 1, FBufferAuxWaitingOperations.OperationsCount, ActOp.ToString]));
+          TLog.NewLog(ltinfo, Classname, Format('AddOperation FromBufferWaitingOperations %d/%d: %s',
+            [i + 1, FBufferAuxWaitingOperations.OperationsCount, ActOp.ToString]));
           inc(nAdded);
           valids_operations.AddOperationToHashTree(ActOp);
           FBufferAuxWaitingOperations.Delete(i);
@@ -279,7 +301,8 @@ function TNode.AddOperations(SenderConnection: TNetConnection; Operations: TTran
         else
         begin
           sAcc := FOperations.SafeBoxTransaction.Account(ActOp.SignerAccount);
-          if (sAcc.n_operation > ActOp.n_operation) or ((sAcc.n_operation = ActOp.n_operation) and (sAcc.balance > 0)) then
+          if (sAcc.n_operation > ActOp.n_operation) or ((sAcc.n_operation = ActOp.n_operation) and (sAcc.balance > 0))
+          then
           begin
             FBufferAuxWaitingOperations.Delete(i);
             inc(nDeleted);
@@ -291,7 +314,8 @@ function TNode.AddOperations(SenderConnection: TNetConnection; Operations: TTran
     end;
     if (nAdded > 0) or (nDeleted > 0) or (FBufferAuxWaitingOperations.OperationsCount > 0) then
     begin
-      TLog.NewLog(ltinfo, Classname, Format('FromBufferWaitingOperations status - Added:%d Deleted:%d Buffer:%d', [nAdded, nDeleted, FBufferAuxWaitingOperations.OperationsCount]));
+      TLog.NewLog(ltinfo, Classname, Format('FromBufferWaitingOperations status - Added:%d Deleted:%d Buffer:%d',
+        [nAdded, nDeleted, FBufferAuxWaitingOperations.OperationsCount]));
     end;
   end;
 {$ENDIF}
@@ -321,7 +345,8 @@ begin
   errors := '';
   valids_operations := TTransactionHashTree.Create;
   try
-    TLog.NewLog(ltdebug, Classname, Format('AddOperations Connection:%s Operations:%d', [Inttohex(PtrInt(SenderConnection), 8), Operations.OperationsCount]));
+    TLog.NewLog(ltdebug, Classname, Format('AddOperations Connection:%s Operations:%d',
+      [Inttohex(PtrInt(SenderConnection), 8), Operations.OperationsCount]));
     if not TPCThread.TryProtectEnterCriticalSection(Self, 4000, FLockNodeOperations) then
     begin
       s := 'Cannot AddOperations due blocking lock operations node';
@@ -342,13 +367,16 @@ begin
         begin
           // Protocol 2 limitation: In order to prevent spam of operations without Fee, will protect it
           if (ActOp.Fee = 0) and (Bank.AccountStorage.CurrentProtocol >= CT_PROTOCOL_2) and
-            (FOperations.OperationsHashTree.TransactionCountsWithoutFeeBySameSigner(ActOp.SignerAccount) >= CT_MaxAccountOperationsPerBlockWithoutFee) then
+            (FOperations.OperationsHashTree.TransactionCountsWithoutFeeBySameSigner(ActOp.SignerAccount) >=
+            CT_MaxAccountOperationsPerBlockWithoutFee) then
           begin
-            e := Format(rsAccountSZero, [TAccount.AccountNumberToAccountTxtNumber(ActOp.SignerAccount), CT_MaxAccountOperationsPerBlockWithoutFee]);
+            e := Format(rsAccountSZero, [TAccount.AccountNumberToAccountTxtNumber(ActOp.SignerAccount),
+              CT_MaxAccountOperationsPerBlockWithoutFee]);
             if (errors <> '') then
               errors := errors + ' ';
             errors := errors + 'Op ' + IntToStr(j + 1) + '/' + IntToStr(Operations.OperationsCount) + ':' + e;
-            TLog.NewLog(ltdebug, Classname, Format('AddOperation invalid/duplicated %d/%d: %s  - Error:%s', [(j + 1), Operations.OperationsCount, ActOp.ToString, e]));
+            TLog.NewLog(ltdebug, Classname, Format('AddOperation invalid/duplicated %d/%d: %s  - Error:%s',
+              [(j + 1), Operations.OperationsCount, ActOp.ToString, e]));
             if Assigned(OperationsResult) then
             begin
               ActOp.GetTransactionData(0, ActOp.SignerAccount, OPR);
@@ -367,7 +395,8 @@ begin
             begin
               inc(Result);
               valids_operations.AddTransactionToHashTree(ActOp);
-              TLog.NewLog(ltdebug, Classname, Format('AddOperation %d/%d: %s', [(j + 1), Operations.OperationsCount, ActOp.ToString]));
+              TLog.NewLog(ltdebug, Classname, Format('AddOperation %d/%d: %s', [(j + 1), Operations.OperationsCount,
+                ActOp.ToString]));
               if Assigned(OperationsResult) then
               begin
                 ActOp.GetTransactionData(0, ActOp.SignerAccount, OPR);
@@ -381,7 +410,8 @@ begin
               if (errors <> '') then
                 errors := errors + ' ';
               errors := errors + 'Op ' + IntToStr(j + 1) + '/' + IntToStr(Operations.OperationsCount) + ':' + e;
-              TLog.NewLog(ltdebug, Classname, Format('AddOperation invalid/duplicated %d/%d: %s  - Error:%s', [(j + 1), Operations.OperationsCount, ActOp.ToString, e]));
+              TLog.NewLog(ltdebug, Classname, Format('AddOperation invalid/duplicated %d/%d: %s  - Error:%s',
+                [(j + 1), Operations.OperationsCount, ActOp.ToString, e]));
               if Assigned(OperationsResult) then
               begin
                 ActOp.GetTransactionData(0, ActOp.SignerAccount, OPR);
@@ -396,13 +426,17 @@ begin
               if (Assigned(SenderConnection)) then
               begin
                 sAcc := FOperations.SafeBoxTransaction.Account(ActOp.SignerAccount);
-                if (sAcc.n_operation < ActOp.n_operation) or ((sAcc.n_operation = ActOp.n_operation) and (sAcc.balance = 0) and (ActOp.OperationFee > 0) and (ActOp.OpType = CT_Op_Changekey)) then
+                if (sAcc.n_operation < ActOp.n_operation) or
+                  ((sAcc.n_operation = ActOp.n_operation) and (sAcc.balance = 0) and (ActOp.OperationFee > 0) and
+                  (ActOp.OpType = CT_Op_Changekey)) then
                 begin
                   if FBufferAuxWaitingOperations.IndexOfOperation(ActOp) < 0 then
                   begin
                     FBufferAuxWaitingOperations.AddOperationToHashTree(ActOp);
-                    TLog.NewLog(ltinfo, Classname, Format('New FromBufferWaitingOperations %d/%d (new buffer size:%d): %s',
-                      [j + 1, Operations.OperationsCount, FBufferAuxWaitingOperations.OperationsCount, ActOp.ToString]));
+                    TLog.NewLog(ltinfo, Classname,
+                      Format('New FromBufferWaitingOperations %d/%d (new buffer size:%d): %s',
+                      [j + 1, Operations.OperationsCount, FBufferAuxWaitingOperations.OperationsCount,
+                      ActOp.ToString]));
                   end;
                 end;
               end;
@@ -420,7 +454,8 @@ begin
       FLockNodeOperations.Release;
       if Result <> 0 then
       begin
-        TLog.NewLog(ltdebug, Classname, Format('Finalizing AddOperations Connection:%s Operations:%d valids:%d', [Inttohex(PtrInt(SenderConnection), 8), Operations.OperationsCount, Result]));
+        TLog.NewLog(ltdebug, Classname, Format('Finalizing AddOperations Connection:%s Operations:%d valids:%d',
+          [Inttohex(PtrInt(SenderConnection), 8), Operations.OperationsCount, Result]));
       end;
     end;
     if Result = 0 then
@@ -489,7 +524,8 @@ begin
     _Node := Self;
 end;
 
-class procedure TNode.DecodeIpStringToNodeServerAddressArray(const Ips: AnsiString; var NodeServerAddressArray: TNodeServerAddressArray);
+class procedure TNode.DecodeIpStringToNodeServerAddressArray(const Ips: AnsiString;
+  var NodeServerAddressArray: TNodeServerAddressArray);
   function GetIp(var ips_string: AnsiString; var nsa: TNodeServer): Boolean;
   const
     CT_IP_CHARS = ['a' .. 'z', 'A' .. 'Z', '0' .. '9', '.', '-', '_'];
@@ -585,7 +621,8 @@ begin
   except
     on e: Exception do
     begin
-      TLog.NewLog(lterror, Classname, 'Error destroying Node step: ' + step + ' Errors (' + e.Classname + '): ' + e.Message);
+      TLog.NewLog(lterror, Classname, 'Error destroying Node step: ' + step + ' Errors (' + e.Classname + '): ' +
+        e.Message);
       raise;
     end;
   end;
@@ -604,7 +641,8 @@ begin
   dec(FDisabledsNewBlocksCount);
 end;
 
-class function TNode.EncodeNodeServerAddressArrayToIpString(const NodeServerAddressArray: TNodeServerAddressArray): AnsiString;
+class function TNode.EncodeNodeServerAddressArrayToIpString(const NodeServerAddressArray: TNodeServerAddressArray)
+  : AnsiString;
 var
   i: Integer;
 begin
@@ -665,13 +703,15 @@ begin
     begin
       if TConnectionManager.NetData.IsGettingNewBlockChainFromClient then
       begin
-        CurrentProcess := 'Obtaining valid BlockChain - Found block ' + IntToStr(TConnectionManager.NetData.MaxRemoteOperationBlock.Block);
+        CurrentProcess := 'Obtaining valid BlockChain - Found block ' +
+          IntToStr(TConnectionManager.NetData.MaxRemoteOperationBlock.Block);
       end
       else
       begin
         if TConnectionManager.NetData.MaxRemoteOperationBlock.Block > FOperations.OperationBlock.Block then
         begin
-          CurrentProcess := 'Found block ' + IntToStr(TConnectionManager.NetData.MaxRemoteOperationBlock.Block) + ' (Wait until downloaded)';
+          CurrentProcess := 'Found block ' + IntToStr(TConnectionManager.NetData.MaxRemoteOperationBlock.Block) +
+            ' (Wait until downloaded)';
         end
         else
         begin
@@ -713,7 +753,8 @@ begin
   end;
 end;
 
-procedure TNode.GetStoredOperationsFromAccount(const OperationsResume: TTransactionList; account_number: Cardinal; MaxDepth, StartOperation, EndOperation: Integer);
+procedure TNode.GetStoredOperationsFromAccount(const OperationsResume: TTransactionList; account_number: Cardinal;
+  MaxDepth, StartOperation, EndOperation: Integer);
 // Optimization:
 // For better performance, will only include at "OperationsResume" values betweeen "startOperation" and "endOperation"
   procedure DoGetFromBlock(block_number: Integer; last_balance: Int64; act_depth: Integer; nOpsCounter: Integer);
@@ -732,7 +773,8 @@ procedure TNode.GetStoredOperationsFromAccount(const OperationsResume: TTransact
       l := TList.Create;
       try
         last_block_number := block_number + 1;
-        while (last_block_number > block_number) and (act_depth > 0) and (block_number >= (account_number div CT_AccountsPerBlock)) and (nOpsCounter <= EndOperation) do
+        while (last_block_number > block_number) and (act_depth > 0) and
+          (block_number >= (account_number div CT_AccountsPerBlock)) and (nOpsCounter <= EndOperation) do
         begin
           last_block_number := block_number;
           next_block_number := block_number;
@@ -770,7 +812,8 @@ procedure TNode.GetStoredOperationsFromAccount(const OperationsResume: TTransact
             end;
           end;
           // Is a new block operation?
-          if (TAccount.AccountBlock(account_number) = block_number) and ((account_number mod CT_AccountsPerBlock) = 0) then
+          if (TAccount.AccountBlock(account_number) = block_number) and ((account_number mod CT_AccountsPerBlock) = 0)
+          then
           begin
             OPR := TTransactionData.Empty;
             OPR.valid := true;
@@ -814,7 +857,8 @@ begin
     DoGetFromBlock(acc.updated_block, acc.balance, MaxDepth, 0);
 end;
 
-function TNode.FindOperation(const OperationComp: TBlock; const OperationHash: TRawBytes; var Block: Cardinal; var operation_block_index: Integer): Boolean;
+function TNode.FindOperation(const OperationComp: TBlock; const OperationHash: TRawBytes; var Block: Cardinal;
+  var operation_block_index: Integer): Boolean;
 { With a OperationHash, search it }
 var
   Account, n_operation: Cardinal;
@@ -843,7 +887,8 @@ begin
         begin
           opHashValid := op.TransactionHash(0);
           opHash_OLD := op.TransactionHash_OLD(0);
-          if (opHashValid = OperationHash) or ((FBank.BlocksCount < CT_Protocol_Upgrade_v2_MinBlock) and (opHash_OLD = OperationHash)) then
+          if (opHashValid = OperationHash) or ((FBank.BlocksCount < CT_Protocol_Upgrade_v2_MinBlock) and
+            (opHash_OLD = OperationHash)) then
           begin
             operation_block_index := i;
             OperationComp.CopyFrom(FOperations);

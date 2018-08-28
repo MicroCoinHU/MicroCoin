@@ -26,18 +26,20 @@ type
     class function HasTransactionPlugin(ATransactionClass: TTransactionClass): boolean; overload; static;
     class function HasTransactionPlugin(ATransactionType: Cardinal): boolean; overload; static;
   public
-    class function RegisterTransactionPlugin(ATransactionClass: TTransactionClass; ATransactionType: byte): Boolean; static;
+    class function RegisterTransactionPlugin(ATransactionClass: TTransactionClass; ATransactionType: byte)
+      : boolean; static;
     class function GetTransactionPlugin(ATransactionType: Cardinal): TTransactionClass; static;
   end;
 
 implementation
 
-class function TTransactionManager.RegisterTransactionPlugin(ATransactionClass: TTransactionClass; ATransactionType: byte): Boolean;
+class function TTransactionManager.RegisterTransactionPlugin(ATransactionClass: TTransactionClass;
+  ATransactionType: byte): boolean;
 var
   i: Integer;
 begin
-  if not HasTransactionPlugin(ATransactionClass)
-  then begin
+  if not HasTransactionPlugin(ATransactionClass) then
+  begin
     SetLength(FTransactionPlugins, length(FTransactionPlugins) + 1);
     FTransactionPlugins[high(FTransactionPlugins)].TransactionClass := ATransactionClass;
     FTransactionPlugins[high(FTransactionPlugins)].TransactionType := ATransactionType;
@@ -45,7 +47,8 @@ begin
 end;
 
 class function TTransactionManager.HasTransactionPlugin(ATransactionClass: TTransactionClass): boolean;
-var i : integer;
+var
+  i: Integer;
 begin
   Result := false;
   for i := low(FTransactionPlugins) to high(FTransactionPlugins) do
@@ -60,7 +63,7 @@ end;
 
 class function TTransactionManager.HasTransactionPlugin(ATransactionType: Cardinal): boolean;
 var
-  i : integer;
+  i: Integer;
 begin
   Result := false;
   for i := low(FTransactionPlugins) to high(FTransactionPlugins) do
@@ -74,13 +77,14 @@ begin
 end;
 
 class function TTransactionManager.GetTransactionPlugin(ATransactionType: Cardinal): TTransactionClass;
-var i : integer;
+var
+  i: Integer;
 begin
   Result := nil;
-  for i := Low(FTransactionPlugins) to High(FTransactionPlugins) do
+  for i := low(FTransactionPlugins) to high(FTransactionPlugins) do
   begin
-    if ATransactionType = FTransactionPlugins[i].TransactionType
-    then begin
+    if ATransactionType = FTransactionPlugins[i].TransactionType then
+    begin
       Result := FTransactionPlugins[i].TransactionClass;
       break;
     end;
