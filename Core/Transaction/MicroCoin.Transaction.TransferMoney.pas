@@ -389,7 +389,7 @@ begin
     begin
       TransactionData.OpSubtype := CT_OpSubtype_BuyTransactionBuyer;
       TransactionData.OperationTxt := 'Tx-Out (MCCA ' + TAccount.AccountNumberToAccountTxtNumber(Data.target) +
-        ' Purchase) ' + TCurrencyUtils.FormatMoney(TTransferMoneyTransaction(self).Data.amount) + ' MCC from ' +
+        ' Purchase) ' + TCurrencyUtils.FormatMoney(Data.amount) + ' MCC from ' +
         TAccount.AccountNumberToAccountTxtNumber(Data.sender) + ' to ' + TAccount.AccountNumberToAccountTxtNumber
         (Data.target);
       if (Data.sender = Data.SellerAccount) then
@@ -715,6 +715,7 @@ end;
 function TBuyAccountTransaction.GetTransactionData(Block, Affected_account_number: Cardinal;
   var TransactionData: TTransactionData): Boolean;
 begin
+  TransactionData := TTransactionData.Empty;
   TransactionData.DestAccount := Data.target;
   if Data.sender = Affected_account_number then
   begin

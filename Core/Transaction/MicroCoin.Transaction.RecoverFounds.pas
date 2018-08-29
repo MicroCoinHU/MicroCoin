@@ -194,6 +194,7 @@ end;
 function TRecoverFoundsTransaction.GetTransactionData(Block, Affected_account_number: Cardinal;
   var TransactionData: TTransactionData): Boolean;
 begin
+  TransactionData := TTransactionData.Empty;
   TransactionData.OpSubtype := CT_OpSubtype_Recover;
   TransactionData.OperationTxt := 'Recover founds';
   Result := true;

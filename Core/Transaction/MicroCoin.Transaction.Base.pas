@@ -119,6 +119,7 @@ begin
   Result.SignerAccount := -1;
   Result.DestAccount := -1;
   Result.SellerAccount := -1;
+  Result.AffectedAccount := 0;
   Result.newKey.EC_OpenSSL_NID := 0;
   Result.newKey.x := '';
   Result.newKey.y := '';

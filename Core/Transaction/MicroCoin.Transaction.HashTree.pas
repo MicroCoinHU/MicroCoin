@@ -60,7 +60,7 @@ var
 begin
   l := FHashTreeTransactions.LockList;
   try
-    InternalAddTransactionToHashTree(l, ITransaction(op));
+    InternalAddTransactionToHashTree(l, op);
   finally
     FHashTreeTransactions.UnlockList;
   end;
@@ -82,6 +82,7 @@ begin
         P := l[i];
         // P^.op.Free;
         Dispose(P);
+        P := nil;
       end;
     finally
       l.Clear;
@@ -116,7 +117,7 @@ begin
         for i := 0 to lsender.Count - 1 do
         begin
           PSender := lsender[i];
-          InternalAddTransactionToHashTree(lme, ITransaction(PSender^.op));
+          InternalAddTransactionToHashTree(lme, PSender^.op);
         end;
       finally
         Sender.FHashTreeTransactions.UnlockList;

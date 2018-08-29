@@ -27,7 +27,7 @@ uses
 {$ELSE}
   LCLIntf, LCLType, LMessages,
 {$ENDIF}
-  Classes, Grids, UNode, UAppParams,
+  Classes, Grids, UAppParams, MicroCoin.Node.Events, MicroCoin.Node.Node,
   UWalletKeys, UCrypto, MicroCoin.Transaction.Base, MicroCoin.Common.Lists,
   MicroCoin.Transaction.TransactionList, MicroCoin.Account.AccountKey,
   MicroCoin.BlockChain.Block, MicroCoin.BlockChain.BlockHeader;

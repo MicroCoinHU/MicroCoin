@@ -380,8 +380,8 @@ function TOpChangeAccountInfo.GetTransactionData(Block, Affected_account_number:
 
 var
   s: string;
-
 begin
+  TransactionData := TTransactionData.Empty;
   TransactionData.DestAccount := GetDestinationAccount;
   s := '';
   if (public_key in Data.changes_type) then

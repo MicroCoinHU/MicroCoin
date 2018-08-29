@@ -521,6 +521,7 @@ end;
 function TOpListAccountForSale.GetTransactionData(Block, Affected_account_number: Cardinal;
   var TransactionData: TTransactionData): Boolean;
 begin
+  TransactionData := TTransactionData.Empty;
   if IsPrivateSale then
   begin
     TransactionData.OpSubtype := CT_OpSubtype_ListAccountForPrivateSale;
@@ -572,6 +573,7 @@ end;
 function TOpDelistAccountForSale.GetTransactionData(Block, Affected_account_number: Cardinal;
   var TransactionData: TTransactionData): Boolean;
 begin
+  TransactionData := TTransactionData.Empty;
   TransactionData.OpSubtype := CT_OpSubtype_DelistAccount;
   TransactionData.OperationTxt := 'Delist account ' + TAccount.AccountNumberToAccountTxtNumber(Data.account_target) +
     ' for sale';

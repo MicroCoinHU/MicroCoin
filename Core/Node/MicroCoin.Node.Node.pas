@@ -594,6 +594,7 @@ begin
     FreeAndNil(FOperationSequenceLock);
 
     step := 'Desactivating server';
+
     FNetServer.Active := false;
 
     step := 'Destroying NetServer';

@@ -49,12 +49,30 @@ type
   TCurrencyUtils = class
   public
     class function FormatMoney(Money: Int64): AnsiString;
-    class function TxtToMoney(const moneytxt: AnsiString; var Money: Int64): boolean;
+    class function TxtToMoney(const moneytxt: AnsiString;
+      var Money: Int64): boolean;
   end;
 
 function BinStrCompare(const Str1, Str2: AnsiString): Integer;
+Function TBytesToString(Const bytes: TBytes): AnsiString;
 
 implementation
+
+Function TBytesToString(Const bytes: TBytes): AnsiString;
+Var
+  i: Integer;
+Begin
+  Result := '';
+  for i := 0 to high(bytes) do
+  begin
+    if (bytes[i] < 32) then
+      Result := Result + '#' + IntToHex(bytes[i], 2)
+    else if bytes[i] = ord('#') then
+      Result := Result + '##'
+    else
+      Result := Result + ansichar(bytes[i]);
+  end;
+End;
 
 function BinStrCompare(const Str1, Str2: AnsiString): Integer;
 var
@@ -71,8 +89,8 @@ begin
     Result := 0;
     for i := 1 to Str1Len do
     begin
-      if Str1[i] = Str2[i]
-      then continue;
+      if Str1[i] = Str2[i] then
+        continue;
       if Str1[i] < Str2[i] then
       begin
         Result := -1;
@@ -92,7 +110,8 @@ begin
   Result := FormatFloat('#,###0.0000', (Money / 10000));
 end;
 
-class function TCurrencyUtils.TxtToMoney(const moneytxt: AnsiString; var Money: Int64): boolean;
+class function TCurrencyUtils.TxtToMoney(const moneytxt: AnsiString;
+  var Money: Int64): boolean;
 var
   s: AnsiString;
 begin
@@ -105,11 +124,13 @@ begin
   try
     if pos(FormatSettings.DecimalSeparator, moneytxt) <= 0 then
     begin
-      s := StringReplace(moneytxt, FormatSettings.ThousandSeparator, FormatSettings.DecimalSeparator, [rfReplaceAll]);
+      s := StringReplace(moneytxt, FormatSettings.ThousandSeparator,
+        FormatSettings.DecimalSeparator, [rfReplaceAll]);
     end
     else
     begin
-      s := StringReplace(moneytxt, FormatSettings.ThousandSeparator, '', [rfReplaceAll]);
+      s := StringReplace(moneytxt, FormatSettings.ThousandSeparator, '',
+        [rfReplaceAll]);
     end;
     Money := Round(StrToFloat(s) * 10000);
     Result := true;

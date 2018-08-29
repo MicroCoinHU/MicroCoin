@@ -422,6 +422,7 @@ end;
 function TChangeKeyTransaction.GetTransactionData(Block, Affected_account_number: Cardinal;
   var TransactionData: TTransactionData): Boolean;
 begin
+  TransactionData := TTransactionData.Empty;
   TransactionData.OpSubtype := CT_OpSubtype_ChangeKey;
   TransactionData.newKey := Data.new_accountkey;
   TransactionData.DestAccount := Data.account_target;
@@ -466,6 +467,7 @@ end;
 function TChangeKeySignedTransaction.GetTransactionData(Block, Affected_account_number: Cardinal;
   var TransactionData: TTransactionData): Boolean;
 begin
+  TransactionData := TTransactionData.Empty;
   TransactionData.OpSubtype := CT_OpSubtype_ChangeKeySigned;
   TransactionData.newKey := Data.new_accountkey;
   TransactionData.DestAccount := Data.account_target;
