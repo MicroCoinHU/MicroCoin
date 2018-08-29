@@ -16,13 +16,16 @@ interface
 {$MODE DELPHI}
 {$ENDIF}
 
-uses SysUtils, classes, UCrypto, UCommon, Generics.Collections, Generics.Defaults;
+uses SysUtils, classes, UCrypto, UCommon{$ifdef USE_GENERICS}, Generics.Collections, Generics.Defaults{$ENDIF};
 
 type
+  {$ifndef USE_GENERICS}
+    TCardinalArray = array of cardinal;
+  {$endif}
 
   TOrderedList = class
   private
-    FOrderedList: TList<Cardinal>;
+    FOrderedList: TList{$ifdef USE_GENERICS}<Cardinal>{$endif};
     FDisabledsCount: Integer;
     FModifiedWhileDisabled: Boolean;
     FOnListChanged: TNotifyEvent;
@@ -40,7 +43,7 @@ type
     procedure Enable;
     property OnListChanged: TNotifyEvent read FOnListChanged write FOnListChanged;
     procedure CopyFrom(Sender: TOrderedList);
-    function ToArray: TArray<Cardinal>;
+    function ToArray: {$ifdef USE_GENERICS}TArray<Cardinal>{$else}TCardinalArray{$endif};
   end;
 
   TOrderedRawList = class
@@ -71,7 +74,7 @@ begin
     exit
   else
   begin
-    FOrderedList.Insert(Result, Value);
+    FOrderedList.Insert(Result, {$ifndef USE_GENERICS}@{$endif}Value);
     NotifyChanged;
   end;
 end;
@@ -107,7 +110,7 @@ end;
 
 constructor TOrderedList.Create;
 begin
-  FOrderedList := TList<Cardinal>.Create;
+  FOrderedList := TList{$ifdef USE_GENERICS}<Cardinal>{$endif}.Create;
   FDisabledsCount := 0;
   FModifiedWhileDisabled := false;
 end;
@@ -161,7 +164,11 @@ end;
 
 function TOrderedList.Get(index: Integer): Cardinal;
 begin
+{$ifdef USE_GENERICS}
   Result := FOrderedList[index];
+{$else}
+  Result := Cardinal(FOrderedList[index]^);
+{$endif}
 end;
 
 procedure TOrderedList.NotifyChanged;
@@ -187,7 +194,7 @@ begin
   end;
 end;
 
-function TOrderedList.ToArray: TArray<Cardinal>;
+function TOrderedList.ToArray: {$ifdef USE_GENERICS}TArray<Cardinal>{$else}TCardinalArray{$endif};
 var
   i: Integer;
 begin

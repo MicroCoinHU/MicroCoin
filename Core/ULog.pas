@@ -19,7 +19,7 @@ unit ULog;
 
 interface
 
-uses Classes, UThread, SyncObjs;
+uses Classes, UThread, SyncObjs, Types;
 
 type
   TLogType = (ltinfo, ltupdate, lterror, ltdebug);

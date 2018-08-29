@@ -10,6 +10,11 @@ unit MicroCoin.Transaction.ListAccount;
 
 }
 
+{$ifdef FPC}
+  {$mode delphi}
+{$endif}
+
+
 interface
 
 uses MicroCoin.Transaction.Base,

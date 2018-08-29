@@ -10,6 +10,10 @@ unit MicroCoin.Transaction.ChangeAccountInfo;
 
 }
 
+{$ifdef FPC}
+  {$mode delphi}
+{$endif}
+
 interface
 
 uses ucrypto, MicroCoin.Transaction.Transaction, SysUtils,

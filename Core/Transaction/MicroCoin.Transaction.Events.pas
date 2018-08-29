@@ -1,5 +1,10 @@
 unit MicroCoin.Transaction.Events;
 
+{$ifdef FPC}
+  {$mode delphi}
+{$endif}
+
+
 interface
 
 uses UThread,

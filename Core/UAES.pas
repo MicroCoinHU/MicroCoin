@@ -45,7 +45,6 @@ type
   end;
 
 {$IFDEF FPC}
-
 procedure CopyMemory(Destination: Pointer; Source: Pointer; Length: DWORD);
 {$ENDIF}
 
@@ -218,7 +217,6 @@ begin
   try
     if EVP_DecryptInit(pctx, cipher, @Key[0], @IV[0]) <> 1 then
       exit;
-    l := Length(Value);
     SetLength(buf, Length(Value));
     buf_start := 0;
     if EVP_DecryptUpdate(pctx, @buf[buf_start], out_len, @Value[src_start], Length(Value) - src_start) <> 1 then

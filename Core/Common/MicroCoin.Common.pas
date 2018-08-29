@@ -25,6 +25,9 @@ unit MicroCoin.Common;
   SOFTWARE.
 
 }
+{$ifdef FPC}
+  {$mode delphi}
+{$endif}
 
 interface
 
@@ -34,6 +37,7 @@ type
 
   TErrorCode = (ecSuccess, ecError, ecException, ecCancel, ecUnknown);
 
+{$ifdef USE_GENERICS}
   TResult<T> = record
   public
     IsSuccess: boolean;
@@ -45,18 +49,33 @@ type
     procedure RaiseException;
     class function CreateFromException(E: Exception): TResult<T>; static;
   end;
+{$endif}
 
   TCurrencyUtils = class
   public
-    class function FormatMoney(Money: Int64): AnsiString;
-    class function TxtToMoney(const moneytxt: AnsiString;
-      var Money: Int64): boolean;
+    class function FormatMoney(Money: Int64): AnsiString; static;
+    class function TxtToMoney(const moneytxt: AnsiString; var Money: Int64): boolean; static;
+    class function ToJSONCurrency(microCoins: Int64): Real; static;
+    class function ToMicroCoins(jsonCurr: Real): Int64; static;
   end;
 
 function BinStrCompare(const Str1, Str2: AnsiString): Integer;
 Function TBytesToString(Const bytes: TBytes): AnsiString;
 
+{$IFDEF FPC}
+procedure CopyMemory(Destination: Pointer; Source: Pointer; Length: DWORD); inline;
+{$ENDIF}
+
 implementation
+
+uses Math;
+
+{$IFDEF FPC}
+procedure CopyMemory(Destination: Pointer; Source: Pointer; Length: DWORD);
+begin
+  Move(Source^, Destination^, Length);
+end;
+{$ENDIF}
 
 Function TBytesToString(Const bytes: TBytes): AnsiString;
 Var
@@ -105,6 +124,16 @@ begin
   end;
 end;
 
+class function TCurrencyUtils.ToJSONCurrency(microCoins: Int64): Real;
+begin
+  Result := RoundTo(microCoins / 10000, -4);
+end;
+
+class function TCurrencyUtils.ToMicroCoins(jsonCurr: Real): Int64;
+begin
+  Result := Round(jsonCurr * 10000);
+end;
+
 class function TCurrencyUtils.FormatMoney(Money: Int64): AnsiString;
 begin
   Result := FormatFloat('#,###0.0000', (Money / 10000));
@@ -142,6 +171,7 @@ begin
   end;
 end;
 
+{$ifdef USE_GENERICS}
 { TResult }
 
 class function TResult<T>.CreateFromException(E: Exception): TResult<T>;
@@ -160,5 +190,6 @@ begin
   if PreferredException <> nil then
     raise PreferredException.Create(ErrorMessage);
 end;
+{$ENDIF}
 
 end.

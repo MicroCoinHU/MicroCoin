@@ -10,6 +10,10 @@ unit MicroCoin.Account.AccountKey;
 
 }
 
+{$ifdef FPC}
+  {$mode delphi}
+{$endif}
+
 interface
 
 uses UCrypto, sysutils, classes, uconst, UOpenSSL, ULog, MicroCoin.Common.Lists;
@@ -120,15 +124,15 @@ begin
   if length(rawaccstr) = 0 then
   begin
     dest := CT_TECDSA_Public_Nul;
-    exit;
-  end;
-  ms := TMemoryStream.Create;
-  try
-    ms.WriteBuffer(rawaccstr[1], length(rawaccstr));
-    ms.Position := 0;
-    TStreamOp.ReadAccountKey(ms, dest);
-  finally
-    ms.Free;
+  end else begin
+    ms := TMemoryStream.Create;
+    try
+      ms.WriteBuffer(rawaccstr[1], length(rawaccstr));
+      ms.Position := 0;
+      TStreamOp.ReadAccountKey(ms, dest);
+    finally
+      ms.Free;
+    end;
   end;
 end;
 
@@ -161,8 +165,6 @@ var
   BN, BNAux, BNBase: TBigNum;
   i, j: Integer;
   s1, s2: AnsiString;
-  i64: Int64;
-  b: Byte;
 begin
   Result := False;
   errors := 'Invalid length';
@@ -221,7 +223,6 @@ function TAccountKeyHelper.AccountPublicKeyExport: AnsiString;
 var
   raw: TRawBytes;
   BN, BNMod, BNDiv: TBigNum;
-  i: Integer;
 begin
   Result := '';
   raw := ToRawString;
@@ -252,56 +253,55 @@ var
   BN, BNAux, BNBase: TBigNum;
   i, j: Integer;
   s1, s2: AnsiString;
-  i64: Int64;
-  b: Byte;
 begin
   Result := False;
   errors := 'Invalid length';
   Account := CT_TECDSA_Public_Nul;
-  if length(HumanReadable) < 20 then
-    exit;
-  BN := TBigNum.Create(0);
-  BNAux := TBigNum.Create;
-  BNBase := TBigNum.Create(1);
-  try
-    for i := length(HumanReadable) downto 1 do
-    begin
-      j := pos(HumanReadable[i], CT_Base58);
-      if j = 0 then
+  if length(HumanReadable) >= 20
+  then begin
+    BN := TBigNum.Create(0);
+    BNAux := TBigNum.Create;
+    BNBase := TBigNum.Create(1);
+    try
+      for i := length(HumanReadable) downto 1 do
       begin
-        errors := 'Invalid char "' + HumanReadable[i] + '" at pos ' + inttostr(i) + '/' +
-          inttostr(length(HumanReadable));
+        j := pos(HumanReadable[i], CT_Base58);
+        if j = 0 then
+        begin
+          errors := 'Invalid char "' + HumanReadable[i] + '" at pos ' + inttostr(i) + '/' +
+            inttostr(length(HumanReadable));
+          exit;
+        end;
+        BNAux.value := j - 1;
+        BNAux.Multiply(BNBase);
+        BN.Add(BNAux);
+        BNBase.Multiply(length(CT_Base58));
+      end;
+      // Last 8 hexa chars are the checksum of others
+      s1 := Copy(BN.HexaValue, 3, length(BN.HexaValue));
+      s2 := Copy(s1, length(s1) - 7, 8);
+      s1 := Copy(s1, 1, length(s1) - 8);
+      raw := TCrypto.HexaToRaw(s1);
+      s1 := TCrypto.ToHexaString(TCrypto.DoSha256(raw));
+      if Copy(s1, 1, 8) <> s2 then
+      begin
+        // Invalid checksum
+        errors := 'Invalid checksum';
         exit;
       end;
-      BNAux.value := j - 1;
-      BNAux.Multiply(BNBase);
-      BN.Add(BNAux);
-      BNBase.Multiply(length(CT_Base58));
+      try
+        Account := TAccountKey.FromRawString(raw);
+        Result := true;
+        errors := '';
+      except
+        // Nothing to do... invalid
+        errors := 'Error on conversion from Raw to Account key';
+      end;
+    finally
+      BN.Free;
+      BNBase.Free;
+      BNAux.Free;
     end;
-    // Last 8 hexa chars are the checksum of others
-    s1 := Copy(BN.HexaValue, 3, length(BN.HexaValue));
-    s2 := Copy(s1, length(s1) - 7, 8);
-    s1 := Copy(s1, 1, length(s1) - 8);
-    raw := TCrypto.HexaToRaw(s1);
-    s1 := TCrypto.ToHexaString(TCrypto.DoSha256(raw));
-    if Copy(s1, 1, 8) <> s2 then
-    begin
-      // Invalid checksum
-      errors := 'Invalid checksum';
-      exit;
-    end;
-    try
-      Account := TAccountKey.FromRawString(raw);
-      Result := true;
-      errors := '';
-    except
-      // Nothing to do... invalid
-      errors := 'Error on conversion from Raw to Account key';
-    end;
-  finally
-    BN.Free;
-    BNBase.Free;
-    BNAux.Free;
   end;
 end;
 

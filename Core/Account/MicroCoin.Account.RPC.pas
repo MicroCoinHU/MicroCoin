@@ -9,41 +9,44 @@ unit MicroCoin.Account.RPC;
   or visit http://www.opensource.org/licenses/mit-license.php.
 
 }
+{$ifdef FPC}
+  {$mode delphi}
+{$endif}
 
 interface
 
 uses Sysutils, classes, MicroCoin.RPC.Handler, MicroCoin.Account.Data, Uconst, MicroCoin.Common.Lists,
   MicroCoin.RPC.Server, MicroCoin.Node.Node, MicroCoin.Account.AccountKey, MicroCoin.RPC.PluginManager, UJsonFunctions,
-  UCrypto;
+  UCrypto, MicroCoin.Common;
 
 type
 
   TRPCAccountPlugin = class(TRPCPlugin)
   strict protected
     procedure FillAccountObject(const AAccount: TAccount; AJsonObject: TPCJSONObject);
-    function CapturePubKey(AParams: TPCJSONObject; const APrefix: string; var APubKey: TAccountKey;
-      var RErrorText: string): Boolean;
+    function ExtractPubKey(AParams: TPCJSONObject; const APrefix: string; var APubKey: TAccountKey; var RErrorText: string): Boolean;
     procedure FillPublicKeyObject(const APubKey: TAccountKey; AJsonObject: TPCJSONObject);
+    procedure RegisterHandlers; override;
   public
-    [RPCMethod('getaccount')]
+    {$ifdef USE_RTTI}[RPCMethod('getaccount')]{$endif}
     function GetAccount(AParams: TPCJSONObject): TRPCResult;
-    [RPCMethod('findaccounts')]
+    {$ifdef USE_RTTI}[RPCMethod('findaccounts')]{$endif}
     function FindAccounts(AParams: TPCJSONObject): TRPCResult;
-    [RPCMethod('getwalletaccounts')]
+    {$ifdef USE_RTTI}[RPCMethod('getwalletaccounts')]{$endif}
     function GetWalletAccounts(AParams: TPCJSONObject): TRPCResult;
-    [RPCMethod('getwalletaccountscount')]
+    {$ifdef USE_RTTI}[RPCMethod('getwalletaccountscount')]{$endif}
     function GetWalletAccountsCount(AParams: TPCJSONObject): TRPCResult;
-    [RPCMethod('getwalletcoins')]
+    {$ifdef USE_RTTI}[RPCMethod('getwalletcoins')]{$endif}
     function GetWalletCoins(AParams: TPCJSONObject): TRPCResult;
-    [RPCMethod('getwalletpubkeys')]
+    {$ifdef USE_RTTI}[RPCMethod('getwalletpubkeys')]{$endif}
     function GetWalletPubKeys(AParams: TPCJSONObject): TRPCResult;
-    [RPCMethod('getwalletpubkey')]
+    {$ifdef USE_RTTI}[RPCMethod('getwalletpubkey')]{$endif}
     function GetWalletPubKey(AParams: TPCJSONObject): TRPCResult;
   end;
 
 implementation
 
-function TRPCAccountPlugin.CapturePubKey(AParams: TPCJSONObject; const APrefix: string; var APubKey: TAccountKey;
+function TRPCAccountPlugin.ExtractPubKey(AParams: TPCJSONObject; const APrefix: string; var APubKey: TAccountKey;
   var RErrorText: string): Boolean;
 var
   ansistr: AnsiString;
@@ -100,7 +103,7 @@ procedure TRPCAccountPlugin.FillAccountObject(const AAccount: TAccount; AJsonObj
 begin
   AJsonObject.GetAsVariant('account').Value := AAccount.Account;
   AJsonObject.GetAsVariant('enc_pubkey').Value := TCrypto.ToHexaString(AAccount.accountInfo.AccountKey.ToRawString);
-  AJsonObject.GetAsVariant('balance').Value := ToJSONCurrency(AAccount.balance);
+  AJsonObject.GetAsVariant('balance').Value := TCurrencyUtils.ToJSONCurrency(AAccount.balance);
   AJsonObject.GetAsVariant('n_operation').Value := AAccount.n_operation;
   AJsonObject.GetAsVariant('updated_b').Value := AAccount.updated_block;
   case AAccount.accountInfo.state of
@@ -149,7 +152,7 @@ begin
   start := AParams.AsInteger('start', 0);
   max := AParams.AsInteger('max', 100);
   state := TAccountState(AParams.AsInteger('status', Longint(as_Normal)));
-  hasKey := CapturePubKey(AParams, '', PubKey, errors);
+  hasKey := ExtractPubKey(AParams, '', PubKey, errors);
   // Validate Parameters
   if accountName <> '' then
   begin
@@ -268,7 +271,7 @@ begin
   jsonArr := Result.Response.GetAsArray('result');
   if (AParams.IndexOfName('enc_pubkey') >= 0) or (AParams.IndexOfName('b58_pubkey') >= 0) then
   begin
-    if not(CapturePubKey(AParams, '', key, Result.ErrorMessage)) then
+    if not(ExtractPubKey(AParams, '', key, Result.ErrorMessage)) then
     begin
       Result.ErrorCode := CT_RPC_ErrNum_InvalidPubKey;
       Result.Success := false;
@@ -333,7 +336,7 @@ begin
   Result.ErrorCode := CT_RPC_ErrNum_InternalError;
   if (AParams.IndexOfName('enc_pubkey') >= 0) or (AParams.IndexOfName('b58_pubkey') >= 0) then
   begin
-    if not(CapturePubKey(AParams, '', key, Result.ErrorMessage)) then
+    if not(ExtractPubKey(AParams, '', key, Result.ErrorMessage)) then
     begin
       Result.ErrorCode := CT_RPC_ErrNum_InvalidPubKey;
       exit;
@@ -374,7 +377,7 @@ begin
   Result.ErrorCode := CT_RPC_ErrNum_InternalError;
   if (AParams.IndexOfName('enc_pubkey') >= 0) or (AParams.IndexOfName('b58_pubkey') >= 0) then
   begin
-    if not(CapturePubKey(AParams, '', newKey, Result.ErrorMessage)) then
+    if not(ExtractPubKey(AParams, '', newKey, Result.ErrorMessage)) then
     begin
       Result.ErrorCode := CT_RPC_ErrNum_InvalidPubKey;
       exit;
@@ -392,7 +395,7 @@ begin
     begin
       inc(Account.balance, TNode.Node.Operations.SafeBoxTransaction.Account(ocl.Get(j)).balance);
     end;
-    Result.Response.GetAsVariant('result').Value := ToJSONCurrency(Account.balance);
+    Result.Response.GetAsVariant('result').Value := TCurrencyUtils.ToJSONCurrency(Account.balance);
     Result.Success := true;
   end
   else
@@ -408,7 +411,7 @@ begin
         inc(Account.balance, TNode.Node.Operations.SafeBoxTransaction.Account(ocl.Get(j)).balance);
       end;
     end;
-    Result.Response.GetAsVariant('result').Value := ToJSONCurrency(Account.balance);
+    Result.Response.GetAsVariant('result').Value := TCurrencyUtils.ToJSONCurrency(Account.balance);
     Result.Success := true;
   end;
 end;
@@ -419,7 +422,7 @@ var
   i: integer;
 begin
   Result.Success := false;
-  if not(CapturePubKey(AParams, '', newKey, Result.ErrorMessage)) then
+  if not(ExtractPubKey(AParams, '', newKey, Result.ErrorMessage)) then
   begin
     Result.ErrorCode := CT_RPC_ErrNum_InvalidPubKey;
     exit;
@@ -460,6 +463,17 @@ begin
       break;
   end;
   Result.Success := true;
+end;
+
+procedure TRPCAccountPlugin.RegisterHandlers;
+begin
+  TRPCManager.RegisterHandler('GetAccount',   self.GetAccount);
+  TRPCManager.RegisterHandler('FindAccounts', self.FindAccounts);
+  TRPCManager.RegisterHandler('GetWalletAccounts', self.GetWalletAccounts);
+  TRPCManager.RegisterHandler('GetWalletAccountsCount', self.GetWalletAccountsCount);
+  TRPCManager.RegisterHandler('GetWalletCoins', self.GetWalletCoins);
+  TRPCManager.RegisterHandler('GetWalletPubKey', self.GetWalletPubKey);
+  TRPCManager.RegisterHandler('GetWalletPubKeys', self.GetWalletPubKeys);
 end;
 
 initialization

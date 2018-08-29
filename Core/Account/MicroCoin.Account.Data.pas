@@ -9,6 +9,9 @@ unit MicroCoin.Account.Data;
   or visit http://www.opensource.org/licenses/mit-license.php.
 
 }
+{$ifdef FPC}
+  {$mode delphi}
+{$endif}
 
 interface
 
@@ -283,8 +286,6 @@ class function TAccount.AccountTxtNumberToAccountNumber(const account_txt_number
   var account_number: Cardinal): Boolean;
 var
   i: Integer;
-  char1: AnsiChar;
-  char2: AnsiChar;
   an, rn, anaux: Int64;
 begin
   Result := false;

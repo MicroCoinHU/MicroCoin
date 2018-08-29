@@ -1,5 +1,9 @@
 unit MicroCoin.Mining.Server;
 
+{$ifdef FPC}
+  {$mode delphi}
+{$endif}
+
 interface
 
 uses UTCPIP, UJsonFunctions, MicroCoin.Account.AccountKey, UThread,
@@ -9,7 +13,7 @@ uses UTCPIP, UJsonFunctions, MicroCoin.Account.AccountKey, UThread,
   Variants,
   MicroCoin.Node.Node, MicroCoin.Transaction.HashTree,
   MicroCoin.Transaction.Base,
-  MicroCoin.Account.Storage, Windows, MicroCoin.BlockChain.Protocol,
+  MicroCoin.Account.Storage,{$IFDEF MSWINDOWS} Windows,{$ENDIF} MicroCoin.BlockChain.Protocol,
   MicroCoin.Mining.Common;
 
 type

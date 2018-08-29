@@ -10,6 +10,10 @@ unit MicroCoin.Net.Client;
 
 }
 
+{$ifdef FPC}
+  {$mode delphi}
+{$endif}
+
 interface
 
 uses UThread, MicroCoin.Net.Connection, Sysutils, Classes, ULog, MicroCoin.Net.ConnectionManager;

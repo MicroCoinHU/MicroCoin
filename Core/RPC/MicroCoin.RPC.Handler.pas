@@ -10,10 +10,15 @@ unit MicroCoin.RPC.Handler;
 
 }
 
+{$ifdef FPC}
+  {$mode delphi}
+{$endif}
+
+
 interface
 
 uses UThread, SysUtils, Classes, blcksock,
-  Synautil, Math, UCrypto, Generics.Collections,
+  Synautil, Math, UCrypto,
   MicroCoin.Account.Data, MicroCoin.BlockChain.Block,
   MicroCoin.RPC.PluginManager, MicroCoin.Node.Node,
   MicroCoin.Account.Storage, MicroCoin.BlockChain.BlockHeader,
@@ -22,7 +27,8 @@ uses UThread, SysUtils, Classes, blcksock,
   MicroCoin.Transaction.TransactionList, MicroCoin.Transaction.HashTree,
   MicroCoin.Common.Lists, MicroCoin.Account.AccountKey, MicroCoin.Common,
   MicroCoin.Transaction.Base, MicroCoin.Transaction.Transaction,
-  synsock, {$IFDEF fpc} fpjson, {$ELSE}System.Json, {$ENDIF} UJSONFunctions, RTTI;
+  synsock, {$IFDEF fpc} fpjson, {$ELSE}System.Json, {$ENDIF} UJSONFunctions
+  {$IFDEF USE_RTTI}{$IFDEF FPC}, TypInfo{$else}, RTTI {$endif}{$ENDIF};
 
 const
   CT_RPC_ErrNum_InternalError = 100;

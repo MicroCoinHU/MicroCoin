@@ -10,6 +10,11 @@ unit MicroCoin.Transaction.TransactionList;
 
 }
 
+{$ifdef FPC}
+  {$mode delphi}
+{$endif}
+
+
 interface
 
 uses SysUtils, Classes, MicroCoin.Transaction.Base, UThread,

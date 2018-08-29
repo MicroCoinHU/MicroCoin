@@ -10,6 +10,11 @@ unit MicroCoin.Net.Connection;
 
 }
 
+{$ifdef FPC}
+  {$mode delphi}
+{$endif}
+
+
 interface
 
 uses SysUtils, Classes, UTCPIP, MicroCoin.BlockChain.BlockHeader, UThread,
@@ -115,7 +120,7 @@ implementation
 
 uses UTime, MicroCoin.Net.ConnectionManager, UConst, UCrypto,
   UECIES,
-  UChunk, MicroCoin.Net.Client, Windows, MicroCoin.Transaction.Base,
+  UChunk, MicroCoin.Net.Client,{$IFDEF MSWINDOWS} Windows,{$ENDIF} MicroCoin.Transaction.Base,
   MicroCoin.Net.Utils,
   MicroCoin.Transaction.Manager, MicroCoin.Node.Node, MicroCoin.Account.Storage;
 

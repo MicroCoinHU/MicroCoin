@@ -10,6 +10,10 @@ unit MicroCoin.Account.Transaction;
 
 }
 
+{$ifdef FPC}
+  {$mode delphi}
+{$endif}
+
 interface
 
 uses Sysutils, classes, UCrypto, MicroCoin.Common.Lists, UConst,
@@ -198,9 +202,9 @@ end;
 
 function TAccountTransaction.Commit(const operationBlock: TBlockHeader; var errors: AnsiString): Boolean;
 var
-  i, j: Integer;
+  i: Integer;
   b: TAccountStorageEntry;
-  Pa: PAccount;
+  Pa : PAccount;
 begin
   Result := false;
   errors := '';
@@ -330,7 +334,6 @@ end;
 function TAccountTransaction.TransferAmount(sender, target: Cardinal; n_operation: Cardinal; amount, fee: UInt64;
   var errors: AnsiString): Boolean;
 var
-  intSender, intTarget: Integer;
   PaccSender, PaccTarget: PAccount;
 begin
   Result := false;

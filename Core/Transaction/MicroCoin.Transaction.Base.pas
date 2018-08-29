@@ -10,6 +10,10 @@ unit MicroCoin.Transaction.Base;
 
 }
 
+{$ifdef FPC}
+  {$mode delphi}
+{$endif}
+
 interface
 
 uses SysUtils, Classes, UCrypto, UConst, MicroCoin.Account.AccountKey,

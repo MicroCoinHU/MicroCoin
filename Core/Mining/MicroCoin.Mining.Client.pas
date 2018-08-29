@@ -1,4 +1,17 @@
 unit MicroCoin.Mining.Client;
+{
+  This unit contains code from PascalCoin:
+
+  Copyright (c) Albert Molina 2016 - 2018 original code from PascalCoin https://pascalcoin.org/
+
+  Distributed under the MIT software license, see the accompanying file LICENSE
+  or visit http://www.opensource.org/licenses/mit-license.php.
+
+}
+
+{$ifdef FPC}
+  {$mode delphi}
+{$endif}
 
 interface
 
@@ -131,7 +144,6 @@ var
   params_as_array: TPCJSONArray;
   params: TPCJSONData;
   mvfw: TMinerValuesForWork;
-  prev_pow, proposed_pow: TRawBytes;
 begin
   TLog.NewLog(ltInfo, Classname, 'Received JSON: ' + json.ToJSON(false));
   params := nil;

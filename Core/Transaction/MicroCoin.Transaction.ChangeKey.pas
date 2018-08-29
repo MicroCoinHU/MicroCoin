@@ -10,6 +10,11 @@ unit MicroCoin.Transaction.ChangeKey;
 
 }
 
+{$ifdef FPC}
+  {$mode delphi}
+{$endif}
+
+
 interface
 
 uses MicroCoin.Transaction.Base, MicroCoin.Transaction.Transaction,

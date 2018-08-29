@@ -9,10 +9,13 @@ unit MicroCoin.BlockChain.Protocol;
   or visit http://www.opensource.org/licenses/mit-license.php.
 
 }
+{$ifdef FPC}
+  {$mode delphi}
+{$endif}
 
 interface
 
-uses UCrypto, SysUtils, Classes, MicroCoin.BlockChain.BlockHeader, UConst;
+uses UCrypto, SysUtils, Classes, MicroCoin.BlockChain.BlockHeader, UConst, MicroCoin.Account.AccountKey;
 
 type
   TMicroCoinProtocol = class
@@ -30,8 +33,7 @@ implementation
 
 class function TMicroCoinProtocol.GetNewTarget(vteorical, vreal: Cardinal; const actualTarget: TRawBytes): TRawBytes;
 var
-  bnact, bnaux, bnmindiff, bnremainder, bn: TBigNum;
-  ts1, ts2: Cardinal;
+  bnact, bnaux, bn: TBigNum;
   tsTeorical, tsReal, factor1000, factor1000Min, factor1000Max: Int64;
 begin
   { Given a teorical time in seconds (vteorical>0) and a real time in seconds (vreal>0)
@@ -179,7 +181,7 @@ end;
 
 class function TMicroCoinProtocol.TargetFromCompact(encoded: Cardinal): TRawBytes;
 var
-  nbits, high, offset, i: Cardinal;
+  nbits, offset, i: Cardinal;
   bn: TBigNum;
   raw: TRawBytes;
 begin
@@ -239,7 +241,6 @@ var
   bn, bn2: TBigNum;
   i: Int64;
   nbits: Cardinal;
-  c: AnsiChar;
   raw: TRawBytes;
   j: Integer;
 begin

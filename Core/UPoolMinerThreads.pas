@@ -23,7 +23,7 @@ interface
 uses
   Classes, SysUtils, syncobjs, UThread,
   UCrypto, ULog, MicroCoin.BlockChain.BlockManager, USha256, MicroCoin.Account.AccountKey,
-  MicroCoin.BlockChain.Protocol, MicroCoin.Mining.Client, MicroCoin.Mining.Common;
+  MicroCoin.BlockChain.Protocol, MicroCoin.Mining.Client, MicroCoin.Mining.Common, Types;
 
 type
   TMinerStats = record

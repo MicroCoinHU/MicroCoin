@@ -10,10 +10,15 @@ unit MicroCoin.Transaction.HashTree;
 
 }
 
+{$ifdef FPC}
+  {$mode delphi}
+{$endif}
+
+
 interface
 
 uses SysUtils, UCrypto, Classes, MicroCoin.Transaction.Base, UThread,
-  MicroCoin.Transaction.Manager, MicroCoin.Transaction.Transaction;
+  MicroCoin.Transaction.Manager, MicroCoin.Transaction.Transaction, SyncObjs;
 
 type
   TTransactionHashTree = class
@@ -198,7 +203,7 @@ function TTransactionHashTree.GetTransactionsAffectingAccount(account_number: Ca
 // This function retrieves operations from HashTree that affeccts to an account_number
 var
   l, intl: TList;
-  i, j: Integer;
+  i: Integer;
 begin
   list.Clear;
   l := FHashTreeTransactions.LockList;
@@ -271,7 +276,8 @@ begin
 {$IFNDEF FPC}
     Supports(TInterfacedObject(op).NewInstance, ITransaction, P^.op);
 {$ELSE}
-    P^.op := op.NewInstance;
+    Supports(TInterfacedObject(op).NewInstance, ITransaction, P^.op);
+//    P^.op := TTransaction(op).NewInstance;
 {$ENDIF}
     // P^.op := TInterFacedObject() as ITransaction;
     P^.op.InitializeData;
@@ -301,7 +307,6 @@ var
   c, i: Cardinal;
   OpType: Cardinal;
   bcop: ITransaction;
-  j: Integer;
   OpClass: TTransactionClass;
   lastNE: TNotifyEvent;
 begin

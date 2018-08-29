@@ -8,6 +8,11 @@ unit MicroCoin.Node.Events;
   or visit http://www.opensource.org/licenses/mit-license.php.
 }
 
+{$ifdef FPC}
+  {$mode delphi}
+{$endif}
+
+
 interface
 
 uses MicroCoin.Node.Node, Sysutils, classes, MicroCoin.Net.Connection, UThread, UCrypto, ULog;
@@ -19,6 +24,7 @@ type
   TNodeNotifyEvents = class;
 
   TThreadSafeNodeNotifyEvent = class(TPCThread)
+  private
     FNodeNotifyEvents: TNodeNotifyEvents;
     FNotifyBlocksChanged: Boolean;
     FNotifyOperationsChanged: Boolean;

@@ -9,6 +9,11 @@ unit MicroCoin.Net.Discovery;
   or visit http://www.opensource.org/licenses/mit-license.php.
 }
 
+{$ifdef FPC}
+  {$mode delphi}
+{$endif}
+
+
 interface
 
 uses UThread, MicroCoin.Net.NodeServer, SysUtils, Classes;
@@ -16,6 +21,7 @@ uses UThread, MicroCoin.Net.NodeServer, SysUtils, Classes;
 type
 
   TThreadDiscoverConnection = class(TPCThread)
+  private
     FNodeServerAddress: TNodeServer;
   protected
     procedure BCExecute; override;

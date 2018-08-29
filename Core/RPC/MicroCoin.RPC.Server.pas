@@ -10,6 +10,10 @@ unit MicroCoin.RPC.Server;
 
 }
 
+{$ifdef FPC}
+  {$mode delphi}
+{$endif}
+
 interface
 
 uses Sysutils, Classes, httpsend, UWalletkeys, Ulog, Inifiles,
@@ -20,6 +24,7 @@ uses Sysutils, Classes, httpsend, UWalletkeys, Ulog, Inifiles,
 type
 
   TRPCServerThread = class(TPCThread)
+  private
     FServerSocket: TTCPBlockSocket;
     FPort: Word;
   protected

@@ -187,7 +187,7 @@ begin
 end;
 
 function TECPrivateKey.GetPublicKey: TECDSA_Public;
-var ps : PAnsiChar;
+var
   BNx,BNy : PBIGNUM;
   ctx : PBN_CTX;
 begin
@@ -296,6 +296,7 @@ var bn : PBIGNUM;
   ctx : PBN_CTX;
   pub_key : PEC_POINT;
 begin
+  Result := false;
   bn := BN_new;
   try
     if BN_hex2bn(@bn,PAnsiChar(hexa))=0 then Raise ECryptoException.Create('Invalid Hexadecimal value:'+hexa);
@@ -311,6 +312,7 @@ begin
     try
       if EC_POINT_mul(EC_KEY_get0_group(FPrivateKey),pub_key,bn,nil,nil,ctx)<>1 then raise ECryptoException.Create('Error obtaining public key');
       EC_KEY_set_public_key(FPrivateKey,pub_key);
+      Result := true;
     finally
       BN_CTX_free(ctx);
       EC_POINT_free(pub_key);
@@ -328,7 +330,6 @@ end;
   needed. Also the same with functions "GetMem" and "FreeMem" }
 class procedure TCrypto.DoDoubleSha256(p: PAnsiChar; plength: Cardinal; var ResultSha256: TRawBytes);
 Var PS : PAnsiChar;
-  PC : PAnsiChar;
 begin
   If length(ResultSha256)<>32 then SetLength(ResultSha256,32);
   PS := @ResultSha256[1];
@@ -386,7 +387,7 @@ end;
 
 class function TCrypto.ECDSASign(Key: TECPrivateKey; const digest: AnsiString): TECDSA_SIG;
 Var PECS : PECDSA_SIG;
-  p, pr,ps : PAnsiChar;
+  p : PAnsiChar;
   i : Integer;
   {$IFDEF OpenSSL10}
   {$ELSE}
@@ -704,15 +705,14 @@ Var ctx : PBN_CTX;
 begin
   ctx := BN_CTX_new;
   if BN_mul(FBN,FBN,BN.FBN,ctx)<>1 then raise ECryptoException.Create('Error on multiply');
-  Result := Self;
   BN_CTX_free(ctx);
   Result := Self;
 end;
 
 procedure TBigNum.SetDecimalValue(const Value: AnsiString);
-Var i : Integer;
 begin
-  if BN_dec2bn(@FBN,PAnsiChar(Value))=0 then raise ECryptoException.Create('Error on dec2bn');
+  if BN_dec2bn(@FBN,PAnsiChar(Value))=0 then
+  raise ECryptoException.Create('Error on dec2bn');
 end;
 
 procedure TBigNum.SetHexaValue(const Value: AnsiString);

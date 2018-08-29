@@ -27,7 +27,7 @@ uses
 {$ELSE}
   {$IFDEF LINUX}cthreads,{$ENDIF}
 {$ENDIF}
-  Classes, SyncObjs;
+  Classes, SyncObjs, Types;
 
 {$I config.inc}
 

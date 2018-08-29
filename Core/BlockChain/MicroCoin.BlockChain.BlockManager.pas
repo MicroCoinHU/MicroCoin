@@ -21,7 +21,7 @@ uses Classes, UCrypto, ULog, UThread, SyncObjs,
   MicroCoin.Transaction.Manager, MicroCoin.Transaction.HashTree,
   MicroCoin.Account.AccountKey, MicroCoin.BlockChain.BlockHeader,
   MicroCoin.Account.Storage, MicroCoin.Account.Transaction, MicroCoin.BlockChain.Protocol,
-  MicroCoin.BlockChain.Storage, MicroCoin.BlockChain.Block;
+  MicroCoin.BlockChain.Storage, MicroCoin.BlockChain.Block, Types;
 
 {$I ../config.inc}
 
@@ -61,6 +61,7 @@ type
     FStorageClass: TStorageClass;
     function GetStorage: TStorage;
     procedure SetStorageClass(const value: TStorageClass);
+  protected
     function GetAccountStorage: TAccountStorage; override;
     function GetBlocksCount: Cardinal; override;
     function GetLastOperationBlock: TBlockHeader; override;

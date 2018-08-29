@@ -9,6 +9,9 @@ unit MicroCoin.BlockChain.Base;
   or visit http://www.opensource.org/licenses/mit-license.php.
 
 }
+{$ifdef FPC}
+  {$mode delphi}
+{$endif}
 
 interface
 
@@ -21,8 +24,7 @@ type
     function GetAccountStorage: TAccountStorage; virtual; abstract;
     function GetLastOperationBlock: TBlockHeader; virtual; abstract;
   public
-    function LoadAccountsFromStream(Stream: TStream; useSecureLoad: Boolean; var errors: AnsiString): Boolean;
-      virtual; abstract;
+    function LoadAccountsFromStream(Stream: TStream; useSecureLoad: Boolean; var errors: AnsiString): Boolean; virtual; abstract;
     property AccountStorage: TAccountStorage read GetAccountStorage;
     property LastOperationBlock: TBlockHeader read GetLastOperationBlock;
     property BlocksCount: Cardinal read GetBlocksCount;

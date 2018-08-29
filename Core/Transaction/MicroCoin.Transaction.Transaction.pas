@@ -10,6 +10,11 @@ unit MicroCoin.Transaction.Transaction;
 
 }
 
+{$ifdef FPC}
+  {$mode delphi}
+{$endif}
+
+
 interface
 
 uses Sysutils, classes, UCrypto, MicroCoin.Transaction.Base, UConst, MicroCoin.Account.Transaction;
@@ -184,7 +189,6 @@ function TTransaction.TransactionHash_OLD(Block: Cardinal): TRawBytes;
 }
 var
   ms: TMemoryStream;
-  r: TRawBytes;
   _a, _o: Cardinal;
   s: AnsiString;
 begin
@@ -220,7 +224,6 @@ function TTransaction.TransactionHash(Block: Cardinal): TRawBytes;
 }
 var
   ms: TMemoryStream;
-  r: TRawBytes;
   _a, _o: Cardinal;
 begin
   ms := TMemoryStream.Create;

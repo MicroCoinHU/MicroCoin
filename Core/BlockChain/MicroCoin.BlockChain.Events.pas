@@ -8,6 +8,9 @@ unit MicroCoin.BlockChain.Events;
   or visit http://www.opensource.org/licenses/mit-license.php.
 
 }
+{$ifdef FPC}
+  {$mode delphi}
+{$endif}
 
 interface
 

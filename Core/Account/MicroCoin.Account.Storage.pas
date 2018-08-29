@@ -10,6 +10,10 @@ unit MicroCoin.Account.Storage;
 
 }
 
+{$ifdef FPC}
+  {$mode delphi}
+{$endif}
+
 interface
 
 uses SysUtils, classes, UCrypto, UThread, MicroCoin.Common.Lists,
@@ -986,7 +990,7 @@ var
   totalBlocks, iblock: Cardinal;
   b: TAccountStorageEntry;
   posOffsetZone, posFinal: Int64;
-  offsets: TArray<Cardinal>;
+  offsets: {$ifdef USE_GENERICS}TArray<Cardinal>{$else}TCardinalArray{$endif};
   raw: TRawBytes;
 begin
   if (FromBlock > ToBlock) or (ToBlock >= blocksCount) then
@@ -1039,7 +1043,7 @@ var
   iblock: Cardinal;
   raw: TRawBytes;
   posOffsetZoneSource, posOffsetZoneDest, posFinal, posBlocksZoneDest, posInitial: Int64;
-  offsetsSource, offsetsDest: TArray<Cardinal>;
+  offsetsSource, offsetsDest: {$ifdef USE_GENERICS}TArray<Cardinal>{$else}TCardinalArray{$endif};
   destTotalBlocks: Cardinal;
   sbHeader: TAccountStorageHeader;
 begin
@@ -1191,7 +1195,7 @@ var
   source1InitialPos, source2InitialPos, destOffsetPos: Int64;
   ms: TMemoryStream;
   c: Cardinal;
-  destOffsets: TArray<Cardinal>;
+  destOffsets: {$ifdef USE_GENERICS}TArray<Cardinal>{$else}TCardinalArray{$endif};
   i: Integer;
   s1Header, s2Header: TAccountStorageHeader;
 begin
@@ -1836,7 +1840,7 @@ end;
 procedure TOrderedAccountKeysList.RemoveAccountKey(const AccountKey: TAccountKey);
 var
   P: POrderedAccountKeyList;
-  i, j: Integer;
+  i: Integer;
 begin
   if not Find(AccountKey, i) then
     exit; // Nothing to do

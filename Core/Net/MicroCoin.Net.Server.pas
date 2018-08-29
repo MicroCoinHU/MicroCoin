@@ -8,6 +8,11 @@ unit MicroCoin.Net.Server;
   or visit http://www.opensource.org/licenses/mit-license.php.
 }
 
+{$ifdef FPC}
+  {$mode delphi}
+{$endif}
+
+
 interface
 
 uses UTCPIP, Sysutils, classes, ULog, UTime
