@@ -524,7 +524,5 @@ Begin
 End;
 
 
-initialization
-finalization
 end.
 

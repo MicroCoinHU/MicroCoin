@@ -49,10 +49,10 @@ begin
   Pnsa := nil;
   DebugStep := 'Locking list';
   // Register attempt
-  lns := TConnectionManager.NetData.NodeServersAddresses.LockList;
+  lns := TConnectionManager.Instance.NodeServersAddresses.LockList;
   try
     DebugStep := 'Searching net client';
-    i := TConnectionManager.NetData.IndexOfNetClient(lns, FNodeServerAddress.ip, FNodeServerAddress.port);
+    i := TConnectionManager.Instance.IndexOfNetClient(lns, FNodeServerAddress.ip, FNodeServerAddress.port);
     if i >= 0 then
     begin
       DebugStep := 'Searching client found';
@@ -61,12 +61,12 @@ begin
       Inc(Pnsa.total_failed_attemps_to_connect);
     end;
   finally
-    TConnectionManager.NetData.NodeServersAddresses.UnlockList;
+    TConnectionManager.Instance.NodeServersAddresses.UnlockList;
   end;
   DebugStep := 'Synchronizing notify';
   if Terminated then
     exit;
-  TConnectionManager.NetData.NotifyNodeServersUpdated;
+  TConnectionManager.Instance.NotifyNodeServersUpdated;
   // Try to connect
   ok := false;
   DebugStep := 'Trying to connect';
@@ -97,7 +97,7 @@ begin
   DebugStep := 'Synchronizing notify final';
   if Terminated then
     exit;
-  TConnectionManager.NetData.NotifyNodeServersUpdated;
+  TConnectionManager.Instance.NotifyNodeServersUpdated;
 end;
 
 constructor TThreadDiscoverConnection.Create(NodeServerAddress: TNodeServer; NotifyOnTerminate: TNotifyEvent);

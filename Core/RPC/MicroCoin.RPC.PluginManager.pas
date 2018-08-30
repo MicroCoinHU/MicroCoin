@@ -64,14 +64,24 @@ type
   THandler = function(AParams: TPCJSONObject): TRPCResult of object;
 
   {$ifndef USE_GENERICS}
-    THandlerWrapper = class
+    IHandlerWrapper = interface
+     ['{C5C7E236-D8D3-4AEA-9FD1-13133F34D41E}']
+     function GetHandler : THandler;
+     property Handler : THandler read GetHandler;
+    end;
+
+    THandlerWrapper = class(TInterfacedObject, IHandlerWrapper)
+    private
+     FHandler : THandler;
     public
-      Handler : THandler;
-      constructor Create(AHandler : THandler);
+     function GetHandler : THandler;
+     constructor Create(AHandler : THandler);
+     property Handler : THandler read GetHandler write FHandler;
     end;
   {$endif}
 
   IRPCPlugin = interface
+    ['{8450061B-13B6-4EBB-84C6-4FF42F8BB338}']
     procedure RegisterHandlers;
   end;
 
@@ -80,6 +90,7 @@ type
     class var FHandlers: {$IFDEF USE_GENERICS}TDictionary<string, THandler>{$ELSE}TStringList{$endif};
   public
     class constructor Create;
+    class destructor Destroy;
     class procedure RegisterPlugin(AHandler: IRPCPlugin);
     class procedure UnRegisterPlugin(AHandler: IRPCPlugin);
     class function GetHandler(AMethod: string): THandler;
@@ -108,9 +119,16 @@ begin
   {$endif}
 end;
 
+class destructor TRPCManager.Destroy;
+begin
+  FHandlers.Clear;
+  FreeAndNil(FHandlers);
+end;
+
 class function TRPCManager.GetHandler(AMethod: string): THandler;
 var
   index : integer;
+  hanlerWrapper : IHandlerWrapper;
 begin
   Result := nil;
   {$IFDEF USE_GENERICS}
@@ -118,16 +136,22 @@ begin
   {$ELSE}
     index := FHandlers.IndexOf(AMethod);
     if index >-1
-    then Result := THandlerWrapper(FHandlers.Objects[index]).Handler;
+    then begin
+     if Supports(FHandlers.Objects[index], IHandlerWrapper, hanlerWrapper)
+     then Result := hanlerWrapper.Handler;
+    end;
   {$endif}
 end;
 
 class procedure TRPCManager.RegisterHandler(AMethod: string; AHandler: THandler);
+var
+  handlerWrapper : IHandlerWrapper;
 begin
   {$IFDEF USE_GENERICS}
     FHandlers.AddOrSetValue(LowerCase(AMethod), AHandler);
   {$ELSE}
-    FHandlers.AddObject(LowerCase(AMethod), THandlerWrapper.Create(AHandler));
+    handlerWrapper := THandlerWrapper.Create(AHandler);
+    FHandlers.AddObject(LowerCase(AMethod), TObject(handlerWrapper));
   {$ENDIF}
 end;
 
@@ -208,6 +232,11 @@ end;
 constructor THandlerWrapper.Create(AHandler: THandler);
 begin
   Handler := AHandler;
+end;
+
+function THandlerWrapper.GetHandler: THandler;
+begin
+  Result := FHandler;
 end;
 
 end.

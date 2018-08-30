@@ -820,7 +820,4 @@ begin
   Result := Self;
 end;
 
-
-initialization
-finalization
 end.

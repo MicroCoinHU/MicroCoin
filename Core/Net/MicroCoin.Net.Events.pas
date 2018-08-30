@@ -19,6 +19,7 @@ uses UThread, Classes;
 type
 
   INetNotificationSource = interface
+    ['{9CC4B8C1-2D7A-45B9-978B-DE92356A5818}']
     function GetOnNetConnectionsUpdated: TNotifyEvent;
     function GetOnNodeServersUpdated: TNotifyEvent;
     function GetOnBlackListUpdated: TNotifyEvent;

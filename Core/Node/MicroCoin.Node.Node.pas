@@ -9,7 +9,7 @@ unit MicroCoin.Node.Node;
 }
 
 {$ifdef FPC}
-  {$mode delphi}
+{$mode delphi}
 {$endif}
 
 interface
@@ -32,10 +32,10 @@ type
     FLockNodeOperations: TPCCriticalSection;
     FOperationSequenceLock: TPCCriticalSection;
     FNotifyList: TList;
-    FBank: TBlockManager;
+    FBlockManager: TBlockManager;
     FOperations: TBlock;
     FNetServer: TNetServer;
-    FBCBankNotify: TBlockManagerNotify;
+    FBlockManagerNotify: TBlockManagerNotify;
     FPeerCache: AnsiString;
     FDisabledsNewBlocksCount: Integer;
     FSentOperations: TOrderedRawList;
@@ -43,13 +43,14 @@ type
     FBufferAuxWaitingOperations: TOperationsHashTree;
 {$ENDIF}
     class var _Node: TNode;
-    procedure OnBankNewBlock(Sender: TObject);
-    procedure SetNodeLogFilename(const Value: AnsiString);
-    function GetNodeLogFilename: AnsiString;
+    procedure OnNewBlock(Sender: TObject);
+    procedure SetNodeLogFilename(const Value: TFilename);
+    function GetNodeLogFilename: TFilename;
   protected
     procedure Notification(AComponent: TComponent; Operation: TOperation); override;
   public
     class function Node: TNode;
+    class procedure FreeNode; static;
     class procedure DecodeIpStringToNodeServerAddressArray(const Ips: AnsiString;
       var NodeServerAddressArray: TNodeServerAddressArray);
     class function EncodeNodeServerAddressArrayToIpString(const NodeServerAddressArray: TNodeServerAddressArray)
@@ -85,8 +86,9 @@ type
     procedure EnableNewBlocks;
 
     property PeerCache: AnsiString read FPeerCache write FPeerCache;
-    property Bank: TBlockManager read FBank;
-    property NodeLogFilename: AnsiString read GetNodeLogFilename write SetNodeLogFilename;
+  published
+    property BlockManager: TBlockManager read FBlockManager;
+    property NodeLogFilename: TFilename read GetNodeLogFilename write SetNodeLogFilename;
     property OperationSequenceLock: TPCCriticalSection read FOperationSequenceLock;
     property NotifyList: TList read FNotifyList;
   end;
@@ -94,6 +96,9 @@ type
 implementation
 
 uses MicroCoin.Node.Events;
+
+var
+  CriticalSection : TCriticalSection;
 
 resourcestring
   rsAccountSZero = 'Account %s zero fee operations per block limit:%d';
@@ -120,10 +125,10 @@ begin
     errors := 'Adding blocks is disabled';
     exit;
   end;
-  if NewBlockOperations.OperationBlock.Block <> Bank.BlocksCount then
+  if NewBlockOperations.OperationBlock.Block <> BlockManager.BlocksCount then
   begin
     errors := 'New block number (' + IntToStr(NewBlockOperations.OperationBlock.Block) + ') not valid! (Expected ' +
-      IntToStr(Bank.BlocksCount) + ')';
+      IntToStr(BlockManager.BlocksCount) + ')';
     exit;
   end;
   OpBlock := NewBlockOperations.OperationBlock;
@@ -131,7 +136,7 @@ begin
     [Inttohex(PtrInt(SenderConnection), 8), TBlock.OperationBlockToText(OpBlock)]));
   if not TPCThread.TryProtectEnterCriticalSection(Self, 2000, FLockNodeOperations) then
   begin
-    if NewBlockOperations.OperationBlock.Block <> Bank.BlocksCount then
+    if NewBlockOperations.OperationBlock.Block <> BlockManager.BlocksCount then
       exit;
     s := 'Cannot AddNewBlockChain due blocking lock operations node';
     TLog.NewLog(lterror, Classname, s);
@@ -142,7 +147,7 @@ begin
   end;
   try
     // Check block number:
-    if TBlock.EqualsOperationBlock(Bank.LastOperationBlock, NewBlockOperations.OperationBlock) then
+    if TBlock.EqualsOperationBlock(BlockManager.LastOperationBlock, NewBlockOperations.OperationBlock) then
     begin
       errors := 'Duplicated block';
       exit;
@@ -150,8 +155,8 @@ begin
     ms := TMemoryStream.Create;
     try
       FOperations.SaveBlockToStream(false, ms);
-      Result := Bank.AddNewBlockChainBlock(NewBlockOperations,
-        TConnectionManager.NetData.NetworkAdjustedTime.GetMaxAllowedTimestampForNewBlock, newBlockAccount, errors);
+      Result := BlockManager.AddNewBlockChainBlock(NewBlockOperations,
+        TConnectionManager.Instance.NetworkAdjustedTime.GetMaxAllowedTimestampForNewBlock, newBlockAccount, errors);
       if Result then
       begin
         if Assigned(SenderConnection) then
@@ -208,7 +213,7 @@ begin
         begin
           opsht.AddTransactionToHashTree(FOperations.Operation[i]);
           // Add to sent operations
-          FSentOperations.Add(FOperations.Operation[i].Sha256, Bank.LastBlockFound.OperationBlock.Block);
+          FSentOperations.Add(FOperations.Operation[i].Sha256, BlockManager.LastBlockFound.OperationBlock.Block);
         end;
         if opsht.OperationsCount > 0 then
         begin
@@ -223,7 +228,7 @@ begin
         j := 0;
         for i := FSentOperations.Count - 1 downto 0 do
         begin
-          if (FSentOperations.GetTag(i) < Bank.LastBlockFound.OperationBlock.Block - 2) then
+          if (FSentOperations.GetTag(i) < BlockManager.LastBlockFound.OperationBlock.Block - 2) then
           begin
             FSentOperations.Delete(i);
             inc(j);
@@ -235,14 +240,14 @@ begin
         end;
         TLog.NewLog(ltdebug, Classname, 'Buffer Sent operations: ' + IntToStr(FSentOperations.Count));
         // Notify to clients
-        j := TConnectionManager.NetData.ConnectionsCountAll;
+        j := TConnectionManager.Instance.ConnectionsCountAll;
         for i := 0 to j - 1 do
         begin
-          if (TConnectionManager.NetData.GetConnection(i, nc)) then
+          if (TConnectionManager.Instance.GetConnection(i, nc)) then
           begin
             if (nc <> SenderConnection) and (nc.Connected) then
             begin
-              TNotifyNewBlockThread.Create(nc, Bank.LastBlockFound, opsht);
+              TNotifyNewBlockThread.Create(nc, BlockManager.LastBlockFound, opsht);
             end;
           end;
         end;
@@ -370,7 +375,7 @@ begin
         if (FOperations.OperationsHashTree.IndexOf(ActOp) < 0) and (FSentOperations.GetTag(ActOp.Sha256) = 0) then
         begin
           // Protocol 2 limitation: In order to prevent spam of operations without Fee, will protect it
-          if (ActOp.Fee = 0) and (Bank.AccountStorage.CurrentProtocol >= CT_PROTOCOL_2) and
+          if (ActOp.Fee = 0) and (BlockManager.AccountStorage.CurrentProtocol >= CT_PROTOCOL_2) and
             (FOperations.OperationsHashTree.TransactionCountsWithoutFeeBySameSigner(ActOp.SignerAccount) >=
             CT_MaxAccountOperationsPerBlockWithoutFee) then
           begin
@@ -465,10 +470,10 @@ begin
     if Result = 0 then
       exit;
     // Send to other nodes
-    j := TConnectionManager.NetData.ConnectionsCountAll;
+    j := TConnectionManager.Instance.ConnectionsCountAll;
     for i := 0 to j - 1 do
     begin
-      if TConnectionManager.NetData.GetConnection(i, nc) then
+      if TConnectionManager.Instance.GetConnection(i, nc) then
       begin
         if (nc <> SenderConnection) and (nc.Connected) then
           TNotifyTransactionThread.Create(nc, valids_operations);
@@ -492,12 +497,12 @@ begin
   DecodeIpStringToNodeServerAddressArray(Ips + ';' + PeerCache, nsarr);
   for i := low(nsarr) to high(nsarr) do
   begin
-    TConnectionManager.NetData.AddServer(nsarr[i]);
+    TConnectionManager.Instance.AddServer(nsarr[i]);
   end;
-  j := (CT_MaxServersConnected - TConnectionManager.NetData.ConnectionsCount(true));
+  j := (CT_MaxServersConnected - TConnectionManager.Instance.ConnectionsCount(true));
   if j <= 0 then
     exit;
-  TConnectionManager.NetData.DiscoverServers;
+  TConnectionManager.Instance.DiscoverServers;
 end;
 
 constructor TNode.Create(AOwner: TComponent);
@@ -513,13 +518,13 @@ begin
   FDisabledsNewBlocksCount := 0;
   FLockNodeOperations := TPCCriticalSection.Create('TNode_LockNodeOperations');
   FOperationSequenceLock := TPCCriticalSection.Create('TNode_OperationSequenceLock');
-  FBank := TBlockManager.Create(Self);
-  FBCBankNotify := TBlockManagerNotify.Create(Self);
-  FBCBankNotify.BlockManager := FBank;
-  FBCBankNotify.OnNewBlock := OnBankNewBlock;
+  FBlockManager := TBlockManager.Create(Self);
+  FBlockManagerNotify := TBlockManagerNotify.Create(Self);
+  FBlockManagerNotify.BlockManager := FBlockManager;
+  FBlockManagerNotify.OnNewBlock := OnNewBlock;
   FNetServer := TNetServer.Create;
   FOperations := TBlock.Create(Self);
-  FOperations.Bank := FBank;
+  FOperations.Bank := FBlockManager;
   FNotifyList := TList.Create;
 {$IFDEF BufferOfFutureOperations}
   FBufferAuxWaitingOperations := TOperationsHashTree.Create;
@@ -591,6 +596,21 @@ destructor TNode.Destroy;
 var
   step: string;
 begin
+
+  FSentOperations.Free;
+  FNodeLog.Free;
+  FLockNodeOperations.Free;
+  FOperationSequenceLock.Free;
+  FBlockManager.Free;
+  FBlockManagerNotify.Free;
+  FNetServer.Free;
+  FOperations.Free;
+  FOperations.Bank.Free;
+  FNotifyList.Free;
+  inherited;
+  exit;
+
+
   TLog.NewLog(ltinfo, Classname, 'TNode.Destroy START');
   try
     step := 'Deleting critical section';
@@ -598,8 +618,6 @@ begin
     FreeAndNil(FOperationSequenceLock);
 
     step := 'Desactivating server';
-
-    FNetServer.Active := false;
 
     step := 'Destroying NetServer';
     FreeAndNil(FNetServer);
@@ -609,14 +627,13 @@ begin
     step := 'Destroying Operations';
     FreeAndNil(FOperations);
     step := 'Assigning NIL to node var';
-    if _Node = Self then
-      _Node := nil;
+    if _Node = Self
+    then _Node := nil;
     step := 'Destroying SentOperations list';
     FreeAndNil(FSentOperations);
-
     step := 'Destroying Bank';
-    FreeAndNil(FBCBankNotify);
-    FreeAndNil(FBank);
+    FreeAndNil(FBlockManagerNotify);
+    FreeAndNil(FBlockManager);
 {$IFDEF BufferOfFutureOperations}
     FreeAndNil(FBufferAuxWaitingOperations);
 {$ENDIF}
@@ -664,7 +681,7 @@ begin
   end;
 end;
 
-function TNode.GetNodeLogFilename: AnsiString;
+function TNode.GetNodeLogFilename: TFilename;
 begin
   Result := FNodeLog.FileName;
 end;
@@ -674,17 +691,17 @@ var
   unixtimediff: Integer;
 begin
   Result := false;
-  if (TConnectionManager.NetData.NetStatistics.ActiveConnections <= 0) then
+  if (TConnectionManager.Instance.NetStatistics.ActiveConnections <= 0) then
   begin
     WhyNot := 'No connection to check blockchain';
     exit;
   end;
-  if (Bank.LastOperationBlock.Block <= 0) then
+  if (BlockManager.LastOperationBlock.Block <= 0) then
   begin
     WhyNot := 'No blockchain';
     exit;
   end;
-  unixtimediff := UnivDateTimeToUnix(DateTime2UnivDateTime(Now)) - Bank.LastOperationBlock.timestamp;
+  unixtimediff := UnivDateTimeToUnix(DateTime2UnivDateTime(Now)) - BlockManager.LastOperationBlock.timestamp;
   if (unixtimediff < 0) then
   begin
     WhyNot := 'Invalid Last Block Time';
@@ -702,20 +719,20 @@ function TNode.IsReady(var CurrentProcess: AnsiString): Boolean;
 begin
   Result := false;
   CurrentProcess := '';
-  if FBank.IsReady(CurrentProcess) then
+  if FBlockManager.IsReady(CurrentProcess) then
   begin
     if FNetServer.Active then
     begin
-      if TConnectionManager.NetData.IsGettingNewBlockChainFromClient then
+      if TConnectionManager.Instance.IsGettingNewBlockChainFromClient then
       begin
         CurrentProcess := 'Obtaining valid BlockChain - Found block ' +
-          IntToStr(TConnectionManager.NetData.MaxRemoteOperationBlock.Block);
+          IntToStr(TConnectionManager.Instance.MaxRemoteOperationBlock.Block);
       end
       else
       begin
-        if TConnectionManager.NetData.MaxRemoteOperationBlock.Block > FOperations.OperationBlock.Block then
+        if TConnectionManager.Instance.MaxRemoteOperationBlock.Block > FOperations.OperationBlock.Block then
         begin
-          CurrentProcess := 'Found block ' + IntToStr(TConnectionManager.NetData.MaxRemoteOperationBlock.Block) +
+          CurrentProcess := 'Found block ' + IntToStr(TConnectionManager.Instance.MaxRemoteOperationBlock.Block) +
             ' (Wait until downloaded)';
         end
         else
@@ -738,9 +755,11 @@ end;
 
 class function TNode.Node: TNode;
 begin
+  CriticalSection.Acquire;
   if not Assigned(_Node) then
     _Node := TNode.Create(nil);
   Result := _Node;
+  CriticalSection.Release;
 end;
 
 procedure TNode.Notification(AComponent: TComponent; Operation: TOperation);
@@ -784,7 +803,7 @@ procedure TNode.GetStoredOperationsFromAccount(const OperationsResume: TTransact
           last_block_number := block_number;
           next_block_number := block_number;
           l.Clear;
-          if not Bank.Storage.LoadBlockChainBlock(opc, block_number) then
+          if not BlockManager.Storage.LoadBlockChainBlock(opc, block_number) then
           begin
             TLog.NewLog(ltdebug, Classname, 'Block ' + IntToStr(block_number) + ' not found. Cannot read operations');
             exit;
@@ -853,11 +872,11 @@ var
 begin
   if MaxDepth < 0 then
     exit;
-  if account_number >= Bank.AccountStorage.AccountsCount then
+  if account_number >= BlockManager.AccountStorage.AccountsCount then
     exit;
   if StartOperation > EndOperation then
     exit;
-  acc := Bank.AccountStorage.Account(account_number);
+  acc := BlockManager.AccountStorage.Account(account_number);
   if (acc.updated_block > 0) or (acc.Account = 0) then
     DoGetFromBlock(acc.updated_block, acc.balance, MaxDepth, 0);
 end;
@@ -878,7 +897,7 @@ begin
     exit;
   initial_block := Block;
   //
-  if (Account >= Bank.AccountsCount) then
+  if (Account >= BlockManager.AccountsCount) then
     exit; // Invalid account number
   // If block=0 then we must search in pending operations first
   if (Block = 0) then
@@ -892,7 +911,7 @@ begin
         begin
           opHashValid := op.TransactionHash(0);
           opHash_OLD := op.TransactionHash_OLD(0);
-          if (opHashValid = OperationHash) or ((FBank.BlocksCount < CT_Protocol_Upgrade_v2_MinBlock) and
+          if (opHashValid = OperationHash) or ((FBlockManager.BlocksCount < CT_Protocol_Upgrade_v2_MinBlock) and
             (opHash_OLD = OperationHash)) then
           begin
             operation_block_index := i;
@@ -906,17 +925,17 @@ begin
       FOperations.Unlock;
     end;
     // block=0 and not found... start searching at block updated by account updated_block
-    Block := Bank.AccountStorage.Account(Account).updated_block;
-    if Bank.AccountStorage.Account(Account).n_operation < n_operation then
+    Block := BlockManager.AccountStorage.Account(Account).updated_block;
+    if BlockManager.AccountStorage.Account(Account).n_operation < n_operation then
       exit; // n_operation is greater than found in safebox
   end;
-  if (Block = 0) or (Block >= Bank.BlocksCount) then
+  if (Block = 0) or (Block >= BlockManager.BlocksCount) then
     exit;
   // Search in previous blocks
   while (not Result) and (Block > 0) do
   begin
     aux_block := Block;
-    if not Bank.LoadOperations(OperationComp, Block) then
+    if not BlockManager.LoadOperations(OperationComp, Block) then
       exit;
     for i := OperationComp.Count - 1 downto 0 do
     begin
@@ -974,6 +993,12 @@ begin
   end;
 end;
 
+class procedure TNode.FreeNode;
+begin
+  if Assigned(_Node) then
+    FreeAndNil(_Node);
+end;
+
 procedure TNode.NotifyNetClientMessage(Sender: TNetConnection; const TheMessage: AnsiString);
 var
   i: Integer;
@@ -988,7 +1013,7 @@ begin
   end;
 end;
 
-procedure TNode.OnBankNewBlock(Sender: TObject);
+procedure TNode.OnNewBlock(Sender: TObject);
 begin
   FOperations.SanitizeOperations;
 end;
@@ -1017,17 +1042,17 @@ begin
     end
     else
     begin
-      j := TConnectionManager.NetData.ConnectionsCountAll;
+      j := TConnectionManager.Instance.ConnectionsCountAll;
       for i := 0 to j - 1 do
       begin
-        if TConnectionManager.NetData.GetConnection(i, nc) then
+        if TConnectionManager.Instance.GetConnection(i, nc) then
         begin
-          if TConnectionManager.NetData.ConnectionLock(Self, nc, 500) then
+          if TConnectionManager.Instance.ConnectionLock(Self, nc, 500) then
           begin
             try
               nc.Send_Message(TheMessage);
             finally
-              TConnectionManager.NetData.ConnectionUnlock(nc)
+              TConnectionManager.Instance.ConnectionUnlock(nc)
             end;
           end;
         end;
@@ -1039,9 +1064,15 @@ begin
   end;
 end;
 
-procedure TNode.SetNodeLogFilename(const Value: AnsiString);
+procedure TNode.SetNodeLogFilename(const Value: TFilename);
 begin
   FNodeLog.FileName := Value;
 end;
+
+initialization
+CriticalSection := TCriticalSection.Create;
+
+finalization
+// FreeAndNil(CriticalSection);
 
 end.

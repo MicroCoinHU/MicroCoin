@@ -52,6 +52,7 @@ type
     class function RegisterTransactionPlugin(ATransactionClass: TTransactionClass; ATransactionType: byte)
       : boolean; static;
     class function GetTransactionPlugin(ATransactionType: Cardinal): TTransactionClass; static;
+    class destructor Destroy;
   end;
 
 implementation
@@ -97,6 +98,12 @@ begin
       break;
     end;
   end;
+end;
+
+class destructor TTransactionManager.Destroy;
+begin
+  SetLength(TTransactionManager.FTransactionPlugins, 0);
+  FTransactionPlugins := nil;
 end;
 
 class function TTransactionManager.GetTransactionPlugin(ATransactionType: Cardinal): TTransactionClass;

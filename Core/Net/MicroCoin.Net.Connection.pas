@@ -178,9 +178,9 @@ begin
     FIsConnecting := true;
     if Client.Connected then
       Client.Disconnect;
-    lns := TConnectionManager.NetData.NodeServersAddresses.LockList;
+    lns := TConnectionManager.Instance.NodeServersAddresses.LockList;
     try
-      i := TConnectionManager.NetData.IndexOfNetClient(lns, ServerIP, ServerPort);
+      i := TConnectionManager.Instance.IndexOfNetClient(lns, ServerIP, ServerPort);
       if (i >= 0) then
         Pnsa := lns[i]
       else
@@ -188,7 +188,7 @@ begin
       if Assigned(Pnsa) then
         Pnsa^.netConnection := Self;
     finally
-      TConnectionManager.NetData.NodeServersAddresses.UnlockList;
+      TConnectionManager.Instance.NodeServersAddresses.UnlockList;
     end;
 
     TPCThread.ProtectEnterCriticalSection(Self, FNetLock);
@@ -198,7 +198,7 @@ begin
         ServerPort := CT_NetServer_Port;
       Client.RemotePort := ServerPort;
       TLog.NewLog(ltdebug, Classname, 'Trying to connect to a server at: ' + ClientRemoteAddr);
-      TConnectionManager.NetData.NotifyNetConnectionUpdated;
+      TConnectionManager.Instance.NotifyNetConnectionUpdated;
       Result := Client.Connect;
     finally
       FNetLock.Release;
@@ -206,7 +206,7 @@ begin
     if Result then
     begin
       TLog.NewLog(ltdebug, Classname, 'Connected to a possible server at: ' + ClientRemoteAddr);
-      Result := Send_Hello(ntp_request, TConnectionManager.NetData.NewRequestId);
+      Result := Send_Hello(ntp_request, TConnectionManager.Instance.NewRequestId);
     end
     else
     begin
@@ -242,8 +242,8 @@ begin
   FRemoteOperationBlock := CT_OperationBlock_NUL;
   FRemoteAccumulatedWork := 0;
   SetClient(TBufferedNetTcpIpClient.Create(Self));
-  TConnectionManager.NetData.NetConnections.Add(Self);
-  TConnectionManager.NetData.NotifyNetConnectionUpdated;
+  TConnectionManager.Instance.NetConnections.Add(Self);
+  TConnectionManager.Instance.NotifyNetConnectionUpdated;
   FBufferLock := TPCCriticalSection.Create('TNetConnection_BufferLock');
   FBufferReceivedOperationsHash := TOrderedRawList.Create;
   FBufferToSendOperations := TTransactionHashTree.Create;
@@ -261,7 +261,7 @@ begin
 
     Connected := false;
 
-    lns := TConnectionManager.NetData.NodeServersAddresses.LockList;
+    lns := TConnectionManager.Instance.NodeServersAddresses.LockList;
     try
       for i := lns.Count - 1 downto 0 do
       begin
@@ -272,14 +272,14 @@ begin
         end;
       end;
     finally
-      TConnectionManager.NetData.NodeServersAddresses.UnlockList;
+      TConnectionManager.Instance.NodeServersAddresses.UnlockList;
     end;
   finally
-    TConnectionManager.NetData.NetConnections.Remove(Self);
+    TConnectionManager.Instance.NetConnections.Remove(Self);
   end;
-  TConnectionManager.NetData.UnRegisterRequest(Self, 0, 0);
+  TConnectionManager.Instance.UnRegisterRequest(Self, 0, 0);
   try
-    TConnectionManager.NetData.NotifyNetConnectionUpdated;
+    TConnectionManager.Instance.NotifyNetConnectionUpdated;
   finally
     FreeAndNil(FNetLock);
     FreeAndNil(FClientBufferRead);
@@ -313,9 +313,9 @@ begin
     (not SameText('10.', Copy(Client.RemoteHost, 1, 3)));
   if include_in_list then
   begin
-    l := TConnectionManager.NetData.NodeServersAddresses.LockList;
+    l := TConnectionManager.Instance.NodeServersAddresses.LockList;
     try
-      i := TConnectionManager.NetData.IndexOfNetClient(l, Client.RemoteHost, Client.RemotePort);
+      i := TConnectionManager.Instance.IndexOfNetClient(l, Client.RemoteHost, Client.RemotePort);
       if i < 0 then
       begin
         New(P);
@@ -331,26 +331,26 @@ begin
       P^.BlackListText := why;
       P^.is_blacklisted := true;
     finally
-      TConnectionManager.NetData.NodeServersAddresses.UnlockList;
+      TConnectionManager.Instance.NodeServersAddresses.UnlockList;
     end;
   end
   else if ItsMyself then
   begin
-    l := TConnectionManager.NetData.NodeServersAddresses.LockList;
+    l := TConnectionManager.Instance.NodeServersAddresses.LockList;
     try
-      i := TConnectionManager.NetData.IndexOfNetClient(l, Client.RemoteHost, Client.RemotePort);
+      i := TConnectionManager.Instance.IndexOfNetClient(l, Client.RemoteHost, Client.RemotePort);
       if i >= 0 then
       begin
         P := l[i];
         P^.its_myself := ItsMyself;
       end;
     finally
-      TConnectionManager.NetData.NodeServersAddresses.UnlockList;
+      TConnectionManager.Instance.NodeServersAddresses.UnlockList;
     end;
   end;
   Connected := false;
-  TConnectionManager.NetData.NotifyBlackListUpdated;
-  TConnectionManager.NetData.NotifyNodeServersUpdated;
+  TConnectionManager.Instance.NotifyBlackListUpdated;
+  TConnectionManager.Instance.NotifyNodeServersUpdated;
 end;
 
 procedure TNetConnection.DoProcessBuffer;
@@ -380,7 +380,7 @@ begin
     (FLastDataSendedTS + (1000 * FRandomWaitSecondsSendHello) < GetTickCount)) then
   begin
     // Build 1.4 -> Changing wait time from 120 secs to a random seconds value
-    if TConnectionManager.NetData.PendingRequest(Self, ops) >= 2 then
+    if TConnectionManager.Instance.PendingRequest(Self, ops) >= 2 then
     begin
       TLog.NewLog(ltdebug, Classname, 'Pending requests without response... closing connection to ' + ClientRemoteAddr +
         ' > ' + ops);
@@ -389,7 +389,7 @@ begin
     else
     begin
       TLog.NewLog(ltdebug, Classname, 'Sending Hello to check connection to ' + ClientRemoteAddr + ' > ' + ops);
-      Send_Hello(ntp_request, TConnectionManager.NetData.NewRequestId);
+      Send_Hello(ntp_request, TConnectionManager.Instance.NewRequestId);
     end;
   end
   else if (Self is TNetServerClient) and (FLastDataReceivedTS = 0) and (FCreatedTime + EncodeTime(0, 1, 0, 0) < now)
@@ -503,14 +503,14 @@ begin
       errors := 'Invalid structure start or end: ' + Inttostr(b_start) + ' ' + Inttostr(b_end);
       exit;
     end;
-    if (b_end >= TConnectionManager.NetData.Bank.BlocksCount) then
-      b_end := TConnectionManager.NetData.Bank.BlocksCount - 1;
+    if (b_end >= TConnectionManager.Instance.Bank.BlocksCount) then
+      b_end := TConnectionManager.Instance.Bank.BlocksCount - 1;
 
     DoDisconnect := false;
 
     db := TMemoryStream.Create;
     try
-      op := TBlock.Create(TConnectionManager.NetData.Bank);
+      op := TBlock.Create(TConnectionManager.Instance.Bank);
       try
         c := b_end - b_start + 1;
         posquantity := db.Position;
@@ -520,7 +520,7 @@ begin
         for b := b_start to b_end do
         begin
           Inc(c);
-          if TConnectionManager.NetData.Bank.LoadOperations(op, b) then
+          if TConnectionManager.Instance.Bank.LoadOperations(op, b) then
           begin
             op.SaveBlockToStream(false, db);
             // db.SaveToFile('stream0');
@@ -584,7 +584,7 @@ begin
     errors := 'Invalid structure';
     op := TBlock.Create(nil);
     try
-      op.Bank := TNode.Node.Bank;
+      op.Bank := TNode.Node.BlockManager;
       if DataBuffer.Size - DataBuffer.Position < 4 then
       begin
         DisconnectInvalidClient(false, 'DoProcess_GetBlocks_Response invalid format: ' + errors);
@@ -600,10 +600,10 @@ begin
           DoDisconnect := true;
           exit;
         end;
-        if (op.OperationBlock.Block = TNode.Node.Bank.BlocksCount) then
+        if (op.OperationBlock.Block = TNode.Node.BlockManager.BlocksCount) then
         begin
-          if (TNode.Node.Bank.AddNewBlockChainBlock(op,
-            TConnectionManager.NetData.NetworkAdjustedTime.GetMaxAllowedTimestampForNewBlock, newBlockAccount, errors))
+          if (TNode.Node.BlockManager.AddNewBlockChainBlock(op,
+            TConnectionManager.Instance.NetworkAdjustedTime.GetMaxAllowedTimestampForNewBlock, newBlockAccount, errors))
           then
           begin
             // Ok, one more!
@@ -613,7 +613,7 @@ begin
             // Is not a valid entry????
             // Perhaps an orphan blockchain: Me or Client!
             TLog.NewLog(ltInfo, Classname, 'Distinct operation block found! My:' +
-              TBlock.OperationBlockToText(TNode.Node.Bank.AccountStorage.Block(TNode.Node.Bank.BlocksCount - 1)
+              TBlock.OperationBlockToText(TNode.Node.BlockManager.AccountStorage.Block(TNode.Node.BlockManager.BlocksCount - 1)
               .BlockHeader) + ' remote:' + TBlock.OperationBlockToText(op.OperationBlock) + ' Errors: ' + errors);
           end;
         end
@@ -622,15 +622,15 @@ begin
           // Receiving an unexpected operationblock
           TLog.NewLog(ltError, Classname, 'Received a distinct block, finalizing: ' +
             TBlock.OperationBlockToText(op.OperationBlock) + ' (My block: ' +
-            TBlock.OperationBlockToText(TNode.Node.Bank.LastOperationBlock) + ')');
+            TBlock.OperationBlockToText(TNode.Node.BlockManager.LastOperationBlock) + ')');
           FIsDownloadingBlocks := false;
           exit;
         end;
       end;
       FIsDownloadingBlocks := false;
-      if ((opcount > 0) and (FRemoteOperationBlock.Block >= TNode.Node.Bank.BlocksCount)) then
+      if ((opcount > 0) and (FRemoteOperationBlock.Block >= TNode.Node.BlockManager.BlocksCount)) then
       begin
-        Send_GetBlocks(TNode.Node.Bank.BlocksCount, 100, i);
+        Send_GetBlocks(TNode.Node.BlockManager.BlocksCount, 100, i);
       end;
       TNode.Node.NotifyBlocksChanged;
     finally
@@ -670,19 +670,19 @@ begin
     end;
     DataBuffer.Read(b_start, 4);
     DataBuffer.Read(b_end, 4);
-    if (b_start < 0) or (b_start > b_end) or (b_start >= TNode.Node.Bank.BlocksCount) then
+    if (b_start < 0) or (b_start > b_end) or (b_start >= TNode.Node.BlockManager.BlocksCount) then
     begin
       errors := 'Invalid start (' + Inttostr(b_start) + ') or end (' + Inttostr(b_end) + ') of count (' +
-        Inttostr(TNode.Node.Bank.BlocksCount) + ')';
+        Inttostr(TNode.Node.BlockManager.BlocksCount) + ')';
       exit;
     end;
 
     DoDisconnect := false;
 
     // Build 1.4
-    if b_start < TNode.Node.Bank.Storage.FirstBlock then
+    if b_start < TNode.Node.BlockManager.Storage.FirstBlock then
     begin
-      b_start := TNode.Node.Bank.Storage.FirstBlock;
+      b_start := TNode.Node.BlockManager.Storage.FirstBlock;
       if b_end < b_start then
       begin
         errors := 'Block:' + Inttostr(b_end) + ' not found';
@@ -691,15 +691,15 @@ begin
       end;
     end;
 
-    if (b_end >= TNode.Node.Bank.BlocksCount) then
-      b_end := TNode.Node.Bank.BlocksCount - 1;
+    if (b_end >= TNode.Node.BlockManager.BlocksCount) then
+      b_end := TNode.Node.BlockManager.BlocksCount - 1;
     inc_b := ((b_end - b_start) div CT_Max_Positions) + 1;
     msops := TMemoryStream.Create;
     try
       b := b_start;
       total_b := 0;
       repeat
-        ob := TNode.Node.Bank.AccountStorage.Block(b).BlockHeader;
+        ob := TNode.Node.BlockManager.AccountStorage.Block(b).BlockHeader;
         if TBlock.SaveOperationBlockToStream(ob, msops) then
         begin
           blocksstr := blocksstr + Inttostr(b) + ',';
@@ -763,7 +763,7 @@ begin
   DataBuffer.Read(_from, SizeOf(_from));
   DataBuffer.Read(_to, SizeOf(_to));
   //
-  sbStream := TNode.Node.Bank.Storage.CreateSafeBoxStream(_blockcount);
+  sbStream := TNode.Node.BlockManager.Storage.CreateSafeBoxStream(_blockcount);
   try
     responseStream := TMemoryStream.Create;
     try
@@ -840,15 +840,15 @@ begin
       exit;
     end;
     FTimestampDiff := Integer(Int64(connection_ts) -
-      Int64(TConnectionManager.NetData.NetworkAdjustedTime.GetAdjustedTime));
+      Int64(TConnectionManager.Instance.NetworkAdjustedTime.GetAdjustedTime));
     if FClientTimestampIp = '' then
     begin
       FClientTimestampIp := FTcpIpClient.RemoteHost;
-      TConnectionManager.NetData.NetworkAdjustedTime.AddNewIp(FClientTimestampIp, connection_ts);
-      if (Abs(TConnectionManager.NetData.NetworkAdjustedTime.TimeOffset) > CT_MaxFutureBlockTimestampOffset) then
+      TConnectionManager.Instance.NetworkAdjustedTime.AddNewIp(FClientTimestampIp, connection_ts);
+      if (Abs(TConnectionManager.Instance.NetworkAdjustedTime.TimeOffset) > CT_MaxFutureBlockTimestampOffset) then
       begin
         TNode.Node.NotifyNetClientMessage(nil, 'The detected network time is different from this system time in ' +
-          Inttostr(TConnectionManager.NetData.NetworkAdjustedTime.TimeOffset) +
+          Inttostr(TConnectionManager.Instance.NetworkAdjustedTime.TimeOffset) +
           ' seconds! Please check your local time/timezone');
       end;
       //
@@ -861,13 +861,13 @@ begin
     if (connection_has_a_server > 0) and (not SameText(Client.RemoteHost, 'localhost')) and
       (not SameText(Client.RemoteHost, '127.0.0.1')) and (not SameText('192.168.', Copy(Client.RemoteHost, 1, 8))) and
       (not SameText('10.', Copy(Client.RemoteHost, 1, 3))) and
-      (not TAccountKey.EqualAccountKeys(FClientPublicKey, TConnectionManager.NetData.NodePrivateKey.PublicKey)) then
+      (not TAccountKey.EqualAccountKeys(FClientPublicKey, TConnectionManager.Instance.NodePrivateKey.PublicKey)) then
     begin
       nsa := CT_TNodeServerAddress_NUL;
       nsa.ip := Client.RemoteHost;
       nsa.port := connection_has_a_server;
       nsa.last_connection := UnivDateTimeToUnix(DateTime2UnivDateTime(now));
-      TConnectionManager.NetData.AddServer(nsa);
+      TConnectionManager.Instance.AddServer(nsa);
     end;
 
     if op.LoadBlockFromStream(DataBuffer, errors) then
@@ -883,7 +883,7 @@ begin
           DataBuffer.Read(nsa.port, 2);
           DataBuffer.Read(nsa.last_connection_by_server, 4);
           if (nsa.last_connection_by_server > 0) and (i <= CT_MAX_NODESERVERS_ON_HELLO) then // Protect massive data
-            TConnectionManager.NetData.AddServer(nsa);
+            TConnectionManager.Instance.AddServer(nsa);
         end;
         if TStreamOp.ReadAnsiString(DataBuffer, other_version) >= 0 then
         begin
@@ -897,11 +897,11 @@ begin
           end;
         end;
         //
-        if (FRemoteAccumulatedWork > TNode.Node.Bank.AccountStorage.WorkSum) or
-          ((FRemoteAccumulatedWork = 0) and (TConnectionManager.NetData.MaxRemoteOperationBlock.Block <
+        if (FRemoteAccumulatedWork > TNode.Node.BlockManager.AccountStorage.WorkSum) or
+          ((FRemoteAccumulatedWork = 0) and (TConnectionManager.Instance.MaxRemoteOperationBlock.Block <
           FRemoteOperationBlock.Block)) then
         begin
-          TConnectionManager.NetData.MaxRemoteOperationBlock := FRemoteOperationBlock;
+          TConnectionManager.Instance.MaxRemoteOperationBlock := FRemoteOperationBlock;
           if TPCThread.ThreadClassFound(TThreadGetNewBlockChainFromClient, nil) < 0 then
           begin
             TThreadGetNewBlockChainFromClient.Create(false).FreeOnTerminate := true;
@@ -917,18 +917,18 @@ begin
         begin
           Send_Hello(ntp_response, HeaderData.request_id);
         end;
-        if (TAccountKey.EqualAccountKeys(FClientPublicKey, TConnectionManager.NetData.NodePrivateKey.PublicKey)) then
+        if (TAccountKey.EqualAccountKeys(FClientPublicKey, TConnectionManager.Instance.NodePrivateKey.PublicKey)) then
         begin
           DisconnectInvalidClient(true, 'MySelf disconnecting...');
           exit;
         end;
-        Duplicate := TConnectionManager.NetData.FindConnectionByClientRandomValue(Self);
+        Duplicate := TConnectionManager.Instance.FindConnectionByClientRandomValue(Self);
         if (Duplicate <> nil) and (Duplicate.Connected) then
         begin
           DisconnectInvalidClient(true, 'Duplicate connection with ' + Duplicate.ClientRemoteAddr);
           exit;
         end;
-        TConnectionManager.NetData.NotifyReceivedHelloMessage;
+        TConnectionManager.Instance.NotifyReceivedHelloMessage;
       end
       else
       begin
@@ -964,8 +964,8 @@ begin
       errors := 'Invalid message data';
       exit;
     end;
-    if not ECIESDecrypt(TConnectionManager.NetData.NodePrivateKey.EC_OpenSSL_NID,
-      TConnectionManager.NetData.NodePrivateKey.PrivateKey, false, messagecrypted, decrypted) then
+    if not ECIESDecrypt(TConnectionManager.Instance.NodePrivateKey.EC_OpenSSL_NID,
+      TConnectionManager.Instance.NodePrivateKey.PrivateKey, false, messagecrypted, decrypted) then
     begin
       errors := 'Error on decrypting message';
       exit;
@@ -1012,7 +1012,7 @@ begin
     end;
     op := TBlock.Create(nil);
     try
-      op.Bank := TNode.Node.Bank;
+      op.Bank := TNode.Node.BlockManager;
       if not op.LoadBlockFromStream(DataBuffer, errors) then
       begin
         errors := 'Error decoding new account: ' + errors;
@@ -1034,35 +1034,35 @@ begin
         if FRemoteAccumulatedWork = 0 then
         begin
           // Old version. No data
-          if (op.OperationBlock.Block > TNode.Node.Bank.BlocksCount) then
+          if (op.OperationBlock.Block > TNode.Node.BlockManager.BlocksCount) then
           begin
-            TConnectionManager.NetData.GetNewBlockChainFromClient(Self, Format('BlocksCount:%d > my BlocksCount:%d',
-              [op.OperationBlock.Block + 1, TNode.Node.Bank.BlocksCount]));
+            TConnectionManager.Instance.GetNewBlockChainFromClient(Self, Format('BlocksCount:%d > my BlocksCount:%d',
+              [op.OperationBlock.Block + 1, TNode.Node.BlockManager.BlocksCount]));
           end
-          else if (op.OperationBlock.Block = TNode.Node.Bank.BlocksCount) then
+          else if (op.OperationBlock.Block = TNode.Node.BlockManager.BlocksCount) then
           begin
             // New block candidate:
             if not TNode.Node.AddNewBlockChain(Self, op, bacc, errors) then
             begin
               // Received a new invalid block... perhaps I'm an orphan blockchain
-              TConnectionManager.NetData.GetNewBlockChainFromClient(Self, 'Has a distinct block. ' + errors);
+              TConnectionManager.Instance.GetNewBlockChainFromClient(Self, 'Has a distinct block. ' + errors);
             end;
           end;
         end
         else
         begin
-          if (FRemoteAccumulatedWork > TNode.Node.Bank.AccountStorage.WorkSum) then
+          if (FRemoteAccumulatedWork > TNode.Node.BlockManager.AccountStorage.WorkSum) then
           begin
-            if (op.OperationBlock.Block = TNode.Node.Bank.BlocksCount) then
+            if (op.OperationBlock.Block = TNode.Node.BlockManager.BlocksCount) then
             begin
               // New block candidate:
               if not TNode.Node.AddNewBlockChain(Self, op, bacc, errors) then
               begin
                 // Really is a new block? (Check it)
-                if (op.OperationBlock.Block = TNode.Node.Bank.BlocksCount) then
+                if (op.OperationBlock.Block = TNode.Node.BlockManager.BlocksCount) then
                 begin
                   // Received a new invalid block... perhaps I'm an orphan blockchain
-                  TConnectionManager.NetData.GetNewBlockChainFromClient(Self,
+                  TConnectionManager.Instance.GetNewBlockChainFromClient(Self,
                     'Higher Work with same block height. I''m a orphan blockchain candidate');
                 end;
               end;
@@ -1070,9 +1070,9 @@ begin
             else
             begin
               // Received a new higher work
-              TConnectionManager.NetData.GetNewBlockChainFromClient(Self,
+              TConnectionManager.Instance.GetNewBlockChainFromClient(Self,
                 Format('Higher Work and distinct blocks count. Need to download BlocksCount:%d  my BlocksCount:%d',
-                [op.OperationBlock.Block + 1, TNode.Node.Bank.BlocksCount]));
+                [op.OperationBlock.Block + 1, TNode.Node.BlockManager.BlocksCount]));
             end;
           end;
         end;
@@ -1137,7 +1137,7 @@ begin
             if (ReadTcpClientBuffer(MaxWaitTime, HeaderData, ReceiveDataBuffer)) then
             begin
               iDebugStep := 500;
-              l := TConnectionManager.NetData.NodeServersAddresses.LockList;
+              l := TConnectionManager.Instance.NodeServersAddresses.LockList;
               try
                 iDebugStep := 600;
                 for i := 0 to l.Count - 1 do
@@ -1150,7 +1150,7 @@ begin
                 end;
               finally
                 iDebugStep := 700;
-                TConnectionManager.NetData.NodeServersAddresses.UnlockList;
+                TConnectionManager.Instance.NodeServersAddresses.UnlockList;
               end;
               iDebugStep := 800;
               TLog.NewLog(ltdebug, Classname, 'Received ' + CT_NetTransferType[HeaderData.header_type] + ' operation:' +
@@ -1392,18 +1392,18 @@ begin
     begin
       FHasReceivedData := true;
       if (Self is TNetClient) then
-        TConnectionManager.NetData.IncStatistics(0, 0, 0, 1, t_bytes_read, 0)
+        TConnectionManager.Instance.IncStatistics(0, 0, 0, 1, t_bytes_read, 0)
       else
-        TConnectionManager.NetData.IncStatistics(0, 0, 0, 0, t_bytes_read, 0);
+        TConnectionManager.Instance.IncStatistics(0, 0, 0, 0, t_bytes_read, 0);
     end
     else
     begin
-      TConnectionManager.NetData.IncStatistics(0, 0, 0, 0, t_bytes_read, 0);
+      TConnectionManager.Instance.IncStatistics(0, 0, 0, 0, t_bytes_read, 0);
     end;
   end;
   if (Result) and (HeaderData.header_type = ntp_response) then
   begin
-    TConnectionManager.NetData.UnRegisterRequest(Self, HeaderData.operation, HeaderData.request_id);
+    TConnectionManager.Instance.UnRegisterRequest(Self, HeaderData.operation, HeaderData.request_id);
   end;
 end;
 
@@ -1482,7 +1482,7 @@ begin
     finally
       FNetLock.Release;
     end;
-    TConnectionManager.NetData.IncStatistics(0, 0, 0, 0, 0, buffer.Size);
+    TConnectionManager.Instance.IncStatistics(0, 0, 0, 0, 0, buffer.Size);
   finally
     buffer.Free;
   end;
@@ -1539,7 +1539,7 @@ begin
           FBufferReceivedOperationsHash.Count]));
         data := TMemoryStream.Create;
         try
-          request_id := TConnectionManager.NetData.NewRequestId;
+          request_id := TConnectionManager.Instance.NewRequestId;
           c1 := FBufferToSendOperations.OperationsCount;
           data.Write(c1, 4);
           for i := 0 to FBufferToSendOperations.OperationsCount - 1 do
@@ -1574,7 +1574,7 @@ var
 begin
   Result := false;
   request_id := 0;
-  if (FRemoteOperationBlock.Block < TConnectionManager.NetData.Bank.BlocksCount) or (FRemoteOperationBlock.Block = 0)
+  if (FRemoteOperationBlock.Block < TConnectionManager.Instance.Bank.BlocksCount) or (FRemoteOperationBlock.Block = 0)
   then
     exit;
   if not Connected then
@@ -1582,7 +1582,7 @@ begin
   // First receive operations from
   data := TMemoryStream.Create;
   try
-    if TConnectionManager.NetData.Bank.BlocksCount = 0 then
+    if TConnectionManager.Instance.Bank.BlocksCount = 0 then
       c1 := 0
     else
       c1 := StartAddress;
@@ -1602,8 +1602,8 @@ begin
     end;
     data.Write(c1, 4);
     data.Write(c2, 4);
-    request_id := TConnectionManager.NetData.NewRequestId;
-    TConnectionManager.NetData.RegisterRequest(Self, CT_NetOp_GetBlocks, request_id);
+    request_id := TConnectionManager.Instance.NewRequestId;
+    TConnectionManager.Instance.RegisterRequest(Self, CT_NetOp_GetBlocks, request_id);
     TLog.NewLog(ltdebug, Classname, Format('Send GET BLOCKS start:%d quantity:%d (from:%d to %d)',
       [StartAddress, quantity, StartAddress, quantity + StartAddress]));
     FIsDownloadingBlocks := quantity > 1;
@@ -1646,7 +1646,7 @@ begin
   try
     if NetTranferType = ntp_request then
     begin
-      TConnectionManager.NetData.RegisterRequest(Self, CT_NetOp_Hello, request_id);
+      TConnectionManager.Instance.RegisterRequest(Self, CT_NetOp_Hello, request_id);
     end;
     if TNode.Node.NetServer.Active then
       w := TNode.Node.NetServer.port
@@ -1655,13 +1655,13 @@ begin
     // Save active server port (2 bytes). 0 = No active server port
     data.Write(w, 2);
     // Save My connection public key
-    TStreamOp.WriteAnsiString(data, TConnectionManager.NetData.NodePrivateKey.PublicKey.ToRawString);
+    TStreamOp.WriteAnsiString(data, TConnectionManager.Instance.NodePrivateKey.PublicKey.ToRawString);
     // Save my Unix timestamp (4 bytes)
     currunixtimestamp := UnivDateTimeToUnix(DateTime2UnivDateTime(now));
     data.Write(currunixtimestamp, 4);
     // Save last operations block
-    TBlock.SaveOperationBlockToStream(TNode.Node.Bank.LastOperationBlock, data);
-    nsarr := TConnectionManager.NetData.GetValidNodeServers(true, CT_MAX_NODESERVERS_ON_HELLO);
+    TBlock.SaveOperationBlockToStream(TNode.Node.BlockManager.LastOperationBlock, data);
+    nsarr := TConnectionManager.Instance.GetValidNodeServers(true, CT_MAX_NODESERVERS_ON_HELLO);
     i := length(nsarr);
     data.Write(i, 4);
     for i := 0 to high(nsarr) do
@@ -1674,7 +1674,7 @@ begin
     // Send client version
     TStreamOp.WriteAnsiString(data, CT_ClientAppVersion{$IFDEF LINUX} + 'l'{$ELSE} + 'w'{$ENDIF}{$IFDEF FPC}{$IFDEF LCL} + 'L'{$ELSE} + 'F'{$ENDIF}{$ENDIF});
     // Build 1.5 send accumulated work
-    data.Write(TNode.Node.Bank.AccountStorage.WorkSum, SizeOf(TNode.Node.Bank.AccountStorage.WorkSum));
+    data.Write(TNode.Node.BlockManager.AccountStorage.WorkSum, SizeOf(TNode.Node.BlockManager.AccountStorage.WorkSum));
     //
     // data.SaveToFile('./hello.bin');
     Send(NetTranferType, CT_NetOp_Hello, 0, request_id, data);
@@ -1728,17 +1728,17 @@ begin
       TLog.NewLog(ltdebug, Classname, 'This connection has the same block, does not need to send');
       exit;
     end;
-    if (TNode.Node.Bank.BlocksCount <> NewBlock.OperationBlock.Block + 1) then
+    if (TNode.Node.BlockManager.BlocksCount <> NewBlock.OperationBlock.Block + 1) then
     begin
       TLog.NewLog(ltdebug, Classname, 'The block number ' + Inttostr(NewBlock.OperationBlock.Block) +
-        ' is not equal to current blocks stored in bank (' + Inttostr(TNode.Node.Bank.BlocksCount) + '), finalizing');
+        ' is not equal to current blocks stored in bank (' + Inttostr(TNode.Node.BlockManager.BlocksCount) + '), finalizing');
       exit;
     end;
     data := TMemoryStream.Create;
     try
-      request_id := TConnectionManager.NetData.NewRequestId;
+      request_id := TConnectionManager.Instance.NewRequestId;
       NewBlock.SaveBlockToStream(false, data);
-      data.Write(TNode.Node.Bank.AccountStorage.WorkSum, SizeOf(TNode.Node.Bank.AccountStorage.WorkSum));
+      data.Write(TNode.Node.BlockManager.AccountStorage.WorkSum, SizeOf(TNode.Node.BlockManager.AccountStorage.WorkSum));
       Send(ntp_autosend, CT_NetOp_NewBlock, 0, request_id, data);
     finally
       data.Free;
@@ -1761,7 +1761,7 @@ begin
       FTcpIpClient.OnDisconnect := nil;
       FTcpIpClient.RemoveFreeNotification(Self);
     end;
-    TConnectionManager.NetData.UnRegisterRequest(Self, 0, 0);
+    TConnectionManager.Instance.UnRegisterRequest(Self, 0, 0);
     old := FTcpIpClient;
     FTcpIpClient := Value;
     if Assigned(old) then
@@ -1778,7 +1778,7 @@ begin
     FTcpIpClient.OnConnect := TcpClient_OnConnect;
     FTcpIpClient.OnDisconnect := TcpClient_OnDisconnect;
   end;
-  TConnectionManager.NetData.NotifyNetConnectionUpdated;
+  TConnectionManager.Instance.NotifyNetConnectionUpdated;
 end;
 
 procedure TNetConnection.SetConnected(const Value: Boolean);
@@ -1796,27 +1796,27 @@ end;
 
 procedure TNetConnection.TcpClient_OnConnect(Sender: TObject);
 begin
-  TConnectionManager.NetData.IncStatistics(1, 0, 1, 0, 0, 0);
+  TConnectionManager.Instance.IncStatistics(1, 0, 1, 0, 0, 0);
   TLog.NewLog(ltInfo, Classname, 'Connected to a server ' + ClientRemoteAddr);
-  TConnectionManager.NetData.NotifyNetConnectionUpdated;
+  TConnectionManager.Instance.NotifyNetConnectionUpdated;
 end;
 
 procedure TNetConnection.TcpClient_OnDisconnect(Sender: TObject);
 begin
   if Self is TNetServerClient then
-    TConnectionManager.NetData.IncStatistics(-1, -1, 0, 0, 0, 0)
+    TConnectionManager.Instance.IncStatistics(-1, -1, 0, 0, 0, 0)
   else
   begin
     if FHasReceivedData then
-      TConnectionManager.NetData.IncStatistics(-1, 0, -1, -1, 0, 0)
+      TConnectionManager.Instance.IncStatistics(-1, 0, -1, -1, 0, 0)
     else
-      TConnectionManager.NetData.IncStatistics(-1, 0, -1, 0, 0, 0);
+      TConnectionManager.Instance.IncStatistics(-1, 0, -1, 0, 0, 0);
   end;
   TLog.NewLog(ltInfo, Classname, 'Disconnected from ' + ClientRemoteAddr);
-  TConnectionManager.NetData.NotifyNetConnectionUpdated;
+  TConnectionManager.Instance.NotifyNetConnectionUpdated;
   if (FClientTimestampIp <> '') then
   begin
-    TConnectionManager.NetData.NetworkAdjustedTime.RemoveIp(FClientTimestampIp);
+    TConnectionManager.Instance.NetworkAdjustedTime.RemoveIp(FClientTimestampIp);
   end;
 end;
 

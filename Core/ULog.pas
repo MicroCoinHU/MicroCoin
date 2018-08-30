@@ -287,6 +287,6 @@ _logs := nil;
 
 finalization
 
-FreeAndNil(_logs);
+//if Assigned(_logs) then FreeAndNil(_logs);
 
 end.

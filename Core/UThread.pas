@@ -32,6 +32,7 @@ uses
 {$I config.inc}
 
 Type
+
   TPCCriticalSection = Class(TCriticalSection)
   private
     FCounterLock : TCriticalSection;
@@ -50,11 +51,13 @@ Type
     Property CurrentThread : Cardinal read FCurrentThread;
     Property WaitingForCounter : Integer read FWaitingForCounter;
     Property StartedTimestamp : Cardinal read FStartedTimestamp;
-    Property Name : String read FName;
+    //Property Name : String read FName;
   end;
 
+  TPCThreadList = class;
   TPCThread = Class;
   TPCThreadClass = Class of TPCThread;
+
   TPCThread = Class(TThread)
   private
     FDebugStep: String;
@@ -63,7 +66,10 @@ Type
     procedure DoTerminate; override;
     procedure Execute; override;
     procedure BCExecute; virtual; abstract;
+    class var _threads : TPCThreadList;
   public
+    class constructor Create;
+    class destructor Destory;
     Class function ThreadClassFound(tclass : TPCThreadClass; Exclude : TObject) : Integer;
     Class function ThreadCount : Integer;
     Class function GetThread(index : Integer) : TPCThread;
@@ -100,12 +106,20 @@ uses
 
 { TPCThread }
 
-Var _threads : TPCThreadList;
-
 constructor TPCThread.Create(CreateSuspended: Boolean);
 begin
   inherited Create(CreateSuspended);
   {$IFDEF HIGHLOG}TLog.NewLog(ltdebug,Classname,'Created Thread '+IntToHex(PtrInt(Self),8));{$ENDIF}
+end;
+
+class constructor TPCThread.Create;
+begin
+  _threads := TPCThreadList.Create('GLOBAL');
+end;
+
+class destructor TPCThread.Destory;
+begin
+  FreeAndNil(_threads);
 end;
 
 destructor TPCThread.Destroy;
@@ -124,6 +138,7 @@ Var l : TList;
 begin
   FStartTickCount := GetTickCount;
   FDebugStep := '';
+  if not assigned(_threads) then exit;
   i := _threads.Add(Self);
   try
     {$IFDEF HIGHLOG}TLog.NewLog(ltdebug,Classname,'Starting Thread '+IntToHex(PtrInt(Self),8)+' in pos '+inttostr(i+1));{$ENDIF}
@@ -190,6 +205,7 @@ begin
     Lock.Acquire;
   end;
   {$ELSE}
+  if not assigned(sender) or not Assigned(Lock) then exit;
   Lock.Acquire;
   {$ENDIF}
 end;
@@ -279,6 +295,8 @@ end;
 
 function TPCThreadList.Add(Item: Pointer) : Integer;
 begin
+  if not Assigned(item) then exit;
+
   LockList;
   Try
     Result := FList.Add(Item);
@@ -304,9 +322,12 @@ begin
 end;
 
 destructor TPCThreadList.Destroy;
+var
+  p : TThread;
 begin
   LockList;
   try
+    for p in FList do p.Terminate;
     FreeAndNil(FList);
     inherited Destroy;
   finally
@@ -434,8 +455,9 @@ end;
 {$ENDIF}
 
 initialization
-  _threads := TPCThreadList.Create('GLOBAL_THREADS');
+//  _threads := TPCThreadList.Create('GLOBAL_THREADS');
 finalization
-  FreeAndNil(_threads);
+//  FreeAndNil(_threads);
 end.
+
 

@@ -11,9 +11,8 @@ unit MicroCoin.Net.ConnectionManager;
 }
 
 {$ifdef FPC}
-  {$mode delphi}
+{$mode delphi}
 {$endif}
-
 
 interface
 
@@ -64,7 +63,7 @@ type
     FNetConnectionsActive: Boolean;
     FMaxConnections: Integer;
     FNetworkAdjustedTime: TNetworkAdjustedTime;
-    class var Instance: TConnectionManager;
+    class var FInstance: TConnectionManager;
     procedure SetMaxNodeServersAddressesBuffer(AValue: Integer);
     procedure SetNetConnectionsActive(const Value: Boolean);
     function GetOnNetConnectionsUpdated: TNotifyEvent;
@@ -73,14 +72,15 @@ type
     function GetOnReceivedHelloMessage: TNotifyEvent;
     function GetOnStatisticsChanged: TNotifyEvent;
 
-  protected
+  strict protected
+    class function GetInstance: TConnectionManager; static;
   public
     class function HeaderDataToText(const HeaderData: TNetHeaderData): AnsiString;
     class function ExtractHeaderInfo(buffer: TStream; var HeaderData: TNetHeaderData; DataBuffer: TStream;
       var IsValidHeaderButNeedMoreData: Boolean): Boolean;
     class function OperationToText(operation: Word): AnsiString;
     // Only 1 NetData
-    class function NetData: TConnectionManager;
+    class procedure FreeInstance; static;
     class function NetDataExists: Boolean;
     //
     constructor Create(AOwner: TComponent); override;
@@ -145,6 +145,8 @@ type
     property MaxNodeServersAddressesBuffer: Integer read FMaxNodeServersAddressesBuffer
       write SetMaxNodeServersAddressesBuffer;
     property MaxConnections: Integer read FMaxConnections write FMaxConnections;
+    class property Instance: TConnectionManager read GetInstance;
+
   end;
 
   TNetClientsDestroyThread = class(TPCThread)
@@ -231,7 +233,7 @@ end;
 
 function TConnectionManager.Bank: TBlockManager;
 begin
-  Result := TNode.Node.Bank;
+  Result := TNode.Node.BlockManager;
 end;
 
 procedure TConnectionManager.CleanBlackList;
@@ -854,6 +856,12 @@ begin
   Result := nil;
 end;
 
+class procedure TConnectionManager.FreeInstance;
+begin
+  if Assigned(FInstance)
+  then FreeAndNil(FInstance);
+end;
+
 function TConnectionManager.GetConnection(index: Integer; var netConnection: TNetConnection): Boolean;
 var
   l: TList;
@@ -907,7 +915,7 @@ const
         [TConnectionManager.OperationToText(noperation), block_start, block_end, block_end - block_start + 1]));
       SendData.Write(block_start, 4);
       SendData.Write(block_end, 4);
-      request_id := TConnectionManager.NetData.NewRequestId;
+      request_id := TConnectionManager.Instance.NewRequestId;
       if Connection.DoSendAndWaitForResponse(noperation, request_id, SendData, ReceiveData, MaxWaitMilliseconds,
         HeaderData) then
       begin
@@ -954,7 +962,7 @@ const
     OperationBlock := CT_OperationBlock_NUL;
     BlocksList := TList.Create;
     try
-      Result := Do_GetOperationsBlock(TNode.Node.Bank, Block, Block, MaxWaitMilliseconds, true, BlocksList);
+      Result := Do_GetOperationsBlock(TNode.Node.BlockManager, Block, Block, MaxWaitMilliseconds, true, BlocksList);
       if (Result) and (BlocksList.Count = 1) then
       begin
         OperationBlock := TBlock(BlocksList[0]).OperationBlock;
@@ -996,7 +1004,7 @@ const
           end;
           ant_nblock := auxBlock.Block;
           //
-          sbBlock := TNode.Node.Bank.AccountStorage.Block(auxBlock.Block).Blockheader;
+          sbBlock := TNode.Node.BlockManager.AccountStorage.Block(auxBlock.Block).Blockheader;
           if TBlock.EqualsOperationBlock(sbBlock, auxBlock) then
           begin
             distinctmin := auxBlock.Block;
@@ -1041,10 +1049,10 @@ const
     TLog.NewLog(ltdebug, CT_LogSender, Format('GetNewBank(new_start_block:%d)', [start_block]));
     Bank := TBlockManager.Create(nil);
     try
-      Bank.StorageClass := TNode.Node.Bank.StorageClass;
-      Bank.Storage.Orphan := TNode.Node.Bank.Storage.Orphan;
+      Bank.StorageClass := TNode.Node.BlockManager.StorageClass;
+      Bank.Storage.Orphan := TNode.Node.BlockManager.Storage.Orphan;
       Bank.Storage.ReadOnly := true;
-      Bank.Storage.CopyConfiguration(TNode.Node.Bank.Storage);
+      Bank.Storage.CopyConfiguration(TNode.Node.BlockManager.Storage);
       if start_block >= 0 then
       begin
         // Restore a part
@@ -1076,7 +1084,8 @@ const
               ms.Position := 0;
               OpExecute.LoadBlockFromStream(ms, errors);
               if Bank.AddNewBlockChainBlock(OpExecute,
-                TConnectionManager.NetData.NetworkAdjustedTime.GetMaxAllowedTimestampForNewBlock, NewBlock, errors) then
+                TConnectionManager.Instance.NetworkAdjustedTime.GetMaxAllowedTimestampForNewBlock, NewBlock, errors)
+              then
               begin
                 Inc(i);
               end
@@ -1108,7 +1117,7 @@ const
       // -----------------------------
       // Before of version 1.5 was: "if Bank.BlocksCount>TNode.Node.Bank.BlocksCount then ..."
       // Starting on version 1.5 is: "if Bank.WORK > MyBank.WORK then ..."
-      if Bank.AccountStorage.WorkSum > TNode.Node.Bank.AccountStorage.WorkSum then
+      if Bank.AccountStorage.WorkSum > TNode.Node.BlockManager.AccountStorage.WorkSum then
       begin
         oldBlockchainOperations := TTransactionHashTree.Create;
         try
@@ -1116,16 +1125,16 @@ const
           try
             // I'm an orphan blockchain...
             TLog.NewLog(ltInfo, CT_LogSender, 'New valid blockchain found. My block count=' +
-              Inttostr(TNode.Node.Bank.BlocksCount) + ' work: ' + Inttostr(TNode.Node.Bank.AccountStorage.WorkSum) +
-              ' found count=' + Inttostr(Bank.BlocksCount) + ' work: ' + Inttostr(Bank.AccountStorage.WorkSum) +
-              ' starting at block ' + Inttostr(start_block));
-            if TNode.Node.Bank.BlocksCount > 0 then
+              Inttostr(TNode.Node.BlockManager.BlocksCount) + ' work: ' +
+              Inttostr(TNode.Node.BlockManager.AccountStorage.WorkSum) + ' found count=' + Inttostr(Bank.BlocksCount) +
+              ' work: ' + Inttostr(Bank.AccountStorage.WorkSum) + ' starting at block ' + Inttostr(start_block));
+            if TNode.Node.BlockManager.BlocksCount > 0 then
             begin
               OpExecute := TBlock.Create(nil);
               try
-                for start := start_c to TNode.Node.Bank.BlocksCount - 1 do
+                for start := start_c to TNode.Node.BlockManager.BlocksCount - 1 do
                 begin
-                  if TNode.Node.Bank.LoadOperations(OpExecute, start) then
+                  if TNode.Node.BlockManager.LoadOperations(OpExecute, start) then
                   begin
                     for i := 0 to OpExecute.Count - 1 do
                     begin
@@ -1144,10 +1153,11 @@ const
                 OpExecute.Free;
               end;
             end;
-            TNode.Node.Bank.Storage.MoveBlockChainBlocks(start_block, Inttostr(start_block) + '_' +
-              FormatDateTime('yyyymmddhhnnss', DateTime2UnivDateTime(now)), nil);
-            Bank.Storage.MoveBlockChainBlocks(start_block, TNode.Node.Bank.Storage.Orphan, TNode.Node.Bank.Storage);
-            TNode.Node.Bank.DiskRestoreFromOperations(CT_MaxBlock);
+            TNode.Node.BlockManager.Storage.MoveBlockChainBlocks(start_block,
+              Inttostr(start_block) + '_' + FormatDateTime('yyyymmddhhnnss', DateTime2UnivDateTime(now)), nil);
+            Bank.Storage.MoveBlockChainBlocks(start_block, TNode.Node.BlockManager.Storage.Orphan,
+              TNode.Node.BlockManager.Storage);
+            TNode.Node.BlockManager.DiskRestoreFromOperations(CT_MaxBlock);
           finally
             TNode.Node.EnableNewBlocks;
           end;
@@ -1156,7 +1166,7 @@ const
           if oldBlockchainOperations.OperationsCount > 0 then
           begin
             TLog.NewLog(ltInfo, CT_LogSender, Format('Executing %d operations from block %d to %d',
-              [oldBlockchainOperations.OperationsCount, start_c, TNode.Node.Bank.BlocksCount - 1]));
+              [oldBlockchainOperations.OperationsCount, start_c, TNode.Node.BlockManager.BlocksCount - 1]));
             opsResume := TTransactionList.Create;
             try
               // Re-add orphaned operations back into the pending pool.
@@ -1171,14 +1181,14 @@ const
           end
           else
             TLog.NewLog(ltInfo, CT_LogSender, Format('No operations from block %d to %d',
-              [start_c, TNode.Node.Bank.BlocksCount - 1]));
+              [start_c, TNode.Node.BlockManager.BlocksCount - 1]));
         finally
           oldBlockchainOperations.Free;
         end;
       end
       else
       begin
-        if (not IsAScam) and (Connection.RemoteAccumulatedWork > TNode.Node.Bank.AccountStorage.WorkSum) then
+        if (not IsAScam) and (Connection.RemoteAccumulatedWork > TNode.Node.BlockManager.AccountStorage.WorkSum) then
         begin
           // Possible scammer!
           Connection.DisconnectInvalidClient(false,
@@ -1218,7 +1228,7 @@ const
       end;
       TLog.NewLog(ltdebug, CT_LogSender, Format('Call to GetSafeBox from blocks %d to %d of %d',
         [from_block, c, safebox_blockscount]));
-      request_id := TConnectionManager.NetData.NewRequestId;
+      request_id := TConnectionManager.Instance.NewRequestId;
       if Connection.DoSendAndWaitForResponse(CT_NetOp_GetSafeBox, request_id, SendData, ReceiveData, 30000, HeaderData)
       then
       begin
@@ -1327,17 +1337,17 @@ type
       // Now receiveData is the ALL safebox
       TNode.Node.DisableNewBlocks;
       try
-        TNode.Node.Bank.AccountStorage.StartThreadSafe;
+        TNode.Node.BlockManager.AccountStorage.StartThreadSafe;
         try
           ReceiveData.Position := 0;
-          if TNode.Node.Bank.LoadAccountsFromStream(ReceiveData, true, errors) then
+          if TNode.Node.BlockManager.LoadAccountsFromStream(ReceiveData, true, errors) then
           begin
             TLog.NewLog(ltInfo, Classname, 'Received new safebox!');
             if not IsMyBlockchainValid then
             begin
-              TNode.Node.Bank.Storage.EraseStorage;
+              TNode.Node.BlockManager.Storage.EraseStorage;
             end;
-            Connection.Send_GetBlocks(TNode.Node.Bank.BlocksCount, 100, request_id);
+            Connection.Send_GetBlocks(TNode.Node.BlockManager.BlocksCount, 100, request_id);
             Result := true;
           end
           else
@@ -1346,7 +1356,7 @@ type
             exit;
           end;
         finally
-          TNode.Node.Bank.AccountStorage.EndThreadSave;
+          TNode.Node.BlockManager.AccountStorage.EndThreadSave;
         end;
       finally
         TNode.Node.EnableNewBlocks;
@@ -1377,7 +1387,7 @@ begin
   try
     FIsGettingNewBlockChainFromClient := true;
     FMaxRemoteOperationBlock := Connection.RemoteOperationBlock;
-    if TNode.Node.Bank.BlocksCount = 0 then
+    if TNode.Node.BlockManager.BlocksCount = 0 then
     begin
       TLog.NewLog(ltdebug, CT_LogSender, 'I have no blocks');
       if Connection.RemoteOperationBlock.protocol_version >= CT_PROTOCOL_2 then
@@ -1393,10 +1403,10 @@ begin
     end;
     TLog.NewLog(ltdebug, CT_LogSender, 'Starting GetNewBlockChainFromClient at client:' + Connection.ClientRemoteAddr +
       ' with OperationBlock:' + TBlock.OperationBlockToText(Connection.RemoteOperationBlock) + ' (My block: ' +
-      TBlock.OperationBlockToText(TNode.Node.Bank.LastOperationBlock) + ')');
+      TBlock.OperationBlockToText(TNode.Node.BlockManager.LastOperationBlock) + ')');
     // NOTE: FRemoteOperationBlock.block >= TNode.Node.Bank.BlocksCount
     // First capture same block than me (TNode.Node.Bank.BlocksCount-1) to check if i'm an orphan block...
-    my_op := TNode.Node.Bank.LastOperationBlock;
+    my_op := TNode.Node.BlockManager.LastOperationBlock;
     if not Do_GetOperationBlock(my_op.Block, 5000, client_op) then
     begin
       TLog.NewLog(ltError, CT_LogSender, 'Cannot receive information about my block (' + Inttostr(my_op.Block)
@@ -1617,13 +1627,13 @@ begin
   end;
 end;
 
-class function TConnectionManager.NetData: TConnectionManager;
+class function TConnectionManager.GetInstance: TConnectionManager;
 begin
-  if not Assigned(Instance) then
+  if not Assigned(FInstance) then
   begin
-    Instance := TConnectionManager.Create(nil);
+    FInstance := TConnectionManager.Create(nil);
   end;
-  Result := Instance;
+  Result := FInstance;
 end;
 
 class function TConnectionManager.NetDataExists: Boolean;

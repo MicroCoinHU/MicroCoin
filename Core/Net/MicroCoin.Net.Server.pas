@@ -62,10 +62,10 @@ begin
     try
       DebugStep := 'Assigning client';
       n.SetClient(Client);
-      TConnectionManager.NetData.IncStatistics(1, 1, 0, 0, 0, 0);
-      TConnectionManager.NetData.CleanBlackList;
+      TConnectionManager.Instance.IncStatistics(1, 1, 0, 0, 0, 0);
+      TConnectionManager.Instance.CleanBlackList;
       DebugStep := 'Checking blacklisted';
-      if (TConnectionManager.NetData.IsBlackListed(Client.RemoteHost, 0)) then
+      if (TConnectionManager.Instance.IsBlackListed(Client.RemoteHost, 0)) then
       begin
         // Invalid!
         TLog.NewLog(ltInfo, Classname, 'Refusing Blacklist ip: ' + Client.ClientRemoteAddr);
@@ -128,14 +128,14 @@ begin
   end
   else if TConnectionManager.NetDataExists then
   begin
-    TConnectionManager.NetData.DisconnectClients;
+    TConnectionManager.Instance.DisconnectClients;
   end;
 end;
 
 procedure TNetServer.SetMaxConnections(AValue: Integer);
 begin
   inherited SetMaxConnections(AValue);
-  TConnectionManager.NetData.MaxConnections := AValue;
+  TConnectionManager.Instance.MaxConnections := AValue;
 end;
 
 end.

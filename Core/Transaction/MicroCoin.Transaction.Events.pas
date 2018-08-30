@@ -27,14 +27,14 @@ uses MicroCoin.Net.ConnectionManager;
 procedure TNotifyTransactionThread.BCExecute;
 begin
   Sleep(Random(5000)); // Delay 0..5 seconds to allow receive data and don't send if not necessary
-  if TConnectionManager.NetData.ConnectionLock(Self, FNetConnection, 500) then
+  if TConnectionManager.Instance.ConnectionLock(Self, FNetConnection, 500) then
   begin
     try
       if not FNetConnection.Connected then
         exit;
       FNetConnection.Send_AddOperations(nil);
     finally
-      TConnectionManager.NetData.ConnectionUnlock(FNetConnection);
+      TConnectionManager.Instance.ConnectionUnlock(FNetConnection);
     end;
   end;
 end;

@@ -369,14 +369,14 @@ var
   begin
     pcops := TBlock.Create(nil);
     try
-      if FNode.Bank.BlocksCount <= nBlock then
+      if FNode.BlockManager.BlocksCount <= nBlock then
       begin
         ErrorNum := CT_RPC_ErrNum_InvalidBlock;
         ErrorDesc := 'Cannot load Block: ' + Inttostr(nBlock);
         Result := false;
         exit;
       end;
-      ob := FNode.Bank.AccountStorage.Block(nBlock).BlockHeader;
+      ob := FNode.BlockManager.AccountStorage.Block(nBlock).BlockHeader;
 
       jsonObject.GetAsVariant('block').Value := ob.Block;
       jsonObject.GetAsVariant('enc_pubkey').Value := TCrypto.ToHexaString(ob.account_key.ToRawString);
@@ -391,9 +391,9 @@ var
       jsonObject.GetAsVariant('sbh').Value := TCrypto.ToHexaString(ob.initial_safe_box_hash);
       jsonObject.GetAsVariant('oph').Value := TCrypto.ToHexaString(ob.operations_hash);
       jsonObject.GetAsVariant('pow').Value := TCrypto.ToHexaString(ob.proof_of_work);
-      jsonObject.GetAsVariant('hashratekhs').Value := FNode.Bank.AccountStorage.CalcBlockHashRateInKhs(ob.Block, 50);
-      jsonObject.GetAsVariant('maturation').Value := FNode.Bank.BlocksCount - ob.Block - 1;
-      if FNode.Bank.LoadOperations(pcops, nBlock) then
+      jsonObject.GetAsVariant('hashratekhs').Value := FNode.BlockManager.AccountStorage.CalcBlockHashRateInKhs(ob.Block, 50);
+      jsonObject.GetAsVariant('maturation').Value := FNode.BlockManager.BlocksCount - ob.Block - 1;
+      if FNode.BlockManager.LoadOperations(pcops, nBlock) then
       begin
         jsonObject.GetAsVariant('operations').Value := pcops.Count;
       end;
@@ -418,8 +418,8 @@ var
       jsonObject.GetAsVariant('block').Value := OPR.Block;
       jsonObject.GetAsVariant('time').Value := OPR.time;
       jsonObject.GetAsVariant('opblock').Value := OPR.NOpInsideBlock;
-      if (OPR.Block > 0) and (OPR.Block < FNode.Bank.BlocksCount) then
-        jsonObject.GetAsVariant('maturation').Value := FNode.Bank.BlocksCount - OPR.Block - 1
+      if (OPR.Block > 0) and (OPR.Block < FNode.BlockManager.BlocksCount) then
+        jsonObject.GetAsVariant('maturation').Value := FNode.BlockManager.BlocksCount - OPR.Block - 1
       else
         jsonObject.GetAsVariant('maturation').Value := null;
     end;
@@ -539,11 +539,11 @@ var
     nc: TNetConnection;
     Obj: TPCJSONObject;
   begin
-    l := TConnectionManager.NetData.NetConnections.LockList;
+    l := TConnectionManager.Instance.NetConnections.LockList;
     try
       for i := 0 to l.Count - 1 do
       begin
-        nc := TConnectionManager.NetData.Connection(i);
+        nc := TConnectionManager.Instance.Connection(i);
         Obj := jsonresponse.GetAsArray('result').GetAsObject(i);
         Obj.GetAsVariant('server').Value := not(nc is TNetServerClient);
         Obj.GetAsVariant('ip').Value := nc.Client.RemoteHost;
@@ -557,7 +557,7 @@ var
         Obj.GetAsVariant('timediff').Value := nc.TimestampDiff;
       end;
     finally
-      TConnectionManager.NetData.NetConnections.UnlockList;
+      TConnectionManager.Instance.NetConnections.UnlockList;
     end;
   end;
 
@@ -643,7 +643,7 @@ var
     FNode.OperationSequenceLock.Acquire; // Use lock to prevent N_Operation race-condition on concurrent sends
     try
       Result := false;
-      if (Sender < 0) or (Sender >= FNode.Bank.AccountsCount) then
+      if (Sender < 0) or (Sender >= FNode.BlockManager.AccountsCount) then
       begin
         if (Sender = CT_MaxAccount) then
           ErrorDesc := 'Need sender'
@@ -652,7 +652,7 @@ var
         ErrorNum := CT_RPC_ErrNum_InvalidAccount;
         exit;
       end;
-      if (target < 0) or (target >= FNode.Bank.AccountsCount) then
+      if (target < 0) or (target >= FNode.BlockManager.AccountsCount) then
       begin
         if (target = CT_MaxAccount) then
           ErrorDesc := 'Need target'
@@ -809,7 +809,7 @@ var
     FNode.OperationSequenceLock.Acquire; // Use lock to prevent N_Operation race-condition on concurrent invocations
     try
       Result := false;
-      if (account_signer < 0) or (account_signer >= FNode.Bank.AccountsCount) then
+      if (account_signer < 0) or (account_signer >= FNode.BlockManager.AccountsCount) then
       begin
         ErrorDesc := 'Invalid account ' + Inttostr(account_signer);
         ErrorNum := CT_RPC_ErrNum_InvalidAccount;
@@ -1136,7 +1136,7 @@ var
           for ian := 0 to accountsnumber.Count - 1 do
           begin
 
-            if (accountsnumber.Get(ian) < 0) or (accountsnumber.Get(ian) >= FNode.Bank.AccountsCount) then
+            if (accountsnumber.Get(ian) < 0) or (accountsnumber.Get(ian) >= FNode.BlockManager.AccountsCount) then
             begin
               ErrorDesc := 'Invalid account ' + Inttostr(accountsnumber.Get(ian));
               ErrorNum := CT_RPC_ErrNum_InvalidAccount;
@@ -1992,7 +1992,7 @@ var
           exit;
         end;
         c_account := params.AsCardinal('account_signer', 0);
-        if (c_account < 0) or (c_account >= FNode.Bank.AccountsCount) then
+        if (c_account < 0) or (c_account >= FNode.BlockManager.AccountsCount) then
         begin
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
           ErrorDesc := 'Invalid account_signer ' + params.AsString('account_signer', '');
@@ -2006,7 +2006,7 @@ var
           exit;
         end;
         c_account := params.AsCardinal('account_target', 0);
-        if (c_account < 0) or (c_account >= FNode.Bank.AccountsCount) then
+        if (c_account < 0) or (c_account >= FNode.BlockManager.AccountsCount) then
         begin
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
           ErrorDesc := 'Invalid account_target ' + params.AsString('account_target', '');
@@ -2063,7 +2063,7 @@ var
           exit;
         end;
         c_account := params.AsCardinal('account_signer', 0);
-        if (c_account < 0) or (c_account >= FNode.Bank.AccountsCount) then
+        if (c_account < 0) or (c_account >= FNode.BlockManager.AccountsCount) then
         begin
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
           ErrorDesc := 'Invalid account_signer ' + params.AsString('account_signer', '');
@@ -2077,7 +2077,7 @@ var
           exit;
         end;
         c_account := params.AsCardinal('account_target', 0);
-        if (c_account < 0) or (c_account >= FNode.Bank.AccountsCount) then
+        if (c_account < 0) or (c_account >= FNode.BlockManager.AccountsCount) then
         begin
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
           ErrorDesc := 'Invalid account_target ' + params.AsString('account_target', '');
@@ -2134,7 +2134,7 @@ var
           exit;
         end;
         c_account := params.AsCardinal('buyer_account', 0);
-        if (c_account < 0) or (c_account >= FNode.Bank.AccountsCount) then
+        if (c_account < 0) or (c_account >= FNode.BlockManager.AccountsCount) then
         begin
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
           ErrorDesc := 'Invalid account ' + params.AsString('buyer_account', '');
@@ -2184,7 +2184,7 @@ var
           exit;
         end;
         c_account := params.AsCardinal('account_signer', 0);
-        if (c_account < 0) or (c_account >= FNode.Bank.AccountsCount) then
+        if (c_account < 0) or (c_account >= FNode.BlockManager.AccountsCount) then
         begin
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
           ErrorDesc := 'Invalid account_signer ' + params.AsString('account_signer', '');
@@ -2198,7 +2198,7 @@ var
           exit;
         end;
         c_account := params.AsCardinal('account_target', 0);
-        if (c_account < 0) or (c_account >= FNode.Bank.AccountsCount) then
+        if (c_account < 0) or (c_account >= FNode.BlockManager.AccountsCount) then
         begin
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
           ErrorDesc := 'Invalid account_target ' + params.AsString('account_target', '');
@@ -2259,7 +2259,7 @@ var
     // Validate Parameters
     if accountName <> '' then
     begin
-      if not FNode.Bank.AccountStorage.AccountNameIsValid(accountName, errors2) then
+      if not FNode.BlockManager.AccountStorage.AccountNameIsValid(accountName, errors2) then
       begin
         ErrorNum := CT_RPC_ErrNum_InvalidAccountName;
         ErrorDesc := errors;
@@ -2280,7 +2280,7 @@ var
     // Search by name
     if accountName <> '' then
     begin
-      accountNumber := FNode.Bank.AccountStorage.FindAccountByName(accountName);
+      accountNumber := FNode.BlockManager.AccountStorage.FindAccountByName(accountName);
       if accountNumber >= 0 then
       begin
         Account := FNode.Operations.SafeBoxTransaction.Account(accountNumber);
@@ -2290,7 +2290,7 @@ var
     end
     else if state = as_ForSale then
     begin
-      for i := start to FNode.Bank.AccountsCount - 1 do
+      for i := start to FNode.BlockManager.AccountsCount - 1 do
       begin
         Account := FNode.Operations.SafeBoxTransaction.Account(i);
         if Account.accountInfo.state = as_ForSale then
@@ -2304,7 +2304,7 @@ var
     end
     else if hasKey then
     begin
-      for i := start to FNode.Bank.AccountsCount - 1 do
+      for i := start to FNode.BlockManager.AccountsCount - 1 do
       begin
         Account := FNode.Operations.SafeBoxTransaction.Account(i);
         if TAccountKey.EqualAccountKeys(Account.accountInfo.AccountKey, PubKey) then
@@ -2320,7 +2320,7 @@ var
     else
     begin
       // Search by type
-      for i := start to FNode.Bank.AccountsCount - 1 do
+      for i := start to FNode.BlockManager.AccountsCount - 1 do
       begin
         Account := FNode.Operations.SafeBoxTransaction.Account(i);
         if (accountType = -1) or (integer(Account.account_type) = accountType) then
@@ -2383,7 +2383,7 @@ begin
     TNode.DecodeIpStringToNodeServerAddressArray(params.AsString('nodes', ''), nsaarr);
     for i := low(nsaarr) to high(nsaarr) do
     begin
-      TConnectionManager.NetData.AddServer(nsaarr[i]);
+      TConnectionManager.Instance.AddServer(nsaarr[i]);
     end;
     jsonresponse.GetAsVariant('result').Value := length(nsaarr);
     Result := true;
@@ -2393,7 +2393,7 @@ begin
     // Param "block" contains block number (0..getblockcount-1)
     // Returns JSON object with block information
     c := params.GetAsVariant('block').AsCardinal(CT_MaxBlock);
-    if (c >= 0) and (c < FNode.Bank.BlocksCount) then
+    if (c >= 0) and (c < FNode.BlockManager.BlocksCount) then
     begin
       Result := GetBlock(c, GetResultObject);
     end
@@ -2416,9 +2416,9 @@ begin
     begin
       if (i > 1000) then
         i := 1000;
-      c2 := FNode.Bank.BlocksCount - 1;
-      if (FNode.Bank.BlocksCount >= i) then
-        c := (FNode.Bank.BlocksCount) - i
+      c2 := FNode.BlockManager.BlocksCount - 1;
+      if (FNode.BlockManager.BlocksCount >= i) then
+        c := (FNode.BlockManager.BlocksCount) - i
       else
         c := 0;
     end
@@ -2427,15 +2427,15 @@ begin
       c := params.GetAsVariant('start').AsCardinal(CT_MaxBlock);
       c2 := params.GetAsVariant('end').AsCardinal(CT_MaxBlock);
       i := params.AsInteger('max', 0);
-      if (c < FNode.Bank.BlocksCount) and (i > 0) and (i <= 1000) then
+      if (c < FNode.BlockManager.BlocksCount) and (i > 0) and (i <= 1000) then
       begin
-        if (c + i < FNode.Bank.BlocksCount) then
+        if (c + i < FNode.BlockManager.BlocksCount) then
           c2 := c + i
         else
-          c2 := FNode.Bank.BlocksCount - 1;
+          c2 := FNode.BlockManager.BlocksCount - 1;
       end;
     end;
-    if ((c >= 0) and (c < FNode.Bank.BlocksCount)) and (c2 >= c) and (c2 < FNode.Bank.BlocksCount) then
+    if ((c >= 0) and (c < FNode.BlockManager.BlocksCount)) and (c2 >= c) and (c2 < FNode.BlockManager.BlocksCount) then
     begin
       i := 0;
       Result := true;
@@ -2453,7 +2453,7 @@ begin
         ErrorDesc := 'Block start > block end'
       else if (c = CT_MaxBlock) or (c2 = CT_MaxBlock) then
         ErrorDesc := 'Need param "last" or "start" and "end"/"max"'
-      else if (c2 >= FNode.Bank.BlocksCount) then
+      else if (c2 >= FNode.BlockManager.BlocksCount) then
         ErrorDesc := 'Block higher or equal to getblockccount: ' + Inttostr(c2)
       else
         ErrorDesc := 'Block not found: ' + Inttostr(c);
@@ -2462,7 +2462,7 @@ begin
   else if (method = 'getblockcount') then
   begin
     // Returns a number with Node blocks count
-    jsonresponse.GetAsVariant('result').Value := FNode.Bank.BlocksCount;
+    jsonresponse.GetAsVariant('result').Value := FNode.BlockManager.BlocksCount;
     Result := true;
   end
   else if (method = 'getblockoperation') then
@@ -2471,11 +2471,11 @@ begin
     // Param "opblock" contains operation inside a block: (0..getblock.operations-1)
     // Returns a JSON object with operation values as "Operation resume format"
     c := params.GetAsVariant('block').AsCardinal(CT_MaxBlock);
-    if (c >= 0) and (c < FNode.Bank.BlocksCount) then
+    if (c >= 0) and (c < FNode.BlockManager.BlocksCount) then
     begin
       pcops := TBlock.Create(nil);
       try
-        if not FNode.Bank.LoadOperations(pcops, c) then
+        if not FNode.BlockManager.LoadOperations(pcops, c) then
         begin
           ErrorNum := CT_RPC_ErrNum_InternalError;
           ErrorDesc := 'Cannot load Block: ' + Inttostr(c);
@@ -2515,11 +2515,11 @@ begin
     // Param "block" contains block
     // Returns a JSON array with items as "Operation resume format"
     c := params.GetAsVariant('block').AsCardinal(CT_MaxBlock);
-    if (c >= 0) and (c < FNode.Bank.BlocksCount) then
+    if (c >= 0) and (c < FNode.BlockManager.BlocksCount) then
     begin
       pcops := TBlock.Create(nil);
       try
-        if not FNode.Bank.LoadOperations(pcops, c) then
+        if not FNode.BlockManager.LoadOperations(pcops, c) then
         begin
           ErrorNum := CT_RPC_ErrNum_InternalError;
           ErrorDesc := 'Cannot load Block: ' + Inttostr(c);
@@ -2564,7 +2564,7 @@ begin
     // Param "depht" (optional or "deep") contains max blocks deep to search (Default: 100)
     // Param "start" and "max" contains starting index and max operations respectively
     c := params.GetAsVariant('account').AsCardinal(CT_MaxAccount);
-    if ((c >= 0) and (c < FNode.Bank.AccountsCount)) then
+    if ((c >= 0) and (c < FNode.BlockManager.AccountsCount)) then
     begin
       if (params.IndexOfName('depth') >= 0) then
         i := params.AsInteger('depth', 100)
@@ -2843,14 +2843,14 @@ begin
     if FNode.IsReady(ansistr) then
     begin
       GetResultObject.GetAsVariant('ready_s').Value := ansistr;
-      if TConnectionManager.NetData.NetStatistics.ActiveConnections > 0 then
+      if TConnectionManager.Instance.NetStatistics.ActiveConnections > 0 then
       begin
         GetResultObject.GetAsVariant('ready').Value := true;
-        if TConnectionManager.NetData.IsDiscoveringServers then
+        if TConnectionManager.Instance.IsDiscoveringServers then
         begin
           GetResultObject.GetAsVariant('status_s').Value := 'Discovering servers';
         end
-        else if TConnectionManager.NetData.IsGettingNewBlockChainFromClient then
+        else if TConnectionManager.Instance.IsGettingNewBlockChainFromClient then
         begin
           GetResultObject.GetAsVariant('status_s').Value := 'Obtaining new blockchain';
         end
@@ -2874,29 +2874,29 @@ begin
     GetResultObject.GetAsVariant('version').Value := CT_ClientAppVersion;
     GetResultObject.GetAsObject('netprotocol').GetAsVariant('ver').Value := CT_NetProtocol_Version;
     GetResultObject.GetAsObject('netprotocol').GetAsVariant('ver_a').Value := CT_NetProtocol_Available;
-    GetResultObject.GetAsVariant('blocks').Value := FNode.Bank.BlocksCount;
+    GetResultObject.GetAsVariant('blocks').Value := FNode.BlockManager.BlocksCount;
     GetResultObject.GetAsVariant('sbh').Value :=
-      TCrypto.ToHexaString(FNode.Bank.LastOperationBlock.initial_safe_box_hash);
-    GetResultObject.GetAsVariant('pow').Value := TCrypto.ToHexaString(FNode.Bank.LastOperationBlock.proof_of_work);
+      TCrypto.ToHexaString(FNode.BlockManager.LastOperationBlock.initial_safe_box_hash);
+    GetResultObject.GetAsVariant('pow').Value := TCrypto.ToHexaString(FNode.BlockManager.LastOperationBlock.proof_of_work);
     GetResultObject.GetAsObject('netstats').GetAsVariant('active').Value :=
-      TConnectionManager.NetData.NetStatistics.ActiveConnections;
+      TConnectionManager.Instance.NetStatistics.ActiveConnections;
     GetResultObject.GetAsObject('netstats').GetAsVariant('clients').Value :=
-      TConnectionManager.NetData.NetStatistics.ClientsConnections;
+      TConnectionManager.Instance.NetStatistics.ClientsConnections;
     GetResultObject.GetAsObject('netstats').GetAsVariant('servers').Value :=
-      TConnectionManager.NetData.NetStatistics.ServersConnectionsWithResponse;
+      TConnectionManager.Instance.NetStatistics.ServersConnectionsWithResponse;
     GetResultObject.GetAsObject('netstats').GetAsVariant('servers_t').Value :=
-      TConnectionManager.NetData.NetStatistics.ServersConnections;
+      TConnectionManager.Instance.NetStatistics.ServersConnections;
     GetResultObject.GetAsObject('netstats').GetAsVariant('total').Value :=
-      TConnectionManager.NetData.NetStatistics.TotalConnections;
+      TConnectionManager.Instance.NetStatistics.TotalConnections;
     GetResultObject.GetAsObject('netstats').GetAsVariant('tclients').Value :=
-      TConnectionManager.NetData.NetStatistics.TotalClientsConnections;
+      TConnectionManager.Instance.NetStatistics.TotalClientsConnections;
     GetResultObject.GetAsObject('netstats').GetAsVariant('tservers').Value :=
-      TConnectionManager.NetData.NetStatistics.TotalServersConnections;
+      TConnectionManager.Instance.NetStatistics.TotalServersConnections;
     GetResultObject.GetAsObject('netstats').GetAsVariant('breceived').Value :=
-      TConnectionManager.NetData.NetStatistics.BytesReceived;
+      TConnectionManager.Instance.NetStatistics.BytesReceived;
     GetResultObject.GetAsObject('netstats').GetAsVariant('bsend').Value :=
-      TConnectionManager.NetData.NetStatistics.BytesSend;
-    nsaarr := TConnectionManager.NetData.GetValidNodeServers(true, 20);
+      TConnectionManager.Instance.NetStatistics.BytesSend;
+    nsaarr := TConnectionManager.Instance.GetValidNodeServers(true, 20);
     for i := low(nsaarr) to high(nsaarr) do
     begin
       jso := GetResultObject.GetAsArray('nodeservers').GetAsObject(i);
@@ -3074,7 +3074,7 @@ begin
   begin
     // Stops communications to other nodes
     FNode.NetServer.Active := false;
-    TConnectionManager.NetData.NetConnectionsActive := false;
+    TConnectionManager.Instance.NetConnectionsActive := false;
     jsonresponse.GetAsVariant('result').Value := true;
     Result := true;
   end
@@ -3082,7 +3082,7 @@ begin
   begin
     // Stops communications to other nodes
     FNode.NetServer.Active := true;
-    TConnectionManager.NetData.NetConnectionsActive := true;
+    TConnectionManager.Instance.NetConnectionsActive := true;
     jsonresponse.GetAsVariant('result').Value := true;
     Result := true;
   end

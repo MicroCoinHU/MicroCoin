@@ -40,6 +40,7 @@ interface
 
 uses Classes, SysUtils, {$IFDEF MSWINDOWS}Windows, {$ELSE}{$ENDIF}
   SyncObjs, UOpenSSL, UCrypto, MicroCoin.Node.Node, MicroCoin.BlockChain.FileStorage,
+  Threading,
   UFolderHelper, UWalletKeys, UConst, ULog, MicroCoin.Net.Protocol,
   IniFiles, MicroCoin.Account.AccountKey, MicroCoin.Net.ConnectionManager,
   MicroCoin.RPC.Server, MicroCoin.Mining.Server, MicroCoin.Account.Data;
@@ -83,223 +84,73 @@ type
     property MaxZeroFeeTransactionPerBlock : integer read GetMaxZeroFeeTransactionPerBlock;
   end;
 
-  TMicroCoinApplication = class(TThread)
-  private
+  TMicroCoin = class
+  strict private
+    FOnLog: TNewLogEvent;
     FSettings : TMicroCoinAppSettings;
     FRPC: TRPCServer;
-    FNode: TNode;
     FWalletKeys: TWalletKeysExt;
     FMinerServer: TMiningServer;
     FLog: TLog;
+    FInitTask : ITask;
+    procedure InitRPCMinerServer;
+    procedure InitRPCServer;
+    procedure InitNode;
+    procedure InitCrypto;
+    procedure InitLog;
+    procedure InitKeys;
+    procedure SetOnLog(const Value: TNewLogEvent);
+  private
+    FStarted: boolean;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    procedure Start;
+  published
+    property Settings : TMicroCoinAppsettings read FSettings;
+    property RPCServer : TRPCServer read FRPC;
+    property WalletKeys : TWalletKeysExt read FWalletKeys;
+    property MinerServer : TMiningServer read FMinerServer;
+    property Log : TLog read FLog;
+    property OnLog : TNewLogEvent read FOnLog write SetOnLog;
+    property Started : boolean read FStarted default false;
+  end;
+
+  TMicroCoinApplication = class(TThread)
   protected
     procedure Execute; override;
-    procedure InitRPCServer;
-    procedure InitRPCMinerServer;
-    procedure OnMicroCoinInThreadLog(logtype: TLogType; Time: TDateTime; AThreadID: Cardinal;
-      const sender, logtext: AnsiString);
+    procedure OnMicroCoinInThreadLog(logtype: TLogType; Time: TDateTime; AThreadID: Cardinal; const sender, logtext: AnsiString);
   public
     constructor Create;
     destructor Destroy; override;
   end;
 
+var
+  MicroCoin : TMicroCoin;
+
 implementation
 
 procedure TMicroCoinApplication.Execute;
 begin
-  TLog.NewLog(ltinfo, ClassName, 'Daemon Start');
-  FMinerServer := nil;
-  TLog.NewLog(ltinfo, ClassName, 'START MicroCoin Server');
-  try
-    try
-      FWalletKeys := TWalletKeysExt.Create(nil);
-      // Load Node
-      // Check OpenSSL dll
-      if not LoadSSLCrypt then
-      begin
-        WriteLn('Cannot load ' + SSL_C_LIB);
-        WriteLn('To use this software make sure this file is available on you system or reinstall the application');
-        raise Exception.Create('Cannot load ' + SSL_C_LIB + #10 +
-          'To use this software make sure this file is available on you system or reinstall the application');
-      end;
-      TCrypto.InitCrypto;
-      FWalletKeys.WalletFileName := TFolderHelper.GetMicroCoinDataFolder + PathDelim + 'WalletKeys.dat';
-      // Creating Node:
-      FNode := TNode.Node;
-      // RPC Server
-      InitRPCServer;
-      try
-        // Check Database
-        FNode.Bank.StorageClass := TFileStorage;
-        TFileStorage(FNode.Bank.Storage).DatabaseFolder := TFolderHelper.GetMicroCoinDataFolder + PathDelim + 'Data';
-        // Reading database
-        FNode.Node.Bank.DiskRestoreFromOperations(CT_MaxBlock);
-        FWalletKeys.SafeBox := FNode.Node.Bank.AccountStorage;
-        FNode.Node.NetServer.Port := FSettings.Port;
-        FNode.Node.NetServer.MaxConnections := FSettings.MaxConnections;
-        FNode.Node.AutoDiscoverNodes(CT_Discover_IPs);
-        FNode.Node.NetServer.Active := true;
-
-        // RPC Miner Server
-        try
-          TLog.NewLog(ltinfo, ClassName, 'RPC Miner Server');
-          InitRPCMinerServer;
-          TLog.NewLog(ltinfo, ClassName, 'RPC Miner Server OK');
-        except
-          on e: Exception do
-            TLog.NewLog(ltinfo, ClassName, 'RPC Miner Server Failed');
-        end;
-        try
-          repeat
-            Sleep(100);
-          until Terminated;
-        finally
-          TLog.NewLog(ltinfo, ClassName, 'Free FMiner');
-          FreeAndNil(FMinerServer);
-        end;
-      finally
-        FreeAndNil(FRPC);
-        TLog.NewLog(ltinfo, ClassName, 'Free FRPC');
-      end;
-      TLog.NewLog(ltinfo, ClassName, 'Free Node');
-      FNode.NetServer.Active := false;
-      TConnectionManager.NetData.Free;
-      FreeAndNil(FNode);
-    except
-      on e: Exception do
-      begin
-        TLog.NewLog(lterror, ClassName, 'Exception ' + e.ClassName + ': ' + e.Message);
-      end;
-    end;
-  finally
-    TLog.NewLog(ltinfo, ClassName, 'EXIT MicroCoin Server');
-  end;
+  MicroCoin.OnLog := OnMicroCoinInThreadLog;
+  MicroCoin.Start;
+  repeat
+    Sleep(100);
+  until Terminated;
 end;
 
 constructor TMicroCoinApplication.Create;
 begin
+  MicroCoin := TMicroCoin.Create;
   inherited Create(false);
   WriteLn('');
   WriteLn(formatDateTime('dd/mm/yyyy hh:nn:ss.zzz', now) + ' Starting MicroCoin server');
-  FLog := TLog.Create(nil);
-  FLog.OnInThreadNewLog := OnMicroCoinInThreadLog;
-  FSettings := TMicroCoinAppSettings.Create(ExtractFileDir(ParamStr(0)) + PathDelim + 'microcoin.ini');
-
-  if FSettings.SaveLogs then
-  begin
-    FLog.SaveTypes := CT_TLogTypes_ALL;
-    FLog.FileName := TFolderHelper.GetMicroCoinDataFolder + PathDelim + 'microcoin_' +
-      formatDateTime('yyyymmddhhnn', now) + '.log';
-  end
 end;
 
 destructor TMicroCoinApplication.Destroy;
 begin
-  FreeAndNil(FWalletKeys);
-  FreeAndNil(FSettings);
+   FreeAndNil(MicroCoin);
   inherited Destroy;
-end;
-
-procedure TMicroCoinApplication.InitRPCMinerServer;
-var
-  i, Port, MaxConnections: Integer;
-  s: string;
-  pubkey: TAccountKey;
-  errors: AnsiString;
-  ECPK: TECPrivateKey;
-begin
-  i := FSettings.RPCPort;
-  if (i < 0) then
-    i := CT_JSONRPCMinerServer_Port;
-  if (i > 0) then
-  begin
-    Port := i;
-    pubkey := CT_TECDSA_Public_Nul;
-    s := Trim(FSettings.PublicKey);
-    if (s = '') or (not TAccountKey.AccountKeyFromImport(s, pubkey, errors)) then
-    begin
-      if s <> '' then
-        TLog.NewLog(lterror, ClassName, 'Invalid INI file public key: ' + errors);
-      i := 0;
-      while (i < FWalletKeys.Count) and (pubkey.EC_OpenSSL_NID = CT_TECDSA_Public_Nul.EC_OpenSSL_NID) do
-      begin
-        if (FWalletKeys.Key[i].CryptedKey <> '') then
-          pubkey := FWalletKeys[i].AccountKey
-        else
-          inc(i);
-      end;
-      if (pubkey.EC_OpenSSL_NID = CT_TECDSA_Public_Nul.EC_OpenSSL_NID) then
-      begin
-        // New key
-        ECPK := TECPrivateKey.Create;
-        try
-          ECPK.GenerateRandomPrivateKey(CT_Default_EC_OpenSSL_NID);
-          FWalletKeys.AddPrivateKey('RANDOM NEW BY DAEMON ' + formatDateTime('yyyy-mm-dd hh:nn:dd', now), ECPK);
-          pubkey := ECPK.PublicKey;
-          FSettings.PublicKey := pubkey.AccountPublicKeyExport();
-          TLog.NewLog(ltinfo, ClassName, 'Generated new pubkey for miner: ' + pubkey.AccountPublicKeyExport());
-        finally
-          ECPK.Free;
-        end;
-      end;
-    end
-    else
-    begin
-      // pubkey is mine?
-      if (FWalletKeys.IndexOfAccountKey(pubkey) < 0) then
-      begin
-        TLog.NewLog(lterror, ClassName, 'WARNING: Using a public key without private key in wallet! ' +
-          pubkey.AccountPublicKeyExport());
-      end;
-    end;
-    i := FWalletKeys.IndexOfAccountKey(pubkey);
-    s := Trim(FSettings.MinerName);
-    if (SameText(s, 'TIME')) then
-    begin
-      s := formatDateTime('yyyy-mm-dd hh:nn', now);
-      TLog.NewLog(ltinfo, ClassName, 'Generated new miner name: ' + s);
-    end;
-    MaxConnections := FSettings.MinerServerMaxConnections;
-    TLog.NewLog(ltinfo, ClassName,
-      Format('Activating RPC Miner Server on port %d, name "%s", max conections %d and public key %s',
-      [Port, s, MaxConnections, pubkey.AccountPublicKeyExport()]));
-    FMinerServer := TMiningServer.Create;
-    FMinerServer.UpdateAccountAndPayload(pubkey, s);
-    FMinerServer.Port := Port;
-    FMinerServer.Active := true;
-    FMinerServer.MaxConnections := MaxConnections;
-    FMinerServer.MaxOperationsPerBlock := FSettings.MaxTransactionPerBlock;
-    FMinerServer.MaxZeroFeeOperationsPerBlock := FSettings.MaxZeroFeeTransactionPerBlock;
-  end
-  else
-  begin
-    TLog.NewLog(ltinfo, ClassName, 'RPC Miner Server NOT ACTIVE');
-  end;
-end;
-
-procedure TMicroCoinApplication.InitRPCServer;
-var
-  Port: Integer;
-begin
-  Port := FSettings.RPCPort;
-  if (Port <= 0) then
-  begin
-    Port := CT_JSONRPC_Port;
-  end;
-  FRPC := TRPCServer.Create;
-  FRPC.WalletKeys := FWalletKeys;
-  FRPC.Port := Port;
-  FRPC.Active := true;
-  FRPC.ValidIPs := FSettings.RPCWhiteList;
-  TLog.NewLog(ltinfo, ClassName, 'RPC server is active on port ' + IntToStr(Port));
-  if FSettings.SaveRPCLogs then
-  begin
-    FRPC.LogFileName := TFolderHelper.GetMicroCoinDataFolder + PathDelim + 'microcoin_rpc.log';
-    TLog.NewLog(ltinfo, ClassName, 'Activating RPC logs on file ' + FRPC.LogFileName);
-  end
-  else
-  begin
-    TLog.NewLog(ltinfo, ClassName, 'RPC logs not enabled');
-  end;
 end;
 
 procedure TMicroCoinApplication.OnMicroCoinInThreadLog(logtype: TLogType; Time: TDateTime; AThreadID: Cardinal;
@@ -432,5 +283,209 @@ procedure TMicroCoinAppSettings.SetPublicKey(const Value: string);
 begin
   FIniFile.WriteString(GENERAL, 'PublicKey', Value);
 end;
+
+{ TMicroCoin }
+
+constructor TMicroCoin.Create;
+begin
+  FSettings := TMicroCoinAppSettings.Create(ExtractFileDir(ParamStr(0)) + PathDelim + 'microcoin.ini');
+  InitLog;
+  InitCrypto;
+end;
+
+destructor TMicroCoin.Destroy;
+begin
+  if not FStarted then exit;
+  exit;
+  if (FInitTask.Status = TTaskStatus.Running) or
+     (FInitTask.Status = TTaskStatus.WaitingToRun) or
+     (FInitTask.Status = TTaskStatus.WaitingForChildren)
+  then FInitTask.Cancel;
+  TNode.Node.BlockManager.Stopped := true;
+  FInitTask.Wait();
+//  TNode.Node.NetServer.Active := false;
+  FSettings.Free;
+  FRPC.Free;
+  FMinerServer.Free;
+  TNode.Node.BlockManager.Free;
+  FWalletKeys.Free;
+//  TConnectionManager.FreeInstance;
+  TNode.Node.Free;
+  inherited;
+end;
+
+
+procedure TMicroCoin.InitCrypto;
+begin
+
+ if not LoadSSLCrypt then
+  begin
+    WriteLn('Cannot load ' + SSL_C_LIB);
+    WriteLn('To use this software make sure this file is available on you system or reinstall the application');
+    raise Exception.Create('Cannot load ' + SSL_C_LIB + #10 +
+      'To use this software make sure this file is available on you system or reinstall the application');
+  end;
+  TCrypto.InitCrypto;
+end;
+
+procedure TMicroCoin.InitKeys;
+begin
+  FWalletKeys := TWalletKeysExt.Create(nil);
+  FWalletKeys.WalletFileName := TFolderHelper.GetMicroCoinDataFolder + PathDelim + 'WalletKeys.dat';
+end;
+
+procedure TMicroCoin.InitLog;
+begin
+  FLog := TLog.Create(nil);
+  if FSettings.SaveLogs then
+  begin
+    FLog.SaveTypes := CT_TLogTypes_ALL;
+    FLog.FileName := TFolderHelper.GetMicroCoinDataFolder + PathDelim + 'microcoin_' +
+      formatDateTime('yyyymmddhhnn', now) + '.log';
+  end;
+end;
+
+procedure TMicroCoin.InitNode;
+begin
+  TNode.Node.BlockManager.StorageClass := TFileStorage;
+  TFileStorage(TNode.Node.BlockManager.Storage).DatabaseFolder := TFolderHelper.GetMicroCoinDataFolder + PathDelim + 'Data';
+
+  TNode.Node.BlockManager.DiskRestoreFromOperations(CT_MaxBlock);
+
+  FWalletKeys.AccountStorage := TNode.Node.BlockManager.AccountStorage;
+
+  TNode.Node.NetServer.Port := FSettings.Port;
+  TNode.Node.NetServer.MaxConnections := FSettings.MaxConnections;
+  TNode.Node.AutoDiscoverNodes(CT_Discover_IPs);
+  TNode.Node.NetServer.Active := true;
+
+  FStarted := True;
+
+end;
+
+procedure TMicroCoin.InitRPCMinerServer;
+var
+  i, Port, MaxConnections: Integer;
+  s: string;
+  pubkey: TAccountKey;
+  errors: AnsiString;
+  ECPK: TECPrivateKey;
+begin
+  i := FSettings.MinerServerPort;
+  if (i < 0) then
+    i := CT_JSONRPCMinerServer_Port;
+  if (i > 0) then
+  begin
+    Port := i;
+    pubkey := CT_TECDSA_Public_Nul;
+    s := Trim(FSettings.PublicKey);
+    if (s = '') or (not TAccountKey.AccountKeyFromImport(s, pubkey, errors)) then
+    begin
+      if s <> '' then
+        TLog.NewLog(lterror, ClassName, 'Invalid INI file public key: ' + errors);
+      i := 0;
+      while (i < FWalletKeys.Count) and (pubkey.EC_OpenSSL_NID = CT_TECDSA_Public_Nul.EC_OpenSSL_NID) do
+      begin
+        if (FWalletKeys.Key[i].CryptedKey <> '') then
+          pubkey := FWalletKeys[i].AccountKey
+        else
+          inc(i);
+      end;
+      if (pubkey.EC_OpenSSL_NID = CT_TECDSA_Public_Nul.EC_OpenSSL_NID) then
+      begin
+        // New key
+        ECPK := TECPrivateKey.Create;
+        try
+          ECPK.GenerateRandomPrivateKey(CT_Default_EC_OpenSSL_NID);
+          FWalletKeys.AddPrivateKey('RANDOM NEW BY DAEMON ' + formatDateTime('yyyy-mm-dd hh:nn:dd', now), ECPK);
+          pubkey := ECPK.PublicKey;
+          FSettings.PublicKey := pubkey.AccountPublicKeyExport();
+          TLog.NewLog(ltinfo, ClassName, 'Generated new pubkey for miner: ' + pubkey.AccountPublicKeyExport());
+        finally
+          ECPK.Free;
+        end;
+      end;
+    end
+    else
+    begin
+      // pubkey is mine?
+      if (FWalletKeys.IndexOfAccountKey(pubkey) < 0) then
+      begin
+        TLog.NewLog(lterror, ClassName, 'WARNING: Using a public key without private key in wallet! ' +
+          pubkey.AccountPublicKeyExport());
+      end;
+    end;
+    i := FWalletKeys.IndexOfAccountKey(pubkey);
+    s := Trim(FSettings.MinerName);
+    if (SameText(s, 'TIME')) then
+    begin
+      s := formatDateTime('yyyy-mm-dd hh:nn', now);
+      TLog.NewLog(ltinfo, ClassName, 'Generated new miner name: ' + s);
+    end;
+    MaxConnections := FSettings.MinerServerMaxConnections;
+    TLog.NewLog(ltinfo, ClassName,
+      Format('Activating RPC Miner Server on port %d, name "%s", max conections %d and public key %s',
+      [Port, s, MaxConnections, pubkey.AccountPublicKeyExport()]));
+    FMinerServer := TMiningServer.Create;
+    FMinerServer.UpdateAccountAndPayload(pubkey, s);
+    FMinerServer.Port := Port;
+    FMinerServer.Active := true;
+    FMinerServer.MaxConnections := MaxConnections;
+    FMinerServer.MaxOperationsPerBlock := FSettings.MaxTransactionPerBlock;
+    FMinerServer.MaxZeroFeeOperationsPerBlock := FSettings.MaxZeroFeeTransactionPerBlock;
+  end
+  else
+  begin
+    TLog.NewLog(ltinfo, ClassName, 'RPC Miner Server NOT ACTIVE');
+  end;
+end;
+
+procedure TMicroCoin.InitRPCServer;
+var
+  Port: Integer;
+begin
+  Port := FSettings.RPCPort;
+  if (Port <= 0) then
+  begin
+    Port := CT_JSONRPC_Port;
+  end;
+  FRPC := TRPCServer.Create;
+  FRPC.WalletKeys := FWalletKeys;
+  FRPC.Port := Port;
+  FRPC.Active := true;
+  FRPC.ValidIPs := FSettings.RPCWhiteList;
+  TLog.NewLog(ltinfo, ClassName, 'RPC server is active on port ' + IntToStr(Port));
+  if FSettings.SaveRPCLogs then
+  begin
+    FRPC.LogFileName := TFolderHelper.GetMicroCoinDataFolder + PathDelim + 'microcoin_rpc.log';
+    TLog.NewLog(ltinfo, ClassName, 'Activating RPC logs on file ' + FRPC.LogFileName);
+  end
+  else
+  begin
+    TLog.NewLog(ltinfo, ClassName, 'RPC logs not enabled');
+  end;
+end;
+
+
+procedure TMicroCoin.SetOnLog(const Value: TNewLogEvent);
+begin
+  FOnLog := Value;
+  FLog.OnInThreadNewLog := OnLog;
+end;
+
+procedure TMicroCoin.Start;
+begin
+  InitCrypto;
+  InitKeys;
+  InitRPCServer;
+  FInitTask := TTask.Run(InitNode);
+  InitRPCMinerServer;
+end;
+
+initialization
+//  MicroCoin := TMicroCoin.Create;
+
+finalization
+//  FreeAndNil(MicroCoin);
 
 end.

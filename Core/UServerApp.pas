@@ -289,12 +289,12 @@ begin
   FRPC.WalletKeys := FWalletKeys;
   FRPC.Active := True;
   // Check Database
-  FNode.Bank.StorageClass := TFileStorage;
-  TFileStorage(FNode.Bank.Storage).DatabaseFolder := TFolderHelper.GetMicroCoinDataFolder + PathDelim + 'Data';
+  FNode.BlockManager.StorageClass := TFileStorage;
+  TFileStorage(FNode.BlockManager.Storage).DatabaseFolder := TFolderHelper.GetMicroCoinDataFolder + PathDelim + 'Data';
   // Reading database
   Log(sltInfo, 'Reading database and constructing MicroCoin accounts');
-  FNode.Node.Bank.DiskRestoreFromOperations(CT_MaxBlock);
-  FWalletKeys.SafeBox := FNode.Node.Bank.AccountStorage;
+  FNode.Node.BlockManager.DiskRestoreFromOperations(CT_MaxBlock);
+  FWalletKeys.AccountStorage := FNode.Node.BlockManager.AccountStorage;
   Log(sltInfo, 'Start discovering nodes');
   FNode.Node.AutoDiscoverNodes(CT_Discover_IPs);
   FNode.Node.NetServer.Active := True;
@@ -313,7 +313,7 @@ begin
   Log(sltInfo, 'Stop');
   FreeAndNil(FRPC);
   FNode.NetServer.Active := False;
-  TConnectionManager.NetData.Free;
+  TConnectionManager.Instance.Free;
   FreeAndNil(FNode);
   Log(sltInfo, 'Finalized');
 end;

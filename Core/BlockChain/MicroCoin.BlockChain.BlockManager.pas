@@ -59,6 +59,7 @@ type
     FAccountStorageLock: TPCCriticalSection;
     FNotifyList: TList;
     FStorageClass: TStorageClass;
+    FStopped : boolean;
     function GetStorage: TStorage;
     procedure SetStorageClass(const value: TStorageClass);
   protected
@@ -89,6 +90,7 @@ type
     property UpgradingToV2: Boolean read FUpgradingToV2;
     property AccountStorage: TAccountStorage read GetAccountStorage;
     property BlocksCount: Cardinal read GetBlocksCount;
+    property Stopped : Boolean read FStopped write FStopped;
   end;
 
 implementation
@@ -262,7 +264,7 @@ var
 begin
   if FIsRestoringFromFile then
   begin
-    TLog.NewLog(lterror, Classname, 'Is Restoring!!!');
+    TLog.NewLog(lterror, ClassName, 'Is Restoring!!!');
     raise Exception.Create('Is restoring!');
   end;
   TPCThread.ProtectEnterCriticalSection(Self, FAccountStorageLock);
@@ -293,6 +295,7 @@ begin
       try
         while ((BlocksCount <= max_block)) do
         begin
+          if FStopped then exit;
           if Storage.BlockExists(BlocksCount) then
           begin
             if Storage.LoadBlockChainBlock(Operations, BlocksCount) then

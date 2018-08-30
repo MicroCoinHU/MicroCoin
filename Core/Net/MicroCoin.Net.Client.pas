@@ -90,7 +90,7 @@ end;
 procedure TNetClient.OnNetClientThreadTerminated(Sender: TObject);
 begin
   // Close connection
-  if TConnectionManager.NetData.ConnectionExistsAndActive(Self) then
+  if TConnectionManager.Instance.ConnectionExistsAndActive(Self) then
   begin
     Connected := false;
   end;

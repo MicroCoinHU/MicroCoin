@@ -39,7 +39,7 @@ uses MicroCoin.Net.ConnectionManager;
 procedure TNotifyNewBlockThread.BCExecute;
 begin
   DebugStep := 'Locking';
-  if TConnectionManager.NetData.ConnectionLock(Self, FNetConnection, 500) then
+  if TConnectionManager.Instance.ConnectionLock(Self, FNetConnection, 500) then
   begin
     try
       DebugStep := 'Checking connected';
@@ -61,7 +61,7 @@ begin
       end;
       DebugStep := 'Unlocking';
     finally
-      TConnectionManager.NetData.ConnectionUnlock(FNetConnection);
+      TConnectionManager.Instance.ConnectionUnlock(FNetConnection);
     end;
   end;
   DebugStep := 'Finalizing';

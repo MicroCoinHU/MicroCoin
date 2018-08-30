@@ -42,16 +42,16 @@ begin
   candidates := TList.Create;
   try
     lop := CT_OperationBlock_NUL;
-    TConnectionManager.NetData.MaxRemoteOperationBlock := CT_OperationBlock_NUL;
+    TConnectionManager.Instance.MaxRemoteOperationBlock := CT_OperationBlock_NUL;
     // First round: Find by most work
     iMax := 0;
     maxWork := 0;
-    j := TConnectionManager.NetData.ConnectionsCountAll;
+    j := TConnectionManager.Instance.ConnectionsCountAll;
     for i := 0 to j - 1 do
     begin
-      if TConnectionManager.NetData.GetConnection(i, nc) then
+      if TConnectionManager.Instance.GetConnection(i, nc) then
       begin
-        if (nc.RemoteAccumulatedWork > maxWork) and (nc.RemoteAccumulatedWork > TNode.Node.Bank.AccountStorage.WorkSum)
+        if (nc.RemoteAccumulatedWork > maxWork) and (nc.RemoteAccumulatedWork > TNode.Node.BlockManager.AccountStorage.WorkSum)
         then
         begin
           maxWork := nc.RemoteAccumulatedWork;
@@ -66,7 +66,7 @@ begin
     begin
       for i := 0 to j - 1 do
       begin
-        if TConnectionManager.NetData.GetConnection(i, nc) then
+        if TConnectionManager.Instance.GetConnection(i, nc) then
         begin
           if (nc.RemoteAccumulatedWork >= maxWork) then
           begin
@@ -81,9 +81,9 @@ begin
     begin
       for i := 0 to j - 1 do
       begin
-        if (TConnectionManager.NetData.GetConnection(i, nc)) then
+        if (TConnectionManager.Instance.GetConnection(i, nc)) then
         begin
-          if (nc.RemoteOperationBlock.Block >= TNode.Node.Bank.BlocksCount) and
+          if (nc.RemoteOperationBlock.Block >= TNode.Node.BlockManager.BlocksCount) and
             (nc.RemoteOperationBlock.Block >= lop.Block) then
           begin
             lop := nc.RemoteOperationBlock;
@@ -94,7 +94,7 @@ begin
       begin
         for i := 0 to j - 1 do
         begin
-          if (TConnectionManager.NetData.GetConnection(i, nc)) then
+          if (TConnectionManager.Instance.GetConnection(i, nc)) then
           begin
             if (nc.RemoteOperationBlock.Block >= lop.Block) then
             begin
@@ -104,7 +104,7 @@ begin
         end;
       end;
     end;
-    TConnectionManager.NetData.MaxRemoteOperationBlock := lop;
+    TConnectionManager.Instance.MaxRemoteOperationBlock := lop;
     if (candidates.Count > 0) then
     begin
       // Random a candidate
@@ -112,7 +112,7 @@ begin
       if (candidates.Count > 1) then
         i := Random(candidates.Count); // i = 0..count-1
       nc := TNetConnection(candidates[i]);
-      TConnectionManager.NetData.GetNewBlockChainFromClient(nc, Format('Candidate block: %d sum: %d',
+      TConnectionManager.Instance.GetNewBlockChainFromClient(nc, Format('Candidate block: %d sum: %d',
         [nc.RemoteOperationBlock.Block, nc.RemoteAccumulatedWork]));
     end;
   finally

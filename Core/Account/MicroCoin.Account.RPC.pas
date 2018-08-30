@@ -156,7 +156,7 @@ begin
   // Validate Parameters
   if accountName <> '' then
   begin
-    if not TNode.Node.Bank.AccountStorage.AccountNameIsValid(accountName, errors2) then
+    if not TNode.Node.BlockManager.AccountStorage.AccountNameIsValid(accountName, errors2) then
     begin
       Result.ErrorCode := CT_RPC_ErrNum_InvalidAccountName;
       Result.ErrorMessage := errors;
@@ -178,7 +178,7 @@ begin
   // Search by name
   if accountName <> '' then
   begin
-    accountNumber := TNode.Node.Bank.AccountStorage.FindAccountByName(accountName);
+    accountNumber := TNode.Node.BlockManager.AccountStorage.FindAccountByName(accountName);
     if accountNumber >= 0 then
     begin
       Account := TNode.Node.Operations.SafeBoxTransaction.Account(accountNumber);
@@ -188,7 +188,7 @@ begin
   end
   else if state = as_ForSale then
   begin
-    for i := start to TNode.Node.Bank.AccountsCount - 1 do
+    for i := start to TNode.Node.BlockManager.AccountsCount - 1 do
     begin
       Account := TNode.Node.Operations.SafeBoxTransaction.Account(i);
       if Account.accountInfo.state = as_ForSale then
@@ -202,7 +202,7 @@ begin
   end
   else if hasKey then
   begin
-    for i := start to TNode.Node.Bank.AccountsCount - 1 do
+    for i := start to TNode.Node.BlockManager.AccountsCount - 1 do
     begin
       Account := TNode.Node.Operations.SafeBoxTransaction.Account(i);
       if TAccountKey.EqualAccountKeys(Account.accountInfo.AccountKey, PubKey) then
@@ -218,7 +218,7 @@ begin
   else
   begin
     // Search by type
-    for i := start to TNode.Node.Bank.AccountsCount - 1 do
+    for i := start to TNode.Node.BlockManager.AccountsCount - 1 do
     begin
       Account := TNode.Node.Operations.SafeBoxTransaction.Account(i);
       if (accountType = -1) or (integer(Account.account_type) = accountType) then
@@ -242,7 +242,7 @@ begin
   Result.ErrorCode := CT_RPC_ErrNum_InternalError;
   Result.ErrorMessage := '';
   c := AParams.GetAsVariant('account').AsCardinal(CT_MaxAccount);
-  if (c >= 0) and (c < TNode.Node.Bank.AccountsCount) then
+  if (c >= 0) and (c < TNode.Node.BlockManager.AccountsCount) then
   begin
     Account := TNode.Node.Operations.SafeBoxTransaction.Account(c);
     FillAccountObject(Account, TPCJSONObject(Result.Response).GetAsObject('result'));

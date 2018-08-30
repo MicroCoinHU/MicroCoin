@@ -494,7 +494,6 @@ end;
 
 initialization
 
-{ TODO 'Remove ublockchain dependency' }
 TTransactionManager.RegisterTransactionPlugin(TChangeKeyTransaction, CT_Op_Changekey);
 TTransactionManager.RegisterTransactionPlugin(TChangeKeySignedTransaction, CT_Op_ChangeKeySigned);
 
