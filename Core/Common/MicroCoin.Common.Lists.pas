@@ -74,7 +74,7 @@ begin
     exit
   else
   begin
-    FOrderedList.Insert(Result, {$ifndef USE_GENERICS}@{$endif}Value);
+    FOrderedList.Insert(Result, {$ifndef USE_GENERICS}Pointer(Value){$else}Value{$endif});
     NotifyChanged;
   end;
 end;
@@ -167,7 +167,7 @@ begin
 {$ifdef USE_GENERICS}
   Result := FOrderedList[index];
 {$else}
-  Result := Cardinal(FOrderedList[index]^);
+  Result := Cardinal(FOrderedList[index]);
 {$endif}
 end;
 
