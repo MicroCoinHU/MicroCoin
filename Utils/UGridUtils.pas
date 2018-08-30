@@ -43,7 +43,7 @@ Type
 
   TAccountsGrid = Class(TComponent)
   private
-    FAccountsBalance : Int64;
+    FAccountsBalance : UInt64;
     FAccountsList : TOrderedList;
     FColumns : Array of TAccountColumn;
     FDrawGrid : TDrawGrid;
@@ -73,7 +73,7 @@ Type
     Procedure SaveToStream(Stream : TStream);
     Procedure LoadFromStream(Stream : TStream);
     Property ShowAllAccounts : Boolean read FShowAllAccounts write SetShowAllAccounts;
-    Property AccountsBalance : Int64 read FAccountsBalance;
+    Property AccountsBalance : UInt64 read FAccountsBalance;
     Property AccountsCount : Integer read FAccountsCount;
     Function MoveRowToAccount(nAccount : Cardinal) : Boolean;
     Property OnUpdated : TNotifyEvent read FOnUpdated write FOnUpdated;
@@ -293,16 +293,16 @@ begin
   if Not assigned(DrawGrid) then exit;
   if FShowAllAccounts then begin
     if Assigned(Node) then begin
-      if Node.Bank.AccountsCount<1 then DrawGrid.RowCount := 2
-      else DrawGrid.RowCount := Node.Bank.AccountsCount+1;
-      FAccountsBalance := Node.Bank.AccountStorage.TotalBalance;
+      if Node.BlockManager.AccountsCount<1 then DrawGrid.RowCount := 2
+      else DrawGrid.RowCount := Node.BlockManager.AccountsCount+1;
+      FAccountsBalance := Node.BlockManager.AccountStorage.TotalBalance;
     end else DrawGrid.RowCount := 2;
   end else begin
     if FAccountsList.Count<1 then DrawGrid.RowCount := 2
     else DrawGrid.RowCount := FAccountsList.Count+1;
     if Assigned(Node) then begin
       for i := 0 to FAccountsList.Count - 1 do begin
-        acc := Node.Bank.AccountStorage.Account( FAccountsList.Get(i) );
+        acc := Node.BlockManager.AccountStorage.Account( FAccountsList.Get(i) );
         inc(FAccountsBalance, acc.balance);
       end;
     end;
@@ -357,7 +357,7 @@ begin
   if Not Assigned(Node) then exit;
   if FDrawGrid.RowCount<=1 then exit;
   if FShowAllAccounts then begin
-    If (FDrawGrid.RowCount>nAccount+1) And (nAccount>=0) And (nAccount<Node.Bank.AccountsCount) then begin
+    If (FDrawGrid.RowCount>nAccount+1) And (nAccount>=0) And (nAccount<Node.BlockManager.AccountsCount) then begin
       FDrawGrid.Row := nAccount+1;
       Result := true;
     end else begin
@@ -475,9 +475,9 @@ begin
   end else begin
     n_acc := AccountNumber(ARow);
     if (n_acc>=0) then begin
-      if (n_acc>=Node.Bank.AccountsCount) then account := CT_Account_NUL
-      else account := Node.Operations.SafeBoxTransaction.Account(n_acc);
-      ndiff := Node.Bank.BlocksCount - account.updated_block;
+      if (n_acc>=Node.BlockManager.AccountsCount) then account := CT_Account_NUL
+      else account := Node.Operations.AccountTransaction.Account(n_acc);
+      ndiff := Node.BlockManager.BlocksCount - account.updated_block;
       if (gdSelected in State) then
         If (gdFocused in State) then DrawGrid.Canvas.Brush.Color := clGradientActiveCaption
         else DrawGrid.Canvas.Brush.Color := clGradientInactiveCaption
@@ -519,7 +519,7 @@ begin
             // Show price for sale
             s := TCurrencyUtils.FormatMoney(account.accountInfo.price);
             if account.accountInfo.IsAccountForSaleAcceptingTransactions then begin
-              if account.accountInfo.IsLocked(Node.Bank.BlocksCount) then begin
+              if account.accountInfo.IsLocked(Node.BlockManager.BlocksCount) then begin
                 DrawGrid.Canvas.Font.Color := clNavy;
               end else begin
                 DrawGrid.Canvas.Font.Color := clRed;
@@ -529,7 +529,7 @@ begin
             end;
             Canvas_TextRect(DrawGrid.Canvas,Rect,s,State,[tfRight,tfVerticalCenter,tfSingleLine]);
           end else begin
-            if TAccount.IsAccountBlockedByProtocol(account.account,Node.Bank.BlocksCount) then begin
+            if TAccount.IsAccountBlockedByProtocol(account.account,Node.BlockManager.BlocksCount) then begin
               DrawGrid.Canvas.Brush.Color := clRed;
             end else if ndiff=0 then begin
               DrawGrid.Canvas.Brush.Color := RGB(255,128,0);
@@ -918,8 +918,8 @@ begin
         Op := Node.Operations.OperationsHashTree.GetOperation(i);
         If Op.GetTransactionData(0,Op.SignerAccount,OPR) then begin
           OPR.NOpInsideBlock := i;
-          OPR.Block := Node.Bank.BlocksCount;
-          OPR.Balance := Node.Operations.SafeBoxTransaction.Account(Op.SignerAccount).balance;
+          OPR.Block := Node.BlockManager.BlocksCount;
+          OPR.Balance := Node.Operations.AccountTransaction.Account(Op.SignerAccount).balance;
           FOperationsResume.Add(OPR);
         end;
       end;
@@ -927,9 +927,9 @@ begin
       if AccountNumber<0 then begin
         opc := TBlock.Create(Nil);
         try
-          opc.bank := Node.Bank;
+          opc.bank := Node.BlockManager;
           If FBlockEnd<0 then begin
-            If Node.Bank.BlocksCount>0 then bend := Node.Bank.BlocksCount-1
+            If Node.BlockManager.BlocksCount>0 then bend := Node.BlockManager.BlocksCount-1
             else bend := 0;
           end else bend := FBlockEnd;
           if FBlockStart<0 then begin
@@ -937,10 +937,10 @@ begin
             else bstart := 0;
           end else bstart:= FBlockStart;
           If bstart<0 then bstart := 0;
-          if bend>=Node.Bank.BlocksCount then bend:=Node.Bank.BlocksCount;
+          if bend>=Node.BlockManager.BlocksCount then bend:=Node.BlockManager.BlocksCount;
           while (bstart<=bend) do begin
             opr := TTransactionData.Empty;
-            if (Node.Bank.Storage.LoadBlockChainBlock(opc,bend)) then begin
+            if (Node.BlockManager.Storage.LoadBlockChainBlock(opc,bend)) then begin
               // Reward operation
               OPR := TTransactionData.Empty;
               OPR.valid := true;
@@ -977,7 +977,7 @@ begin
             If Op.GetTransactionData(0,AccountNumber,OPR) then begin
               OPR.NOpInsideBlock := i;
               OPR.Block := Node.Operations.OperationBlock.block;
-              OPR.Balance := Node.Operations.SafeBoxTransaction.Account(AccountNumber).balance;
+              OPR.Balance := Node.Operations.AccountTransaction.Account(AccountNumber).balance;
               FOperationsResume.Add(OPR);
             end;
           end;
@@ -1274,21 +1274,21 @@ begin
 
   if Not Assigned(FNodeNotifyEvents.Node) then exit;
 
-  if FBlockStart>(FNodeNotifyEvents.Node.Bank.BlocksCount-1) then FBlockStart := -1;
+  if FBlockStart>(FNodeNotifyEvents.Node.BlockManager.BlocksCount-1) then FBlockStart := -1;
 
   try
-    if Node.Bank.BlocksCount<=0 then begin
+    if Node.BlockManager.BlocksCount<=0 then begin
       SetLength(FBlockChainDataArray,0);
       exit;
     end;
-    if (FBlockEnd>=0) And (FBlockEnd<Node.Bank.BlocksCount) then begin
+    if (FBlockEnd>=0) And (FBlockEnd<Node.BlockManager.BlocksCount) then begin
       nend := FBlockEnd
     end else begin
-      if (FBlockStart>=0) And (FBlockStart+MaxBlocks<=Node.Bank.BlocksCount) then nend := FBlockStart + MaxBlocks - 1
-      else nend := Node.Bank.BlocksCount-1;
+      if (FBlockStart>=0) And (FBlockStart+MaxBlocks<=Node.BlockManager.BlocksCount) then nend := FBlockStart + MaxBlocks - 1
+      else nend := Node.BlockManager.BlocksCount-1;
     end;
 
-    if (FBlockStart>=0) And (FBlockStart<Node.Bank.BlocksCount) then nstart := FBlockStart
+    if (FBlockStart>=0) And (FBlockStart<Node.BlockManager.BlocksCount) then nstart := FBlockStart
     else begin
       if nend>MaxBlocks then nstart := nend - MaxBlocks + 1
       else nstart := 0;
@@ -1296,11 +1296,11 @@ begin
     SetLength(FBlockChainDataArray,nend - nstart +1);
     opc := TBlock.Create(Nil);
     try
-      opc.bank := Node.Bank;
+      opc.bank := Node.BlockManager;
       while (nstart<=nend) do begin
         i := length(FBlockChainDataArray) - (nend-nstart+1);
         bcd := CT_TBlockChainData_NUL;
-        opb := Node.Bank.AccountStorage.Block(nend).Blockheader;
+        opb := Node.BlockManager.AccountStorage.Block(nend).Blockheader;
         bcd.Block:=opb.block;
         bcd.Timestamp := opb.timestamp;
         bcd.BlockProtocolVersion := opb.protocol_version;
@@ -1308,22 +1308,22 @@ begin
         bcd.Reward := opb.reward;
         bcd.Fee := opb.fee;
         bcd.Target := opb.compact_target;
-        bcd.HashRateKhs := Node.Bank.AccountStorage.CalcBlockHashRateInKhs(bcd.Block,HashRateAverageBlocksCount);
+        bcd.HashRateKhs := Node.BlockManager.AccountStorage.CalcBlockHashRateInKhs(bcd.Block,HashRateAverageBlocksCount);
         bcd.MinerPayload := opb.block_payload;
         bcd.PoW := opb.proof_of_work;
         bcd.SafeBoxHash := opb.initial_safe_box_hash;
-        bcd.AccumulatedWork := Node.Bank.AccountStorage.Block(bcd.Block).AccumulatedWork;
-        if (Node.Bank.LoadOperations(opc,nend)) then begin
+        bcd.AccumulatedWork := Node.BlockManager.AccountStorage.Block(bcd.Block).AccumulatedWork;
+        if (Node.BlockManager.LoadOperations(opc,nend)) then begin
           bcd.OperationsCount := opc.Count;
           bcd.Volume := opc.OperationsHashTree.TotalAmount + opc.OperationsHashTree.TotalFee;
         end;
-        bcd.TimeAverage200:=Node.Bank.GetTargetSecondsAverage(bcd.Block,200);
-        bcd.TimeAverage150:=Node.Bank.GetTargetSecondsAverage(bcd.Block,150);
-        bcd.TimeAverage100:=Node.Bank.GetTargetSecondsAverage(bcd.Block,100);
-        bcd.TimeAverage75:=Node.Bank.GetTargetSecondsAverage(bcd.Block,75);
-        bcd.TimeAverage50:=Node.Bank.GetTargetSecondsAverage(bcd.Block,50);
-        bcd.TimeAverage25:=Node.Bank.GetTargetSecondsAverage(bcd.Block,25);
-        bcd.TimeAverage10:=Node.Bank.GetTargetSecondsAverage(bcd.Block,10);
+        bcd.TimeAverage200:=Node.BlockManager.GetTargetSecondsAverage(bcd.Block,200);
+        bcd.TimeAverage150:=Node.BlockManager.GetTargetSecondsAverage(bcd.Block,150);
+        bcd.TimeAverage100:=Node.BlockManager.GetTargetSecondsAverage(bcd.Block,100);
+        bcd.TimeAverage75:=Node.BlockManager.GetTargetSecondsAverage(bcd.Block,75);
+        bcd.TimeAverage50:=Node.BlockManager.GetTargetSecondsAverage(bcd.Block,50);
+        bcd.TimeAverage25:=Node.BlockManager.GetTargetSecondsAverage(bcd.Block,25);
+        bcd.TimeAverage10:=Node.BlockManager.GetTargetSecondsAverage(bcd.Block,10);
         FBlockChainDataArray[i] := bcd;
         if (nend>0) then dec(nend) else break;
       end;

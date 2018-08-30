@@ -53,9 +53,9 @@ type
 
   TCurrencyUtils = class
   public
-    class function FormatMoney(Money: Int64): AnsiString; static;
+    class function FormatMoney(Money: UInt64): AnsiString; static;
     class function TxtToMoney(const moneytxt: AnsiString; var Money: Int64): boolean; static;
-    class function ToJSONCurrency(microCoins: Int64): Real; static;
+    class function ToJSONCurrency(microCoins: UInt64): Real; static;
     class function ToMicroCoins(jsonCurr: Real): Int64; static;
   end;
 
@@ -124,7 +124,7 @@ begin
   end;
 end;
 
-class function TCurrencyUtils.ToJSONCurrency(microCoins: Int64): Real;
+class function TCurrencyUtils.ToJSONCurrency(microCoins: UInt64): Real;
 begin
   Result := RoundTo(microCoins / 10000, -4);
 end;
@@ -134,7 +134,7 @@ begin
   Result := Round(jsonCurr * 10000);
 end;
 
-class function TCurrencyUtils.FormatMoney(Money: Int64): AnsiString;
+class function TCurrencyUtils.FormatMoney(Money: UInt64): AnsiString;
 begin
   Result := FormatFloat('#,###0.0000', (Money / 10000));
 end;

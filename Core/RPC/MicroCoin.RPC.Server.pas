@@ -142,8 +142,6 @@ begin
   { Script := TPSScript.Create(nil); }
   for i := 0 to TNodeNotifyEvents(Sender).Node.Operations.Count - 1 do
   begin
-    Op := TNodeNotifyEvents(Sender).Node.Operations.Operation[i];
-    Op := TNodeNotifyEvents(Sender).Node.Operations.OperationsHashTree.GetOperation(i);
     {
       Script.AddRegisteredVariable('FromAccount', 'btString');
       Script.AddRegisteredVariable('ToAccount', 'btString');
@@ -153,6 +151,8 @@ begin
       Script.AddRegisteredVariable('OpHash', 'btString');
       Script.AddRegisteredVariable('Payload', 'btString');
     }
+    Op := TNodeNotifyEvents(Sender).Node.Operations.Operation[i];
+    Op := TNodeNotifyEvents(Sender).Node.Operations.OperationsHashTree.GetOperation(i);
     Op.GetTransactionData(0, Op.SignerAccount, OPR);
     an := OPR.DestAccount;
     FromAccount := TAccount.AccountNumberToAccountTxtNumber(OPR.AffectedAccount);

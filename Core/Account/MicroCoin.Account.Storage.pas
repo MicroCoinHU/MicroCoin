@@ -43,7 +43,7 @@ type
     FListOfOrderedAccountKeysList: TList;
     FBufferBlocksHash: TRawBytes;
     FOrderedByName: TOrderedRawList;
-    FTotalBalance: Int64;
+    FTotalBalance: UInt64;
     FTotalFee: Int64;
     FAccountStorageHash: TRawBytes;
     FLock: TPCCriticalSection; // Thread safe
@@ -86,7 +86,7 @@ type
     function block(block_number: Cardinal): TAccountStorageEntry;
     function CalculateHash: TRawBytes;
     function CalcBlockHashRateInKhs(block_number: Cardinal; Previous_blocks_average: Cardinal): Int64;
-    property TotalBalance: Int64 read FTotalBalance;
+    property TotalBalance: UInt64 read FTotalBalance;
     procedure StartThreadSafe;
     procedure EndThreadSave;
     property AccountStorageHash: TRawBytes read FAccountStorageHash;

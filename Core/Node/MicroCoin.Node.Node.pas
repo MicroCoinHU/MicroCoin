@@ -410,7 +410,7 @@ begin
               begin
                 ActOp.GetTransactionData(0, ActOp.SignerAccount, OPR);
                 OPR.NOpInsideBlock := FOperations.Count - 1;
-                OPR.balance := FOperations.SafeBoxTransaction.Account(ActOp.SignerAccount).balance;
+                OPR.balance := FOperations.AccountTransaction.Account(ActOp.SignerAccount).balance;
                 OperationsResult.Add(OPR);
               end;
             end

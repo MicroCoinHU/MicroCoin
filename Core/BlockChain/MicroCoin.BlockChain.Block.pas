@@ -23,7 +23,7 @@ type
   TBlock = class(TComponent)
   private
     FBank: TBlockManagerBase;
-    FSafeBoxTransaction: TAccountTransaction;
+    FAccountTransaction: TAccountTransaction;
     FOperationBlock: TBlockHeader;
     FOperationsHashTree: TTransactionHashTree;
     FDigest_Part1: TRawBytes;
@@ -85,7 +85,7 @@ type
     class function GetFirstBlock: TBlockHeader;
     class function EqualsOperationBlock(const OperationBlock1, OperationBlock2: TBlockHeader): Boolean;
     //
-    property SafeBoxTransaction: TAccountTransaction read FSafeBoxTransaction;
+    property AccountTransaction: TAccountTransaction read FAccountTransaction;
     property OperationsHashTree: TTransactionHashTree read FOperationsHashTree;
     property PoW_Digest_Part1: TRawBytes read FDigest_Part1;
     property PoW_Digest_Part2_Payload: TRawBytes read FDigest_Part2_Payload;
@@ -113,7 +113,7 @@ begin
         exit;
       end;
       // Only process when in current address, prevent do it when reading operations from file
-      Result := op.ApplyTransaction(SafeBoxTransaction, errors);
+      Result := op.ApplyTransaction(AccountTransaction, errors);
     end
     else
       Result := true;
@@ -199,8 +199,8 @@ begin
     if DeleteOperations then
     begin
       FOperationsHashTree.ClearHastThree;
-      if Assigned(FSafeBoxTransaction) then
-        FSafeBoxTransaction.CleanTransaction;
+      if Assigned(FAccountTransaction) then
+        FAccountTransaction.CleanTransaction;
     end;
 
     // Note:
@@ -257,9 +257,9 @@ begin
     FOperationBlock := Operations.FOperationBlock;
     FIsOnlyOperationBlock := Operations.FIsOnlyOperationBlock;
     FOperationsHashTree.CopyFromHashTree(Operations.FOperationsHashTree);
-    if Assigned(FSafeBoxTransaction) and Assigned(Operations.FSafeBoxTransaction) then
+    if Assigned(FAccountTransaction) and Assigned(Operations.FAccountTransaction) then
     begin
-      FSafeBoxTransaction.CopyFrom(Operations.FSafeBoxTransaction);
+      FAccountTransaction.CopyFrom(Operations.FAccountTransaction);
     end;
     FDigest_Part1 := Operations.FDigest_Part1;
     FDigest_Part2_Payload := Operations.FDigest_Part2_Payload;
@@ -286,9 +286,9 @@ begin
     FIsOnlyOperationBlock := Operations.FIsOnlyOperationBlock;
     FOperationsHashTree.CopyFromHashTree(Operations.FOperationsHashTree);
     FOperationBlock.operations_hash := FOperationsHashTree.HashTree;
-    if Assigned(FSafeBoxTransaction) and Assigned(Operations.FSafeBoxTransaction) then
+    if Assigned(FAccountTransaction) and Assigned(Operations.FAccountTransaction) then
     begin
-      FSafeBoxTransaction.CopyFrom(Operations.FSafeBoxTransaction);
+      FAccountTransaction.CopyFrom(Operations.FAccountTransaction);
     end;
     // Recalc all
     CalcProofOfWork(true, FOperationBlock.proof_of_work);
@@ -313,7 +313,7 @@ begin
   FOperationsHashTree.OnChanged := OnOperationsHashTreeChanged;
   FBank := nil;
   FOperationBlock := GetFirstBlock;
-  FSafeBoxTransaction := nil;
+  FAccountTransaction := nil;
   if Assigned(AOwner) and (AOwner is TBlockManagerBase) then
   begin
     bank := TBlockManagerBase(AOwner);
@@ -328,9 +328,9 @@ begin
   try
     Clear(true);
     FreeAndNil(FOperationsHashTree);
-    if Assigned(FSafeBoxTransaction) then
+    if Assigned(FAccountTransaction) then
     begin
-      FreeAndNil(FSafeBoxTransaction);
+      FreeAndNil(FAccountTransaction);
     end;
     FreeAndNil(FStreamPoW);
   finally
@@ -515,7 +515,7 @@ begin
     if AComponent = FBank then
     begin
       FBank := nil;
-      FreeAndNil(FSafeBoxTransaction);
+      FreeAndNil(FAccountTransaction);
     end;
   end;
 end;
@@ -571,7 +571,7 @@ begin
     n := 0;
     FOperationBlock.Fee := 0;
     //
-    SafeBoxTransaction.CleanTransaction;
+    AccountTransaction.CleanTransaction;
     //
     aux := TTransactionHashTree.Create;
     try
@@ -579,7 +579,7 @@ begin
       for i := 0 to lastn - 1 do
       begin
         op := FOperationsHashTree.GetOperation(i);
-        if (op.ApplyTransaction(SafeBoxTransaction, errors)) then
+        if (op.ApplyTransaction(AccountTransaction, errors)) then
         begin
           inc(n);
           aux.AddTransactionToHashTree(op);
@@ -722,13 +722,13 @@ begin
     exit;
   if Assigned(FBank) then
   begin
-    FreeAndNil(FSafeBoxTransaction);
+    FreeAndNil(FAccountTransaction);
   end;
   FBank := value;
   if Assigned(value) then
   begin
     value.FreeNotification(Self);
-    FSafeBoxTransaction := TAccountTransaction.Create(FBank.AccountStorage);
+    FAccountTransaction := TAccountTransaction.Create(FBank.AccountStorage);
   end;
   Clear(true);
 end;
@@ -815,24 +815,24 @@ begin
   Result := false;
   Lock;
   try
-    if not Assigned(SafeBoxTransaction) then
+    if not Assigned(AccountTransaction) then
     begin
       errors := 'ERROR DEV 20170523-1';
       exit;
     end;
-    if not Assigned(SafeBoxTransaction.FreezedAccountStorage) then
+    if not Assigned(AccountTransaction.FreezedAccountStorage) then
     begin
       errors := 'ERROR DEV 20170523-2';
       exit;
     end;
     // Check OperationBlock info:
-    if not SafeBoxTransaction.FreezedAccountStorage.IsValidNewBlockHeader(OperationBlock, true, errors) then
+    if not AccountTransaction.FreezedAccountStorage.IsValidNewBlockHeader(OperationBlock, true, errors) then
       exit;
     // Execute SafeBoxTransaction operations:
-    SafeBoxTransaction.Rollback;
+    AccountTransaction.Rollback;
     for i := 0 to Count - 1 do
     begin
-      if not Operation[i].ApplyTransaction(SafeBoxTransaction, errors) then
+      if not Operation[i].ApplyTransaction(AccountTransaction, errors) then
       begin
         errors := 'Error executing operation ' + Inttostr(i + 1) + '/' + Inttostr(Count) + ': ' + errors;
         exit;
@@ -846,21 +846,21 @@ begin
       exit;
     end;
     // Check OperationBlock with SafeBox info:
-    if (SafeBoxTransaction.FreezedAccountStorage.TotalBalance <> (SafeBoxTransaction.TotalBalance +
-      SafeBoxTransaction.TotalFee)) then
+    if (AccountTransaction.FreezedAccountStorage.TotalBalance <> (AccountTransaction.TotalBalance +
+      AccountTransaction.TotalFee)) then
     begin
       errors := Format('Invalid integrity balance at SafeBox. Actual Balance:%d  New Balance:(%d + fee %d = %d)',
-        [SafeBoxTransaction.FreezedAccountStorage.TotalBalance, SafeBoxTransaction.TotalBalance,
-        SafeBoxTransaction.TotalFee, SafeBoxTransaction.TotalBalance + SafeBoxTransaction.TotalFee]);
+        [AccountTransaction.FreezedAccountStorage.TotalBalance, AccountTransaction.TotalBalance,
+        AccountTransaction.TotalFee, AccountTransaction.TotalBalance + AccountTransaction.TotalFee]);
       exit;
     end;
     // Check fee value
-    if (SafeBoxTransaction.TotalFee <> OperationBlock.Fee) then
+    if (AccountTransaction.TotalFee <> OperationBlock.Fee) then
     begin
       errors := Format
         ('Invalid fee integrity at SafeBoxTransaction. New Balance:(%d + fee %d = %d)  OperationBlock.fee:%d',
-        [SafeBoxTransaction.TotalBalance, SafeBoxTransaction.TotalFee, SafeBoxTransaction.TotalBalance +
-        SafeBoxTransaction.TotalFee, OperationBlock.Fee]);
+        [AccountTransaction.TotalBalance, AccountTransaction.TotalFee, AccountTransaction.TotalBalance +
+        AccountTransaction.TotalFee, OperationBlock.Fee]);
       exit;
     end;
 

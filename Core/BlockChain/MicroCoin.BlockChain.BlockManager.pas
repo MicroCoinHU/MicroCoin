@@ -135,7 +135,7 @@ begin
       // WINNER !!!
       // Congrats!
 
-      if not Operations.SafeBoxTransaction.Commit(Operations.OperationBlock, errors) then
+      if not Operations.AccountTransaction.Commit(Operations.OperationBlock, errors) then
       begin
         exit;
       end;
@@ -149,7 +149,7 @@ begin
         Format('New block height:%d nOnce:%d timestamp:%d Operations:%d Fee:%d SafeBoxBalance:%d=%d PoW:%s Operations previous Safe Box hash:%s Future old Safe Box hash for next block:%s',
         [Operations.OperationBlock.Block, Operations.OperationBlock.nonce, Operations.OperationBlock.timestamp,
         Operations.Count, Operations.OperationBlock.Fee, AccountStorage.TotalBalance,
-        Operations.SafeBoxTransaction.TotalBalance, TCrypto.ToHexaString(Operations.OperationBlock.proof_of_work),
+        Operations.AccountTransaction.TotalBalance, TCrypto.ToHexaString(Operations.OperationBlock.proof_of_work),
         TCrypto.ToHexaString(Operations.OperationBlock.initial_safe_box_hash),
         TCrypto.ToHexaString(AccountStorage.AccountStorageHash)]));
       // Save Operations to disk

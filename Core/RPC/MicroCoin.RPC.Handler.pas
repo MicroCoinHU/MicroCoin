@@ -501,7 +501,7 @@ var
             begin
               OPR.NOpInsideBlock := i;
               OPR.Block := FNode.Operations.OperationBlock.Block;
-              OPR.balance := FNode.Operations.SafeBoxTransaction.Account(accountNumber).balance;
+              OPR.balance := FNode.Operations.AccountTransaction.Account(accountNumber).balance;
               if (nCounter >= startReg) and (nCounter < maxReg) then
               begin
                 OperationsResume.Add(OPR);
@@ -661,8 +661,8 @@ var
         ErrorNum := CT_RPC_ErrNum_InvalidAccount;
         exit;
       end;
-      sacc := FNode.Operations.SafeBoxTransaction.Account(Sender);
-      tacc := FNode.Operations.SafeBoxTransaction.Account(target);
+      sacc := FNode.Operations.AccountTransaction.Account(Sender);
+      tacc := FNode.Operations.AccountTransaction.Account(target);
 
       opt := CreateOperationTransaction(Sender, target, sacc.n_operation, Amount, fee, sacc.accountInfo.AccountKey,
         tacc.accountInfo.AccountKey, RawPayload, Payload_method, EncodePwd);
@@ -815,7 +815,7 @@ var
         ErrorNum := CT_RPC_ErrNum_InvalidAccount;
         exit;
       end;
-      acc_signer := FNode.Operations.SafeBoxTransaction.Account(account_signer);
+      acc_signer := FNode.Operations.AccountTransaction.Account(account_signer);
 
       opck := CreateOperationChangeKey(account_signer, acc_signer.n_operation, account_target,
         acc_signer.accountInfo.AccountKey, new_pub_key, fee, RawPayload, Payload_method, EncodePwd);
@@ -1142,7 +1142,7 @@ var
               ErrorNum := CT_RPC_ErrNum_InvalidAccount;
               exit;
             end;
-            acc := FNode.Operations.SafeBoxTransaction.Account(accountsnumber.Get(ian));
+            acc := FNode.Operations.AccountTransaction.Account(accountsnumber.Get(ian));
             opck := CreateOperationChangeKey(acc.Account, acc.n_operation, acc.Account, acc.accountInfo.AccountKey,
               new_pub_key, fee, RawPayload, Payload_method, EncodePwd);
             if not Assigned(opck) then
@@ -1998,7 +1998,7 @@ var
           ErrorDesc := 'Invalid account_signer ' + params.AsString('account_signer', '');
           exit;
         end;
-        account_signer := FNode.Operations.SafeBoxTransaction.Account(c_account);
+        account_signer := FNode.Operations.AccountTransaction.Account(c_account);
         if (params.IndexOfName('account_target') < 0) then
         begin
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
@@ -2012,7 +2012,7 @@ var
           ErrorDesc := 'Invalid account_target ' + params.AsString('account_target', '');
           exit;
         end;
-        account_target := FNode.Operations.SafeBoxTransaction.Account(c_account);
+        account_target := FNode.Operations.AccountTransaction.Account(c_account);
         if (not TAccountKey.EqualAccountKeys(account_signer.accountInfo.AccountKey,
           account_target.accountInfo.AccountKey)) then
         begin
@@ -2069,7 +2069,7 @@ var
           ErrorDesc := 'Invalid account_signer ' + params.AsString('account_signer', '');
           exit;
         end;
-        account_signer := FNode.Operations.SafeBoxTransaction.Account(c_account);
+        account_signer := FNode.Operations.AccountTransaction.Account(c_account);
         if (params.IndexOfName('account_target') < 0) then
         begin
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
@@ -2083,7 +2083,7 @@ var
           ErrorDesc := 'Invalid account_target ' + params.AsString('account_target', '');
           exit;
         end;
-        account_target := FNode.Operations.SafeBoxTransaction.Account(c_account);
+        account_target := FNode.Operations.AccountTransaction.Account(c_account);
         if (not TAccountKey.EqualAccountKeys(account_signer.accountInfo.AccountKey,
           account_target.accountInfo.AccountKey)) then
         begin
@@ -2140,7 +2140,7 @@ var
           ErrorDesc := 'Invalid account ' + params.AsString('buyer_account', '');
           exit;
         end;
-        buyer_account := FNode.Operations.SafeBoxTransaction.Account(c_account);
+        buyer_account := FNode.Operations.AccountTransaction.Account(c_account);
         if not SignBuyAccountEx(params, OperationsHashTree, buyer_account.accountInfo.AccountKey,
           buyer_account.n_operation) then
           exit;
@@ -2190,7 +2190,7 @@ var
           ErrorDesc := 'Invalid account_signer ' + params.AsString('account_signer', '');
           exit;
         end;
-        account_signer := FNode.Operations.SafeBoxTransaction.Account(c_account);
+        account_signer := FNode.Operations.AccountTransaction.Account(c_account);
         if (params.IndexOfName('account_target') < 0) then
         begin
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
@@ -2204,7 +2204,7 @@ var
           ErrorDesc := 'Invalid account_target ' + params.AsString('account_target', '');
           exit;
         end;
-        account_target := FNode.Operations.SafeBoxTransaction.Account(c_account);
+        account_target := FNode.Operations.AccountTransaction.Account(c_account);
         if (not TAccountKey.EqualAccountKeys(account_signer.accountInfo.AccountKey,
           account_target.accountInfo.AccountKey)) then
         begin
@@ -2283,7 +2283,7 @@ var
       accountNumber := FNode.BlockManager.AccountStorage.FindAccountByName(accountName);
       if accountNumber >= 0 then
       begin
-        Account := FNode.Operations.SafeBoxTransaction.Account(accountNumber);
+        Account := FNode.Operations.AccountTransaction.Account(accountNumber);
         if (accountType = -1) or (integer(Account.account_type) = accountType) then
           FillAccountObject(Account, output.GetAsObject(output.Count));
       end;
@@ -2292,7 +2292,7 @@ var
     begin
       for i := start to FNode.BlockManager.AccountsCount - 1 do
       begin
-        Account := FNode.Operations.SafeBoxTransaction.Account(i);
+        Account := FNode.Operations.AccountTransaction.Account(i);
         if Account.accountInfo.state = as_ForSale then
         begin
           // Found a match
@@ -2306,7 +2306,7 @@ var
     begin
       for i := start to FNode.BlockManager.AccountsCount - 1 do
       begin
-        Account := FNode.Operations.SafeBoxTransaction.Account(i);
+        Account := FNode.Operations.AccountTransaction.Account(i);
         if TAccountKey.EqualAccountKeys(Account.accountInfo.AccountKey, PubKey) then
         begin
           // Found a match
@@ -2322,7 +2322,7 @@ var
       // Search by type
       for i := start to FNode.BlockManager.AccountsCount - 1 do
       begin
-        Account := FNode.Operations.SafeBoxTransaction.Account(i);
+        Account := FNode.Operations.AccountTransaction.Account(i);
         if (accountType = -1) or (integer(Account.account_type) = accountType) then
         begin
           // Found a match
@@ -2595,7 +2595,7 @@ begin
         exit;
       end;
       OPR.NOpInsideBlock := i;
-      OPR.balance := FNode.Operations.SafeBoxTransaction.Account(FNode.Operations.Operation[i].SignerAccount).balance;
+      OPR.balance := FNode.Operations.AccountTransaction.Account(FNode.Operations.Operation[i].SignerAccount).balance;
       FillOperationResumeToJSONObject(OPR, GetResultArray.GetAsObject(FNode.Operations.Count - 1 - i));
     end;
     Result := true;

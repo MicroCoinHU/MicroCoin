@@ -181,7 +181,7 @@ begin
     accountNumber := TNode.Node.BlockManager.AccountStorage.FindAccountByName(accountName);
     if accountNumber >= 0 then
     begin
-      Account := TNode.Node.Operations.SafeBoxTransaction.Account(accountNumber);
+      Account := TNode.Node.Operations.AccountTransaction.Account(accountNumber);
       if (accountType = -1) or (integer(Account.account_type) = accountType) then
         FillAccountObject(Account, output.GetAsObject(output.Count));
     end;
@@ -190,7 +190,7 @@ begin
   begin
     for i := start to TNode.Node.BlockManager.AccountsCount - 1 do
     begin
-      Account := TNode.Node.Operations.SafeBoxTransaction.Account(i);
+      Account := TNode.Node.Operations.AccountTransaction.Account(i);
       if Account.accountInfo.state = as_ForSale then
       begin
         // Found a match
@@ -204,7 +204,7 @@ begin
   begin
     for i := start to TNode.Node.BlockManager.AccountsCount - 1 do
     begin
-      Account := TNode.Node.Operations.SafeBoxTransaction.Account(i);
+      Account := TNode.Node.Operations.AccountTransaction.Account(i);
       if TAccountKey.EqualAccountKeys(Account.accountInfo.AccountKey, PubKey) then
       begin
         // Found a match
@@ -220,7 +220,7 @@ begin
     // Search by type
     for i := start to TNode.Node.BlockManager.AccountsCount - 1 do
     begin
-      Account := TNode.Node.Operations.SafeBoxTransaction.Account(i);
+      Account := TNode.Node.Operations.AccountTransaction.Account(i);
       if (accountType = -1) or (integer(Account.account_type) = accountType) then
       begin
         // Found a match
@@ -244,7 +244,7 @@ begin
   c := AParams.GetAsVariant('account').AsCardinal(CT_MaxAccount);
   if (c >= 0) and (c < TNode.Node.BlockManager.AccountsCount) then
   begin
-    Account := TNode.Node.Operations.SafeBoxTransaction.Account(c);
+    Account := TNode.Node.Operations.AccountTransaction.Account(c);
     FillAccountObject(Account, TPCJSONObject(Result.Response).GetAsObject('result'));
     Result.Success := true;
   end
@@ -292,7 +292,7 @@ begin
     begin
       if (j >= l) then
       begin
-        Account := TNode.Node.Operations.SafeBoxTransaction.Account(ocl.Get(j));
+        Account := TNode.Node.Operations.AccountTransaction.Account(ocl.Get(j));
         FillAccountObject(Account, jsonArr.GetAsObject(jsonArr.Count));
       end;
       if (k > 0) and ((j + 1) >= (k + l)) then
@@ -312,7 +312,7 @@ begin
       begin
         if (c >= l) then
         begin
-          Account := TNode.Node.Operations.SafeBoxTransaction.Account(ocl.Get(j));
+          Account := TNode.Node.Operations.AccountTransaction.Account(ocl.Get(j));
           FillAccountObject(Account, jsonArr.GetAsObject(jsonArr.Count));
         end;
         inc(c);
@@ -393,7 +393,7 @@ begin
     Account.balance := 0;
     for j := 0 to ocl.Count - 1 do
     begin
-      inc(Account.balance, TNode.Node.Operations.SafeBoxTransaction.Account(ocl.Get(j)).balance);
+      inc(Account.balance, TNode.Node.Operations.AccountTransaction.Account(ocl.Get(j)).balance);
     end;
     Result.Response.GetAsVariant('result').Value := TCurrencyUtils.ToJSONCurrency(Account.balance);
     Result.Success := true;
@@ -408,7 +408,7 @@ begin
       ocl := TRPCServer.Instance.WalletKeys.AccountsKeyList.AccountKeyList[i];
       for j := 0 to ocl.Count - 1 do
       begin
-        inc(Account.balance, TNode.Node.Operations.SafeBoxTransaction.Account(ocl.Get(j)).balance);
+        inc(Account.balance, TNode.Node.Operations.AccountTransaction.Account(ocl.Get(j)).balance);
       end;
     end;
     Result.Response.GetAsVariant('result').Value := TCurrencyUtils.ToJSONCurrency(Account.balance);
