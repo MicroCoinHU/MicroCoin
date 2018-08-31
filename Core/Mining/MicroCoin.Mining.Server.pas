@@ -1,5 +1,13 @@
 unit MicroCoin.Mining.Server;
+{
+  This unit contains code from PascalCoin:
 
+  Copyright (c) Albert Molina 2016 - 2018 original code from PascalCoin https://pascalcoin.org/
+
+  Distributed under the MIT software license, see the accompanying file LICENSE
+  or visit http://www.opensource.org/licenses/mit-license.php.
+
+}
 {$ifdef FPC}
   {$mode delphi}
 {$endif}
@@ -13,6 +21,7 @@ uses UTCPIP, UJsonFunctions, MicroCoin.Account.AccountKey, UThread,
   Variants,
   MicroCoin.Node.Node, MicroCoin.Transaction.HashTree,
   MicroCoin.Transaction.Base,
+  MicroCoin.Transaction.Itransaction,
   MicroCoin.Account.Storage,{$IFDEF MSWINDOWS} Windows,{$ENDIF} MicroCoin.BlockChain.Protocol,
   MicroCoin.Mining.Common;
 

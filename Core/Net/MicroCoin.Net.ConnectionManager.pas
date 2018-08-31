@@ -22,6 +22,8 @@ uses Classes, SysUtils, UThread, UCrypto,
   MicroCoin.BlockChain.BlockManager,
   MicroCoin.Net.Connection, UTime, UConst,
   ULog, MicroCoin.Net.Events,
+  MicroCoin.Net.ConnectionBase,
+  MicroCoin.Net.INetNotificationSource,
   MicroCoin.BlockChain.Blockheader, MicroCoin.Net.NodeServer;
 
 type
@@ -95,9 +97,9 @@ type
     procedure CleanBlackList;
     function Bank: TBlockManager;
     function NewRequestId: Cardinal;
-    procedure RegisterRequest(Sender: TNetConnection; operation: Word; request_id: Cardinal);
-    function UnRegisterRequest(Sender: TNetConnection; operation: Word; request_id: Cardinal): Boolean;
-    function PendingRequest(Sender: TNetConnection; var requests_data: AnsiString): Integer;
+    procedure RegisterRequest(Sender: TNetConnectionBase; operation: Word; request_id: Cardinal);
+    function UnRegisterRequest(Sender: TNetConnectionBase; operation: Word; request_id: Cardinal): Boolean;
+    function PendingRequest(Sender: TNetConnectionBase; var requests_data: AnsiString): Integer;
     procedure AddServer(NodeServerAddress: TNodeServer);
     function IsBlackListed(const ip: AnsiString; port: Word): Boolean;
     //
@@ -1718,7 +1720,7 @@ begin
   end;
 end;
 
-function TConnectionManager.PendingRequest(Sender: TNetConnection; var requests_data: AnsiString): Integer;
+function TConnectionManager.PendingRequest(Sender: TNetConnectionBase; var requests_data: AnsiString): Integer;
 var
   P: PNetRequestRegistered;
   i: Integer;
@@ -1747,7 +1749,7 @@ begin
   end;
 end;
 
-procedure TConnectionManager.RegisterRequest(Sender: TNetConnection; operation: Word; request_id: Cardinal);
+procedure TConnectionManager.RegisterRequest(Sender: TNetConnectionBase; operation: Word; request_id: Cardinal);
 var
   P: PNetRequestRegistered;
   l: TList;
@@ -1776,7 +1778,7 @@ begin
     DisconnectClients;
 end;
 
-function TConnectionManager.UnRegisterRequest(Sender: TNetConnection; operation: Word; request_id: Cardinal): Boolean;
+function TConnectionManager.UnRegisterRequest(Sender: TNetConnectionBase; operation: Word; request_id: Cardinal): Boolean;
 var
   P: PNetRequestRegistered;
   i: Integer;

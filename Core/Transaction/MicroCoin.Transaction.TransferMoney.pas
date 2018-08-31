@@ -28,37 +28,30 @@ type
 
   TTransferMoneyTransactionStyle = (Transaction, transaction_with_auto_buy_account, buy_account);
 
-  TTransferMoneyTransactionData = record
-    sender: Cardinal;
-    n_operation: Cardinal;
-    target: Cardinal;
-    amount: UInt64;
-    fee: UInt64;
-    payload: TRawBytes;
-    public_key: TECDSA_Public;
-    sign: TECDSA_SIG;
-    // Protocol 2
-    // Next values will only be filled after this operation is executed
-    opTransactionStyle: TTransferMoneyTransactionStyle;
-    AccountPrice: UInt64;
-    SellerAccount: Cardinal;
-    new_accountkey: TAccountKey;
-  end;
-
   TTransferMoneyTransaction = class(TTransaction)
+  protected type
+    TTransferMoneyTransactionData = record
+      sender: Cardinal;
+      n_operation: Cardinal;
+      target: Cardinal;
+      amount: UInt64;
+      fee: UInt64;
+      payload: TRawBytes;
+      public_key: TECDSA_Public;
+      sign: TECDSA_SIG;
+      // Protocol 2
+      // Next values will only be filled after this operation is executed
+      opTransactionStyle: TTransferMoneyTransactionStyle;
+      AccountPrice: UInt64;
+      SellerAccount: Cardinal;
+      new_accountkey: TAccountKey;
+    end;
   private
     FData: TTransferMoneyTransactionData;
   protected
     procedure InitializeData; override;
     function SaveToStream(Stream: TStream; SaveExtendedData: Boolean): Boolean; override;
     function LoadFromStream(Stream: TStream; LoadExtendedData: Boolean): Boolean; override;
-  public
-    function GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes; override;
-    function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean; override;
-    procedure AffectedAccounts(list: TList); override;
-    //
-    class function GetTransactionHashToSign(const trans: TTransferMoneyTransactionData): TRawBytes;
-    class function DoSignOperation(key: TECPrivateKey; var trans: TTransferMoneyTransactionData): Boolean;
     function GetOpType: Byte; override;
     function GetAmount: Int64; override;
     function GetFee: UInt64; override;
@@ -67,6 +60,13 @@ type
     function GetDestinationAccount: Int64; override;
     function GetSellerAccount: Int64; override;
     function GetNumberOfTransactions: Cardinal; override;
+  public
+    function GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes; override;
+    function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean; override;
+    procedure AffectedAccounts(list: TList); override;
+    //
+    class function GetTransactionHashToSign(const trans: TTransferMoneyTransactionData): TRawBytes;
+    class function DoSignOperation(key: TECPrivateKey; var trans: TTransferMoneyTransactionData): Boolean;
     function GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal;
       var TransactionData: TTransactionData): Boolean; override;
     property Data: TTransferMoneyTransactionData read FData;
@@ -78,20 +78,21 @@ type
   TBuyAccountTransaction = class(TTransferMoneyTransaction)
   protected
     procedure InitializeData; override;
-  public
     function GetOpType: Byte; override;
+  public
     constructor CreateBuy(account_number, n_operation, account_to_buy, account_to_pay: Cardinal;
       price, amount, fee: UInt64; new_public_key: TAccountKey; key: TECPrivateKey; payload: TRawBytes);
     function GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal;
       var TransactionData: TTransactionData): Boolean; override;
   end;
 
-const
-  CT_TOpTransactionData_NUL: TTransferMoneyTransactionData = (sender: 0; n_operation: 0; target: 0; amount: 0; fee: 0;
-    payload: ''; public_key: (EC_OpenSSL_NID: 0; x: ''; y: ''); sign: (r: ''; s: ''); opTransactionStyle: Transaction;
-    AccountPrice: 0; SellerAccount: 0; new_accountkey: (EC_OpenSSL_NID: 0; x: ''; y: ''));
 
 implementation
+
+const
+  CT_TOpTransactionData_NUL: TTransferMoneyTransaction.TTransferMoneyTransactionData = (sender: 0; n_operation: 0; target: 0; amount: 0; fee: 0;
+    payload: ''; public_key: (EC_OpenSSL_NID: 0; x: ''; y: ''); sign: (r: ''; s: ''); opTransactionStyle: Transaction;
+    AccountPrice: 0; SellerAccount: 0; new_accountkey: (EC_OpenSSL_NID: 0; x: ''; y: ''));
 
 procedure TTransferMoneyTransaction.AffectedAccounts(list: TList);
 begin

@@ -17,7 +17,7 @@ unit MicroCoin.Transaction.Transaction;
 
 interface
 
-uses Sysutils, classes, UCrypto, MicroCoin.Transaction.Base, UConst, MicroCoin.Account.Transaction;
+uses Sysutils, classes, UCrypto, MicroCoin.Transaction.ITransaction, MicroCoin.Transaction.Base, UConst, MicroCoin.Account.Transaction;
 
 type
   TTransaction = class(TInterfacedObject, ITransaction)
@@ -43,16 +43,15 @@ type
     function GetDestinationAccount: Int64; virtual;
     function GetSellerAccount: Int64; virtual;
     function GetNumberOfTransactions: Cardinal; virtual; abstract;
+    function GetOpType: Byte; virtual; abstract;
+    function GetTag: Integer;
+    procedure SetTag(Value: Integer);
   public
     constructor Create; virtual;
     procedure InitializeData; virtual;
     function GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes; virtual;
-    function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean;
-      virtual; abstract;
+    function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean; virtual; abstract;
     procedure AffectedAccounts(list: TList); virtual; abstract;
-    function GetOpType: Byte; virtual; abstract;
-    function GetTag: Integer;
-    procedure SetTag(Value: Integer);
     function GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal;
       var TransactionData: TTransactionData): Boolean; virtual; abstract;
 

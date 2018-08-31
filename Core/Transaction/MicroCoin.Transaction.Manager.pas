@@ -1,6 +1,5 @@
-unit MicroCoin.Transaction.Manager;
 {==============================================================================|
-| This unit part of MicroCoin                                                  |
+| MicroCoin                                                                    |
 | Copyright (c) 2018 MicroCoin Developers                                      |
 |==============================================================================|
 | Permission is hereby granted, free of charge, to any person obtaining a copy |
@@ -9,7 +8,7 @@ unit MicroCoin.Transaction.Manager;
 | rights to use, copy, modify, merge, publish, distribute, sublicense, and/or  |
 | sell opies of the Software, and to permit persons to whom the Software is    |
 | furnished to do so, subject to the following conditions:                     |
-|------------------------------------------------------------------------------|
+|                                                                              |
 | The above copyright notice and this permission notice shall be included in   |
 | all copies or substantial portions of the Software.                          |
 |------------------------------------------------------------------------------|
@@ -21,9 +20,12 @@ unit MicroCoin.Transaction.Manager;
 | FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER          |
 | DEALINGS IN THE SOFTWARE.                                                    |
 |==============================================================================|
-| File: MicroCoin.Transaction.Manager.pas                                      |
-| Purpose: Classes and utilites for managing the transaction plugins           |
+| File:       MicroCoin.Transaction.Manager.pas                                |
+| Created at: 2018-08-22                                                       |
+| Purpose:    Transaction plugin managment                                     |
 |==============================================================================}
+
+unit MicroCoin.Transaction.Manager;
 
 {$ifdef FPC}
   {$mode delphi}

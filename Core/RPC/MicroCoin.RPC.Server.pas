@@ -19,6 +19,7 @@ interface
 uses Sysutils, Classes, httpsend, UWalletkeys, Ulog, Inifiles,
 {$IFDEF fpc} fpjson, {$ELSE}System.Json, {$ENDIF} UJSONFunctions, synautil,
   UConst, UThread, blcksock, synsock, MicroCoin.RPC.Handler, MicroCoin.Node.Events,
+  MicroCoin.Transaction.Itransaction,
   UCrypto, MicroCoin.Common, MicroCoin.Transaction.Base, MicroCoin.Account.Data;
 
 type

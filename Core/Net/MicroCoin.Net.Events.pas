@@ -14,34 +14,19 @@ unit MicroCoin.Net.Events;
 
 interface
 
-uses UThread, Classes;
+uses UThread, Classes, MicroCoin.Net.INetNotificationSource;
 
 type
 
-  INetNotificationSource = interface
-    ['{9CC4B8C1-2D7A-45B9-978B-DE92356A5818}']
-    function GetOnNetConnectionsUpdated: TNotifyEvent;
-    function GetOnNodeServersUpdated: TNotifyEvent;
-    function GetOnBlackListUpdated: TNotifyEvent;
-    function GetOnReceivedHelloMessage: TNotifyEvent;
-    function GetOnStatisticsChanged: TNotifyEvent;
-
-    property OnNetConnectionsUpdated: TNotifyEvent read GetOnNetConnectionsUpdated;
-    property OnNodeServersUpdated: TNotifyEvent read GetOnNodeServersUpdated;
-    property OnBlackListUpdated: TNotifyEvent read GetOnBlackListUpdated;
-    property OnReceivedHelloMessage: TNotifyEvent read GetOnReceivedHelloMessage;
-    property OnStatisticsChanged: TNotifyEvent read GetOnStatisticsChanged;
-  end;
-
   TNetDataNotifyEventsThread = class(TPCThread)
-  private
+  strict private
     FNetData: INetNotificationSource;
     FNotifyOnReceivedHelloMessage: Boolean;
     FNotifyOnStatisticsChanged: Boolean;
     FNotifyOnNetConnectionsUpdated: Boolean;
     FNotifyOnNodeServersUpdated: Boolean;
     FNotifyOnBlackListUpdated: Boolean;
-  protected
+  strict protected
     procedure SynchronizedNotify;
     procedure BCExecute; override;
   public

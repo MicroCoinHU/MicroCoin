@@ -17,6 +17,7 @@ interface
 uses Classes, MicroCoin.BlockChain.BlockManager, UCrypto,
   UThread, SyncObjs, ULog, MicroCoin.Transaction.Base,
   MicroCoin.Common.Lists, MicroCoin.Account.Data,
+  MicroCoin.Transaction.Itransaction,
   MicroCoin.Transaction.Transaction, MicroCoin.BlockChain.Events,
   MicroCoin.Net.Connection, MicroCoin.Net.ConnectionManager,
   MicroCoin.Transaction.Events, MicroCoin.Net.Server, MicroCoin.Net.NodeServer,

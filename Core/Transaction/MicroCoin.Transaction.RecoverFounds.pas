@@ -38,23 +38,23 @@ type
     procedure InitializeData; override;
     function SaveToStream(Stream: TStream; SaveExtendedData: Boolean): Boolean; override;
     function LoadFromStream(Stream: TStream; LoadExtendedData: Boolean): Boolean; override;
-  public
-    function GetOpType: Byte; override;
-
-    function GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes; override;
-    function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean; override;
     function GetAmount: Int64; override;
     function GetFee: UInt64; override;
     function GetPayload: TRawBytes; override;
     function GetSignerAccount: Cardinal; override;
     function GetNumberOfTransactions: Cardinal; override;
-    procedure AffectedAccounts(list: TList); override;
+    function GetOpType: Byte; override;
+  public
     constructor Create(account_number, n_operation: Cardinal; fee: UInt64);
+
+    function GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes; override;
+    function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean; override;
+    procedure AffectedAccounts(list: TList); override;
     function GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal;
       var TransactionData: TTransactionData): Boolean; override;
-    property Data: TRecoverFoundsData read FData;
     function toString: string; override;
 
+    property Data: TRecoverFoundsData read FData;
   end;
 
 const

@@ -73,13 +73,15 @@ type
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
+    procedure NotifyNewLog(logtype: TLogType; const sender, logtext: string);
+
     class procedure NewLog(logtype: TLogType; const sender, logtext: string);
+
     property OnInThreadNewLog: TNewLogEvent read FOnInThreadNewLog write FOnInThreadNewLog;
     property OnNewLog: TNewLogEvent read FOnNewLog write FOnNewLog;
     property FileName: AnsiString read FFileName write SetFileName;
     property SaveTypes: TLogTypes read FSaveTypes write FSaveTypes;
     property ProcessGlobalLogs: Boolean read FProcessGlobalLogs write FProcessGlobalLogs;
-    procedure NotifyNewLog(logtype: TLogType; const sender, logtext: string);
   end;
 
 const

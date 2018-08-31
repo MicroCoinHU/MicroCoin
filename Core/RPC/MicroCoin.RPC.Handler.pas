@@ -18,10 +18,12 @@ unit MicroCoin.RPC.Handler;
 interface
 
 uses UThread, SysUtils, Classes, blcksock,
-  Synautil, Math, UCrypto,
+  Synautil, Math, UCrypto, MicroCoin.RPC.MethodHandler,
   MicroCoin.Account.Data, MicroCoin.BlockChain.Block,
   MicroCoin.RPC.PluginManager, MicroCoin.Node.Node,
+  MicroCoin.RPC.Result,
   MicroCoin.Account.Storage, MicroCoin.BlockChain.BlockHeader,
+  MicroCoin.Transaction.Itransaction,
   MicroCoin.Transaction.TransferMoney, MicroCoin.Transaction.ChangeKey,
   MicroCoin.Transaction.ListAccount, MicroCoin.Transaction.ChangeAccountInfo,
   MicroCoin.Transaction.TransactionList, MicroCoin.Transaction.HashTree,
@@ -2359,7 +2361,7 @@ begin
   Result := false;
   TLog.NewLog(ltdebug, Classname, 'Processing RPC-JSON method ' + method);
 
-  Handler := TRPCManager.GetHandler(method);
+  Handler := TRPCPluginManager.GetHandler(method);
 
   if Assigned(Handler) then
   begin

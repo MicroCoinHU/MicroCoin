@@ -24,58 +24,61 @@ uses MicroCoin.Transaction.Base, MicroCoin.Transaction.Transaction,
 
 type
 
-  TOpChangeKeyData = record
-    account_signer, account_target: Cardinal;
-    n_operation: Cardinal;
-    fee: UInt64;
-    payload: TRawBytes;
-    public_key: TECDSA_Public;
-    new_accountkey: TAccountKey;
-    sign: TECDSA_SIG;
-  end;
-
   TChangeKeyTransaction = class(TTransaction)
+  protected type
+    TOpChangeKeyData = record
+      account_signer, account_target: Cardinal;
+      n_operation: Cardinal;
+      fee: UInt64;
+      payload: TRawBytes;
+      public_key: TECDSA_Public;
+      new_accountkey: TAccountKey;
+      sign: TECDSA_SIG;
+    end;
   private
     FData: TOpChangeKeyData;
   protected
     procedure InitializeData; override;
     function SaveToStream(Stream: TStream; SaveExtendedData: Boolean): Boolean; override;
     function LoadFromStream(Stream: TStream; LoadExtendedData: Boolean): Boolean; override;
-  public
-    class function GetOperationHashToSign(const op: TOpChangeKeyData): TRawBytes;
-    class function DoSignOperation(key: TECPrivateKey; var op: TOpChangeKeyData): Boolean;
-    function GetOpType: Byte; override;
-
-    function GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes; override;
-    function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean; override;
     function GetAmount: Int64; override;
     function GetFee: UInt64; override;
     function GetPayload: TRawBytes; override;
     function GetSignerAccount: Cardinal; override;
     function GetDestinationAccount: Int64; override;
     function GetNumberOfTransactions: Cardinal; override;
-    procedure AffectedAccounts(list: TList); override;
+    function GetOpType: Byte; override;
+  public
     constructor Create(account_signer, n_operation, account_target: Cardinal; key: TECPrivateKey;
       new_account_key: TAccountKey; fee: UInt64; payload: TRawBytes);
+
+    class function GetOperationHashToSign(const op: TOpChangeKeyData): TRawBytes;
+    class function DoSignOperation(key: TECPrivateKey; var op: TOpChangeKeyData): Boolean;
+
+    function GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes; override;
+    function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean; override;
+    procedure AffectedAccounts(list: TList); override;
     function GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal;
       var TransactionData: TTransactionData): Boolean; override;
-    property Data: TOpChangeKeyData read FData;
     function toString: string; override;
+
+    property Data: TOpChangeKeyData read FData;
   end;
 
   TChangeKeySignedTransaction = class(TChangeKeyTransaction)
-  public
+  protected
     function GetOpType: Byte; override;
+  public
     function GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal;
       var TransactionData: TTransactionData): Boolean; override;
   end;
 
+implementation
+
 const
-  CT_TOpChangeKeyData_NUL: TOpChangeKeyData = (account_signer: 0; account_target: 0; n_operation: 0; fee: 0;
+  CT_TOpChangeKeyData_NUL: TChangeKeyTransaction.TOpChangeKeyData = (account_signer: 0; account_target: 0; n_operation: 0; fee: 0;
     payload: ''; public_key: (EC_OpenSSL_NID: 0; x: ''; y: ''); new_accountkey: (EC_OpenSSL_NID: 0; x: ''; y: '');
     sign: (r: ''; s: ''));
-
-implementation
 
 procedure TChangeKeyTransaction.AffectedAccounts(list: TList);
 begin

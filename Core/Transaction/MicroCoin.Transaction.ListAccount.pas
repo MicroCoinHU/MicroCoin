@@ -29,35 +29,28 @@ type
 
   TOpListAccountOperationType = (lat_Unknown, lat_ListForSale, lat_DelistAccount);
 
-  TOpListAccountData = record
-    account_signer, account_target: Cardinal;
-    operation_type: TOpListAccountOperationType;
-    n_operation: Cardinal;
-    account_price: UInt64;
-    account_to_pay: Cardinal;
-    fee: UInt64;
-    payload: TRawBytes;
-    public_key: TAccountKey;
-    new_public_key: TAccountKey;
-    // If EC_OpenSSL_NID=0 then is OPEN, otherwise is for only 1 public key
-    locked_until_block: Cardinal; //
-    sign: TECDSA_SIG;
-  end;
-
   TOpListAccount = class(TTransaction)
+  protected
+    type TOpListAccountData = record
+      account_signer, account_target: Cardinal;
+      operation_type: TOpListAccountOperationType;
+      n_operation: Cardinal;
+      account_price: UInt64;
+      account_to_pay: Cardinal;
+      fee: UInt64;
+      payload: TRawBytes;
+      public_key: TAccountKey;
+      new_public_key: TAccountKey;
+      // If EC_OpenSSL_NID=0 then is OPEN, otherwise is for only 1 public key
+      locked_until_block: Cardinal; //
+      sign: TECDSA_SIG;
+    end;
   private
     FData: TOpListAccountData;
   protected
     procedure InitializeData; override;
     function SaveToStream(Stream: TStream; SaveExtendedData: Boolean): Boolean; override;
     function LoadFromStream(Stream: TStream; LoadExtendedData: Boolean): Boolean; override;
-  public
-    class function GetOperationHashToSign(const operation: TOpListAccountData): TRawBytes;
-    class function DoSignOperation(key: TECPrivateKey; var operation: TOpListAccountData): Boolean;
-    function IsPrivateSale: Boolean;
-    function IsDelist: Boolean; virtual; abstract;
-    function GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes; override;
-    function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean; override;
     function GetAmount: Int64; override;
     function GetFee: UInt64; override;
     function GetPayload: TRawBytes; override;
@@ -65,14 +58,22 @@ type
     function GetDestinationAccount: Int64; override;
     function GetSellerAccount: Int64; override;
     function GetNumberOfTransactions: Cardinal; override;
+  public
+    class function GetOperationHashToSign(const operation: TOpListAccountData): TRawBytes;
+    class function DoSignOperation(key: TECPrivateKey; var operation: TOpListAccountData): Boolean;
+    function IsPrivateSale: Boolean;
+    function IsDelist: Boolean; virtual; abstract;
+    function GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes; override;
+    function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean; override;
     procedure AffectedAccounts(list: TList); override;
-    property Data: TOpListAccountData read FData;
     function toString: string; override;
+    property Data: TOpListAccountData read FData;
   end;
 
   TOpListAccountForSale = class(TOpListAccount)
-  public
+  protected
     function GetOpType: Byte; override;
+  public
     constructor CreateListAccountForSale(account_signer, n_operation, account_target: Cardinal;
       account_price, fee: UInt64; account_to_pay: Cardinal; new_public_key: TAccountKey; locked_until_block: Cardinal;
       key: TECPrivateKey; payload: TRawBytes);
@@ -91,13 +92,13 @@ type
       var TransactionData: TTransactionData): Boolean; override;
   end;
 
+implementation
+
 const
-  CT_TOpListAccountData_NUL: TOpListAccountData = (account_signer: 0; account_target: 0; operation_type: lat_Unknown;
+  CT_TOpListAccountData_NUL: TOpListAccount.TOpListAccountData = (account_signer: 0; account_target: 0; operation_type: lat_Unknown;
     n_operation: 0; account_price: 0; account_to_pay: 0; fee: 0; payload: '';
     public_key: (EC_OpenSSL_NID: 0; x: ''; y: ''); new_public_key: (EC_OpenSSL_NID: 0; x: ''; y: '');
     locked_until_block: 0; sign: (r: ''; s: ''));
-
-implementation
 
 procedure TOpListAccount.AffectedAccounts(list: TList);
 begin

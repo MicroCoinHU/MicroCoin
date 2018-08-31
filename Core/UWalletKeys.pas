@@ -32,7 +32,7 @@ type
   end;
 
   TWalletKeys = class(TComponent)
-  private
+  strict private
     FSearchableKeys: TList;
     FFileName: AnsiString;
     FWalletPassword: AnsiString;
@@ -47,27 +47,28 @@ type
     procedure SetWalletFileName(const Value: AnsiString);
     function Find(const AccountKey: TAccountKey; var index: Integer): Boolean;
   public
-    property Key[index: Integer]: TWalletKey read GetKey; default;
     constructor Create(AOwner: TComponent); override;
     destructor destroy; override;
     procedure LoadFromStream(Stream: TStream);
     procedure SaveToStream(Stream: TStream);
-    property IsValidPassword: Boolean read FIsValidPassword;
-    property WalletPassword: AnsiString read FWalletPassword write SetWalletPassword;
+    procedure Delete(index: Integer); virtual;
+    procedure Clear; virtual;
+    procedure SetName(index: Integer; const newName: AnsiString);
     function AddPrivateKey(const Name: AnsiString; ECPrivateKey: TECPrivateKey): Integer; virtual;
     function AddPublicKey(const Name: AnsiString; ECDSA_Public: TECDSA_Public): Integer; virtual;
     function IndexOfAccountKey(AccountKey: TAccountKey): Integer;
-    procedure Delete(index: Integer); virtual;
-    procedure Clear; virtual;
     function Count: Integer;
+    function LockWallet: Boolean;
+
+    property IsValidPassword: Boolean read FIsValidPassword;
+    property WalletPassword: AnsiString read FWalletPassword write SetWalletPassword;
     property WalletFileName: AnsiString read FWalletFileName write SetWalletFileName;
     property OnChanged: TNotifyEvent read FOnChanged write FOnChanged;
-    procedure SetName(index: Integer; const newName: AnsiString);
-    function LockWallet: Boolean;
+    property Key[index: Integer]: TWalletKey read GetKey; default;
   end;
 
   TWalletKeysExt = class(TWalletKeys)
-  private
+  strict private
     FOrderedAccountKeysList: TOrderedAccountKeysList;
     procedure SetAccountStorage(const Value: TAccountStorage);
     function GetAccountStorage: TAccountStorage;

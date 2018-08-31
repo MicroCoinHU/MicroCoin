@@ -17,6 +17,7 @@ interface
 
 uses SysUtils, Classes, UTime, MicroCoin.Account.Transaction, MicroCoin.Transaction.HashTree,
   MicroCoin.BlockChain.BlockHeader, UConst, UCrypto, MicroCoin.Account.AccountKey, Ulog,
+  MicroCoin.Transaction.ITransaction,
   MicroCoin.BlockChain.Protocol, MicroCoin.BlockChain.Base, MicroCoin.Transaction.Base, UThread;
 
 type

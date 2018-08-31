@@ -1,7 +1,5 @@
-unit MicroCoin.RPC.PluginManager;
-
 {==============================================================================|
-| This unit part of MicroCoin                                                  |
+| MicroCoin                                                                    |
 | Copyright (c) 2018 MicroCoin Developers                                      |
 |==============================================================================|
 | Permission is hereby granted, free of charge, to any person obtaining a copy |
@@ -10,7 +8,7 @@ unit MicroCoin.RPC.PluginManager;
 | rights to use, copy, modify, merge, publish, distribute, sublicense, and/or  |
 | sell opies of the Software, and to permit persons to whom the Software is    |
 | furnished to do so, subject to the following conditions:                     |
-|------------------------------------------------------------------------------|
+|                                                                              |
 | The above copyright notice and this permission notice shall be included in   |
 | all copies or substantial portions of the Software.                          |
 |------------------------------------------------------------------------------|
@@ -22,9 +20,12 @@ unit MicroCoin.RPC.PluginManager;
 | FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER          |
 | DEALINGS IN THE SOFTWARE.                                                    |
 |==============================================================================|
-| File: MicroCoin.RPC.PluginManager.pas                                        |
-| Purpose: Classes and utilites for managing the JSON-RPC plugins              |
+| File:       MicroCoin.RPC.PluginManager.pas                                  |
+| Created at: 2018-08-27                                                       |
+| Purpose:    RPC plugin managment                                             |
 |==============================================================================}
+
+unit MicroCoin.RPC.PluginManager;
 
 {$ifdef FPC}
   {$mode delphi}
@@ -32,60 +33,14 @@ unit MicroCoin.RPC.PluginManager;
 
 interface
 
-uses UCrypto, sysutils, Ulog,
-{$IFDEF USE_RTTI}{$IFDEF FPC}TypInfo{$else} RTTI {$endif},{$ENDIF} UJSONFunctions
+uses UCrypto, sysutils, Ulog, MicroCoin.RPC.MethodHandler,
+MicroCoin.RPC.Plugin,
+{$IFDEF USE_RTTI}{$IFDEF FPC}TypInfo{$else} RTTI, MicroCoin.RPC.RPCMethodAttribute {$endif},{$ENDIF} UJSONFunctions
   {$ifdef USE_GENERICS}, Generics.Collections{$else}, classes{$ENDIF};
 
 type
-  {$ifdef FPC}
-    TCustomAttribute = class
-    end;
-  {$endif}
 
-  RPCMethodAttribute = class(TCustomAttribute)
-  strict private
-    FRPCMethod: string;
-  public
-    constructor Create(AMethod: string);
-    property RPCMethod: string read FRPCMethod;
-  end;
-
-  TRPCResult = record
-  private
-    FResponse: TPCJSONObject;
-    function GetResponse: TPCJSONObject;
-  public
-    Success: Boolean;
-    ErrorCode: integer;
-    ErrorMessage: string;
-    property Response: TPCJSONObject read GetResponse;
-  end;
-
-  THandler = function(AParams: TPCJSONObject): TRPCResult of object;
-
-  {$ifndef USE_GENERICS}
-    IHandlerWrapper = interface
-     ['{C5C7E236-D8D3-4AEA-9FD1-13133F34D41E}']
-     function GetHandler : THandler;
-     property Handler : THandler read GetHandler;
-    end;
-
-    THandlerWrapper = class(TInterfacedObject, IHandlerWrapper)
-    private
-     FHandler : THandler;
-    public
-     function GetHandler : THandler;
-     constructor Create(AHandler : THandler);
-     property Handler : THandler read GetHandler write FHandler;
-    end;
-  {$endif}
-
-  IRPCPlugin = interface
-    ['{8450061B-13B6-4EBB-84C6-4FF42F8BB338}']
-    procedure RegisterHandlers;
-  end;
-
-  TRPCManager = class
+  TRPCPluginManager = class
   strict private
     class var FHandlers: {$IFDEF USE_GENERICS}TDictionary<string, THandler>{$ELSE}TStringList{$endif};
   public
@@ -97,20 +52,9 @@ type
     class procedure RegisterHandler(AMethod : string; AHandler : THandler);
   end;
 
-  TRPCPlugin = class(TInterfacedObject, IRPCPlugin)
-  strict protected
-    procedure RegisterHandlers; virtual; abstract;
-  end;
-
 implementation
 
-constructor RPCMethodAttribute.Create(AMethod: string);
-begin
-  inherited Create;
-  FRPCMethod := AMethod;
-end;
-
-class constructor TRPCManager.Create;
+class constructor TRPCPluginManager.Create;
 begin
   {$ifdef USE_GENERICS}
   FHandlers := TDictionary<string, THandler>.Create();
@@ -119,13 +63,13 @@ begin
   {$endif}
 end;
 
-class destructor TRPCManager.Destroy;
+class destructor TRPCPluginManager.Destroy;
 begin
   FHandlers.Clear;
   FreeAndNil(FHandlers);
 end;
 
-class function TRPCManager.GetHandler(AMethod: string): THandler;
+class function TRPCPluginManager.GetHandler(AMethod: string): THandler;
 var
   index : integer;
   hanlerWrapper : IHandlerWrapper;
@@ -143,7 +87,7 @@ begin
   {$endif}
 end;
 
-class procedure TRPCManager.RegisterHandler(AMethod: string; AHandler: THandler);
+class procedure TRPCPluginManager.RegisterHandler(AMethod: string; AHandler: THandler);
 var
   handlerWrapper : IHandlerWrapper;
 begin
@@ -155,7 +99,7 @@ begin
   {$ENDIF}
 end;
 
-class procedure TRPCManager.RegisterPlugin(AHandler: IRPCPlugin);
+class procedure TRPCPluginManager.RegisterPlugin(AHandler: IRPCPlugin);
 {$IFDEF USE_RTTI}
 var
   rttiContext: TRttiContext;
@@ -185,7 +129,7 @@ begin
 {$ENDIF}
 end;
 
-class procedure TRPCManager.UnRegisterPlugin(AHandler: IRPCPlugin);
+class procedure TRPCPluginManager.UnRegisterPlugin(AHandler: IRPCPlugin);
 {$IFDEF USE_RTTI}
 var
   rttiContext: TRttiContext;
@@ -216,27 +160,6 @@ begin
 {$ELSE}
 begin
 {$ENDIF}
-end;
-
-{ TRPCResult }
-
-function TRPCResult.GetResponse: TPCJSONObject;
-begin
-  if FResponse = nil then
-    FResponse := TPCJSONObject.Create;
-  Result := FResponse;
-end;
-
-{ THandlerWrapper }
-
-constructor THandlerWrapper.Create(AHandler: THandler);
-begin
-  Handler := AHandler;
-end;
-
-function THandlerWrapper.GetHandler: THandler;
-begin
-  Result := FHandler;
 end;
 
 end.
