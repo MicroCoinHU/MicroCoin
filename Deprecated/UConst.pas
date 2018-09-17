@@ -4,7 +4,7 @@ unit UConst;
   {$MODE Delphi}
 {$ENDIF}
 
-{ 
+{
   Copyright (c) Albert Molina 2016 - 2018 original code from PascalCoin https://pascalcoin.org/
 
   Distributed under the MIT software license, see the accompanying file LICENSE
@@ -43,10 +43,6 @@ Const
   CT_AccountsPerBlock = 5;
 
   CT_NewLineSecondsAvg: Cardinal = {$IFDEF PRODUCTION}300{$ELSE}{$IFDEF TESTNET}30{$ELSE}{$ENDIF}{$ENDIF};
-    // 60*5=300 seconds -> 5 minutes avg
-    //   -> 1 day = 86400 seconds -> 1 year = 31536000 seconds (aprox)
-    //   Each year = 105120 new blocks (aprox)
-    //   -> *5 accounts per block = 525600 new accounts each year (aprox)
 
   CT_FirstReward: UInt64 = 1000000; // 4 decimals... First reward = 100,0000
   CT_MinReward: UInt64 = 10000; // 4 decimals... Min reward = 1,0000
@@ -147,28 +143,8 @@ Const
   CT_MAX_0_fee_operations_per_block_by_miner = {$IFDEF PRODUCTION}2000{$ELSE}{$IFDEF TESTNET}2{$ELSE}{$ENDIF}{$ENDIF};
   CT_MAX_Operations_per_block_by_miner =  {$IFDEF PRODUCTION}10000{$ELSE}{$IFDEF TESTNET}50{$ELSE}{$ENDIF}{$ENDIF};
 
-  // App Params
-  CT_PARAM_GridAccountsStream = 'GridAccountsStreamV2';
-  CT_PARAM_GridAccountsPos = 'GridAccountsPos';
-  CT_PARAM_DefaultFee = 'DefaultFee';
-  CT_PARAM_InternetServerPort = 'InternetServerPort';
-  {$IFDEF TESTNET}CT_PARAM_AutomaticMineWhenConnectedToNodes = 'AutomaticMineWhenConnectedToNodes';{$ENDIF}
-  CT_PARAM_MinerPrivateKeyType = 'MinerPrivateKeyType';
-  CT_PARAM_MinerPrivateKeySelectedPublicKey = 'MinerPrivateKeySelectedPublicKey';
-  CT_PARAM_SaveLogFiles = 'SaveLogFiles';
-  CT_PARAM_SaveDebugLogs = 'SaveDebugLogs';
-  CT_PARAM_ShowLogs = 'ShowLogs';
-  CT_PARAM_MinerName = 'MinerName';
-  CT_PARAM_FirstTime = 'FirstTime';
-  CT_PARAM_ShowModalMessages = 'ShowModalMessages';
-  {$IFDEF TESTNET}CT_PARAM_MaxCPUs = 'MaxCPUs'; {$ENDIF}
-  CT_PARAM_PeerCache = 'PeerCache';
-  CT_PARAM_TryToConnectOnlyWithThisFixedServers = 'TryToConnectOnlyWithFixedServers';
-  CT_PARAM_JSONRPCMinerServerPort = 'JSONRPCMinerServerPort';
-  CT_PARAM_JSONRPCMinerServerActive = 'JSONRPCMinerServerActive';
-  CT_PARAM_JSONRPCEnabled = 'JSONRPCEnabled';
-  CT_PARAM_JSONRPCAllowedIPs = 'JSONRPCAllowedIPs';
-
 implementation
 
 end.
+
+

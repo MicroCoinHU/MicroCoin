@@ -221,8 +221,8 @@ begin
       FBlockHeader.compact_target := BlockManager.AccountStorage.GetActualCompactTargetHash
         (FBlockHeader.protocol_version = CT_PROTOCOL_2);
       FBlockHeader.initial_safe_box_hash := BlockManager.AccountStorage.AccountStorageHash;
-      if BlockManager.LastOperationBlock.timestamp > FBlockHeader.timestamp then
-        FBlockHeader.timestamp := BlockManager.LastOperationBlock.timestamp;
+      if BlockManager.LastBlock.timestamp > FBlockHeader.timestamp then
+        FBlockHeader.timestamp := BlockManager.LastBlock.timestamp;
     end
     else
     begin
@@ -556,8 +556,8 @@ begin
       FBlockHeader.compact_target := BlockManager.AccountStorage.GetActualCompactTargetHash
         (FBlockHeader.protocol_version = CT_PROTOCOL_2);
       FBlockHeader.initial_safe_box_hash := BlockManager.AccountStorage.AccountStorageHash;
-      if BlockManager.LastOperationBlock.timestamp > FBlockHeader.timestamp then
-        FBlockHeader.timestamp := BlockManager.LastOperationBlock.timestamp;
+      if BlockManager.LastBlock.timestamp > FBlockHeader.timestamp then
+        FBlockHeader.timestamp := BlockManager.LastBlock.timestamp;
     end
     else
     begin
@@ -798,8 +798,8 @@ begin
     ts := UnivDateTimeToUnix(DateTime2UnivDateTime(now));
     if Assigned(BlockManager) then
     begin
-      if BlockManager.LastOperationBlock.timestamp > ts then
-        ts := BlockManager.LastOperationBlock.timestamp;
+      if BlockManager.LastBlock.timestamp > ts then
+        ts := BlockManager.LastBlock.timestamp;
     end;
     timestamp := ts;
   finally

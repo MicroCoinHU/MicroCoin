@@ -91,8 +91,8 @@ type
     //
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
-    class constructor Create;
-    class destructor Destroy;
+    class constructor CreateClass;
+    class destructor DestroyClass;
     procedure IncStatistics(incActiveConnections, incClientsConnections, incServersConnections,
       incServersConnectionsWithResponse: Integer; incBytesReceived, incBytesSend: Int64);
     procedure Notification(AComponent: TComponent; operation: TOperation); override;
@@ -507,7 +507,7 @@ begin
   TLog.NewLog(ltdebug, Classname, 'Unlocked a NetLock object out of connections list');
 end;
 
-class constructor TConnectionManager.Create;
+class constructor TConnectionManager.CreateClass;
 begin
   FLock := TCriticalSection.Create;
 end;
@@ -551,7 +551,7 @@ begin
   Dispose(P);
 end;
 
-class destructor TConnectionManager.Destroy;
+class destructor TConnectionManager.DestroyClass;
 begin
 //  FreeAndNil(FLock);
 end;
@@ -1091,7 +1091,7 @@ const
       if start_block >= 0 then
       begin
         // Restore a part
-        Bank.DiskRestoreFromOperations(start_block - 1);
+        Bank.DiskRestoreFromTransactions(start_block - 1);
         start := start_block;
       end
       else
@@ -1115,10 +1115,12 @@ const
             ms := TMemoryStream.Create;
             OpExecute := TBlock.Create(Bank);
             try
+              ms.SetSize(4*1024);
               OpComp.SaveBlockToStream(false, ms);
+              ms.SetSize(ms.Position);
               ms.Position := 0;
               OpExecute.LoadBlockFromStream(ms, errors);
-              if Bank.AddNewBlockChainBlock(OpExecute,
+              if Bank.AddNewBlockToBlockChain(OpExecute,
                 TConnectionManager.Instance.NetworkAdjustedTime.GetMaxAllowedTimestampForNewBlock, NewBlock, errors)
               then
               begin
@@ -1169,7 +1171,7 @@ const
               try
                 for start := start_c to TNode.Node.BlockManager.BlocksCount - 1 do
                 begin
-                  if TNode.Node.BlockManager.LoadOperations(OpExecute, start) then
+                  if TNode.Node.BlockManager.LoadTransactions(OpExecute, start) then
                   begin
                     for i := 0 to OpExecute.Count - 1 do
                     begin
@@ -1192,7 +1194,7 @@ const
               Inttostr(start_block) + '_' + FormatDateTime('yyyymmddhhnnss', DateTime2UnivDateTime(now)), nil);
             Bank.Storage.MoveBlockChainBlocks(start_block, TNode.Node.BlockManager.Storage.Orphan,
               TNode.Node.BlockManager.Storage);
-            TNode.Node.BlockManager.DiskRestoreFromOperations(CT_MaxBlock);
+            TNode.Node.BlockManager.DiskRestoreFromTransactions(CT_MaxBlock);
           finally
             TNode.Node.EnableNewBlocks;
           end;
@@ -1427,7 +1429,7 @@ begin
       TLog.NewLog(ltdebug, CT_LogSender, 'I have no blocks');
       if Connection.RemoteOperationBlock.protocol_version >= CT_PROTOCOL_2 then
       begin
-         Connection.Send_GetBlocks(0,10,rid);
+         Connection.Send_GetBlocks(0, 10, rid);
         //DownloadSafeBox(false);
       end
       else
@@ -1438,10 +1440,10 @@ begin
     end;
     TLog.NewLog(ltdebug, CT_LogSender, 'Starting GetNewBlockChainFromClient at client:' + Connection.ClientRemoteAddr +
       ' with OperationBlock:' + TBlock.BlockToString(Connection.RemoteOperationBlock) + ' (My block: ' +
-      TBlock.BlockToString(TNode.Node.BlockManager.LastOperationBlock) + ')');
+      TBlock.BlockToString(TNode.Node.BlockManager.LastBlock) + ')');
     // NOTE: FRemoteOperationBlock.block >= TNode.Node.Bank.BlocksCount
     // First capture same block than me (TNode.Node.Bank.BlocksCount-1) to check if i'm an orphan block...
-    my_op := TNode.Node.BlockManager.LastOperationBlock;
+    my_op := TNode.Node.BlockManager.LastBlock;
     if not Do_GetOperationBlock(my_op.Block, 5000, client_op) then
     begin
       TLog.NewLog(ltError, CT_LogSender, 'Cannot receive information about my block (' + Inttostr(my_op.Block)

@@ -39,9 +39,8 @@ unit MicroCoin.Console.Application;
 
 interface
 
-uses Classes, SysUtils, {$IFDEF MSWINDOWS}Windows, {$ELSE}{$ENDIF}
+uses Classes, SysUtils, {$IFDEF MSWINDOWS}Windows, {$ifndef fpc}Threading,{$endif} {$ELSE}{$ENDIF}
   SyncObjs, OpenSSL, UCrypto, MicroCoin.Node.Node, MicroCoin.BlockChain.FileStorage,
-  Threading,
   UFolderHelper, UWalletKeys, UConst, ULog, MicroCoin.Net.Protocol,
   IniFiles, MicroCoin.Account.AccountKey, MicroCoin.Net.ConnectionManager,
   MicroCoin.RPC.Server, MicroCoin.Mining.Server, MicroCoin.Account.Data,
@@ -49,8 +48,6 @@ uses Classes, SysUtils, {$IFDEF MSWINDOWS}Windows, {$ELSE}{$ENDIF}
   MicroCoin.Keys.KeyManager;
 
 type
-
-
 
   TMicroCoin = class
   strict private
@@ -61,7 +58,9 @@ type
     FWalletKeys: TKeyManager;
     FMinerServer: TMiningServer;
     FLog: TLog;
+    {$ifndef fpc}
     FInitTask : ITask;
+    {$endif}
     procedure InitRPCMinerServer;
     procedure InitRPCServer;
     procedure InitNode;
@@ -161,21 +160,21 @@ end;
 destructor TMicroCoin.Destroy;
 begin
   if not FStarted then exit;
-  exit;
+  {$ifndef fpc}
   if (FInitTask.Status = TTaskStatus.Running) or
      (FInitTask.Status = TTaskStatus.WaitingToRun) or
      (FInitTask.Status = TTaskStatus.WaitingForChildren)
   then FInitTask.Cancel;
-  TNode.Node.BlockManager.Stopped := true;
   FInitTask.Wait();
+  {$endif}
+//  TNode.Node.BlockManager.Stopped := true;
 //  TNode.Node.NetServer.Active := false;
   FSettings.Free;
   FRPC.Free;
   FMinerServer.Free;
-  TNode.Node.BlockManager.Free;
-  FWalletKeys.Free;
-//  TConnectionManager.FreeInstance;
   TNode.Node.Free;
+  FWalletKeys.Free;
+  TConnectionManager.ReleaseInstance;
   inherited;
 end;
 
@@ -215,7 +214,7 @@ begin
   TNode.Node.BlockManager.StorageClass := TFileStorage;
   TFileStorage(TNode.Node.BlockManager.Storage).DatabaseFolder := TFolderHelper.GetMicroCoinDataFolder + PathDelim + 'Data';
 
-  TNode.Node.BlockManager.DiskRestoreFromOperations(CT_MaxBlock);
+  TNode.Node.BlockManager.DiskRestoreFromTransactions(CT_MaxBlock);
 
   FWalletKeys.AccountStorage := TNode.Node.BlockManager.AccountStorage;
 
@@ -343,7 +342,11 @@ begin
   InitCrypto;
   InitKeys;
   InitRPCServer;
+  {$ifndef fpc}
   FInitTask := TTask.Run(InitNode);
+  {$else}
+  InitNode;
+  {$endif}
   InitRPCMinerServer;
 end;
 

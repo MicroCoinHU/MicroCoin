@@ -24,6 +24,9 @@
 | Created at: 2018-08-31                                                       |
 | Purpose:    Result types for RPC methods                                     |
 |==============================================================================}
+{$ifdef fpc}
+ {$mode delphi}
+{$endif}
 
 unit MicroCoin.RPC.Result;
 

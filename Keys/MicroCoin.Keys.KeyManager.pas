@@ -31,6 +31,10 @@
 | Purpose:    Private and public key managment                                 |
 |==============================================================================}
 
+{$ifdef FPC}
+ {$mode delphi}
+{$endif}
+
 unit MicroCoin.Keys.KeyManager;
 
 interface

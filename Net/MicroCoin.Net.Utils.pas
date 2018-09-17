@@ -42,7 +42,7 @@ begin
   candidates := TList.Create;
   try
     lop := CT_OperationBlock_NUL;
-    TConnectionManager.Instance.MaxRemoteOperationBlock := CT_OperationBlock_NUL;
+//    TConnectionManager.Instance.MaxRemoteOperationBlock := CT_OperationBlock_NUL;
     // First round: Find by most work
     iMax := 0;
     maxWork := 0;

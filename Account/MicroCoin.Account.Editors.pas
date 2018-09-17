@@ -1,6 +1,6 @@
 {==============================================================================|
 | MicroCoin                                                                    |
-| Copyright (c) 2018 MicroCoin Developers                                      |
+| Copyright (c) 2017-2018 MicroCoin Developers                                 |
 |==============================================================================|
 | Permission is hereby granted, free of charge, to any person obtaining a copy |
 | of this software and associated documentation files (the "Software"), to     |
@@ -218,7 +218,7 @@ end;
 constructor TAccountEdit.Create(AOwner: TComponent);
 begin
   inherited;
-  StyleElements := [seClient, seBorder];
+  StyleElements := [seClient, seBorder, seFont];
 end;
 
 procedure TAccountEdit.KeyPress(var Key: Char);

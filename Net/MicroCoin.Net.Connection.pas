@@ -247,7 +247,7 @@ begin
         for b := b_start to b_end do
         begin
           Inc(c);
-          if TConnectionManager.Instance.Bank.LoadOperations(op, b) then
+          if TConnectionManager.Instance.Bank.LoadTransactions(op, b) then
           begin
             op.SaveBlockToStream(false, db);
             // db.SaveToFile('stream0');
@@ -329,7 +329,7 @@ begin
         end;
         if (op.BlockHeader.Block = TNode.Node.BlockManager.BlocksCount) then
         begin
-          if (TNode.Node.BlockManager.AddNewBlockChainBlock(op,
+          if (TNode.Node.BlockManager.AddNewBlockToBlockChain(op,
             TConnectionManager.Instance.NetworkAdjustedTime.GetMaxAllowedTimestampForNewBlock, newBlockAccount, errors))
           then
           begin
@@ -349,7 +349,7 @@ begin
           // Receiving an unexpected operationblock
           TLog.NewLog(ltError, Classname, 'Received a distinct block, finalizing: ' +
             TBlock.BlockToString(op.BlockHeader) + ' (My block: ' +
-            TBlock.BlockToString(TNode.Node.BlockManager.LastOperationBlock) + ')');
+            TBlock.BlockToString(TNode.Node.BlockManager.LastBlock) + ')');
           FIsDownloadingBlocks := false;
           exit;
         end;
@@ -974,7 +974,7 @@ begin
     currunixtimestamp := UnivDateTimeToUnix(DateTime2UnivDateTime(now));
     data.Write(currunixtimestamp, 4);
     // Save last operations block
-    TBlock.SaveOperationBlockToStream(TNode.Node.BlockManager.LastOperationBlock, data);
+    TBlock.SaveOperationBlockToStream(TNode.Node.BlockManager.LastBlock, data);
     nsarr := TConnectionManager.Instance.GetValidNodeServers(true, CT_MAX_NODESERVERS_ON_HELLO);
     i := length(nsarr);
     data.Write(i, 4);

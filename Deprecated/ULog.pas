@@ -73,7 +73,7 @@ type
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
-    class destructor Destroy;
+    class destructor DestroyClass;
     procedure NotifyNewLog(logtype: TLogType; const sender, logtext: string);
 
     class procedure NewLog(logtype: TLogType; const sender, logtext: string);
@@ -150,7 +150,7 @@ begin
   inherited;
 end;
 
-class destructor TLog.Destroy;
+class destructor TLog.DestroyClass;
 begin
   FreeAndNil(_logs);
 end;

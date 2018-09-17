@@ -404,6 +404,7 @@ var
   i: Integer;
 begin
   ms := TMemoryStream.Create;
+//  ms.SetSize(2048);
   try
     if (not useProtocol2Method) then
     begin
@@ -423,6 +424,7 @@ begin
     else
     begin
       // PROTOCOL 2 BlockHash calculation
+      ms.SetSize(1024*4);
       block.BlockHeader.SaveToStream(ms);
       for i := low(block.accounts) to high(block.accounts) do
       begin
@@ -441,7 +443,7 @@ begin
       end;
       ms.Write(block.accumulatedWork, Sizeof(block.accumulatedWork));
     end;
-    Result := TCrypto.DoSha256(ms.Memory, ms.Size)
+    Result := TCrypto.DoSha256(ms.Memory, ms.Position)
   finally
     ms.Free;
   end;
@@ -500,17 +502,11 @@ begin
 end;
 
 function TAccountStorage.CalculateHash: TRawBytes;
-var
-  hex: AnsiString;
 begin
-  // If No buffer to hash is because it's firts block... so use Genesis: CT_Genesis_Magic_String_For_Old_Block_Hash
   if (FBufferBlocksHash = '') then
     Result := TCrypto.DoSha256(CT_Genesis_Magic_String_For_Old_Block_Hash)
   else
     Result := TCrypto.DoSha256(FBufferBlocksHash);
-  if (FBufferBlocksHash <> '') then
-    hex := TCrypto.ToHexaString(FBufferBlocksHash);
-  hex := '';
 end;
 
 function TAccountStorage.CanUpgradeToProtocol2: Boolean;

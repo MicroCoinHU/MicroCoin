@@ -41,11 +41,11 @@ type
   protected
     function GetBlocksCount: Cardinal; virtual; abstract;
     function GetAccountStorage: TAccountStorage; virtual; abstract;
-    function GetLastOperationBlock: TBlockHeader; virtual; abstract;
+    function GetLastBlockHeader: TBlockHeader; virtual; abstract;
   public
     function LoadAccountsFromStream(Stream: TStream; useSecureLoad: Boolean; var errors: AnsiString): Boolean; virtual; abstract;
     property AccountStorage: TAccountStorage read GetAccountStorage;
-    property LastOperationBlock: TBlockHeader read GetLastOperationBlock;
+    property LastBlock: TBlockHeader read GetLastBlockHeader;
     property BlocksCount: Cardinal read GetBlocksCount;
   end;
 

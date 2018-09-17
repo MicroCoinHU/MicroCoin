@@ -395,7 +395,7 @@ var
       jsonObject.GetAsVariant('pow').Value := TCrypto.ToHexaString(ob.proof_of_work);
       jsonObject.GetAsVariant('hashratekhs').Value := FNode.BlockManager.AccountStorage.CalcBlockHashRateInKhs(ob.Block, 50);
       jsonObject.GetAsVariant('maturation').Value := FNode.BlockManager.BlocksCount - ob.Block - 1;
-      if FNode.BlockManager.LoadOperations(pcops, nBlock) then
+      if FNode.BlockManager.LoadTransactions(pcops, nBlock) then
       begin
         jsonObject.GetAsVariant('operations').Value := pcops.Count;
       end;
@@ -2477,7 +2477,7 @@ begin
     begin
       pcops := TBlock.Create(nil);
       try
-        if not FNode.BlockManager.LoadOperations(pcops, c) then
+        if not FNode.BlockManager.LoadTransactions(pcops, c) then
         begin
           ErrorNum := CT_RPC_ErrNum_InternalError;
           ErrorDesc := 'Cannot load Block: ' + Inttostr(c);
@@ -2521,7 +2521,7 @@ begin
     begin
       pcops := TBlock.Create(nil);
       try
-        if not FNode.BlockManager.LoadOperations(pcops, c) then
+        if not FNode.BlockManager.LoadTransactions(pcops, c) then
         begin
           ErrorNum := CT_RPC_ErrNum_InternalError;
           ErrorDesc := 'Cannot load Block: ' + Inttostr(c);
@@ -2878,8 +2878,8 @@ begin
     GetResultObject.GetAsObject('netprotocol').GetAsVariant('ver_a').Value := CT_NetProtocol_Available;
     GetResultObject.GetAsVariant('blocks').Value := FNode.BlockManager.BlocksCount;
     GetResultObject.GetAsVariant('sbh').Value :=
-      TCrypto.ToHexaString(FNode.BlockManager.LastOperationBlock.initial_safe_box_hash);
-    GetResultObject.GetAsVariant('pow').Value := TCrypto.ToHexaString(FNode.BlockManager.LastOperationBlock.proof_of_work);
+      TCrypto.ToHexaString(FNode.BlockManager.LastBlock.initial_safe_box_hash);
+    GetResultObject.GetAsVariant('pow').Value := TCrypto.ToHexaString(FNode.BlockManager.LastBlock.proof_of_work);
     GetResultObject.GetAsObject('netstats').GetAsVariant('active').Value :=
       TConnectionManager.Instance.NetStatistics.ActiveConnections;
     GetResultObject.GetAsObject('netstats').GetAsVariant('clients').Value :=

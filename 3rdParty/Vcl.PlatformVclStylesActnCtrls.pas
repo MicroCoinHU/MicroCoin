@@ -1,3 +1,32 @@
+{==============================================================================|
+| MicroCoin                                                                    |
+| Copyright (c) 2017-2018 MicroCoin Developers                                 |
+|==============================================================================|
+| Permission is hereby granted, free of charge, to any person obtaining a copy |
+| of this software and associated documentation files (the "Software"), to     |
+| deal in the Software without restriction, including without limitation the   |
+| rights to use, copy, modify, merge, publish, distribute, sublicense, and/or  |
+| sell opies of the Software, and to permit persons to whom the Software is    |
+| furnished to do so, subject to the following conditions:                     |
+|                                                                              |
+| The above copyright notice and this permission notice shall be included in   |
+| all copies or substantial portions of the Software.                          |
+|------------------------------------------------------------------------------|
+| THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR   |
+| IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,     |
+| FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE  |
+| AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER       |
+| LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING      |
+| FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER          |
+| DEALINGS IN THE SOFTWARE.                                                    |
+|==============================================================================|
+| Original copyright:                                                          |
+| https://stackoverflow.com/a/16806502/602205                                  |
+|==============================================================================|
+| File:       Vcl.PlatformVclStylesActnCtrls.pas                               |
+| Created at: 2018-09-17                                                       |
+| Purpose:    Delphi Style fixes                                               |
+|==============================================================================}
 unit Vcl.PlatformVclStylesActnCtrls;
 
 interface
@@ -36,14 +65,14 @@ uses
 
 type
   TActionControlStyle = (csStandard, csXPStyle, csThemed);
-
+{
   TThemedMenuItemEx = class(Vcl.ThemedActnCtrls.TThemedMenuItem)
   private
     procedure NativeDrawText(DC: HDC; const Text: string; var Rect: TRect; Flags: Longint);
   protected
     procedure DrawText(var Rect: TRect; var Flags: Cardinal; Text: string); override;
   end;
-
+}
   TThemedMenuButtonEx = class(Vcl.ThemedActnCtrls.TThemedMenuButton)
   private
     procedure NativeDrawText(const Text: string; var Rect: TRect; Flags: Longint);
@@ -68,7 +97,7 @@ type
     procedure DrawBackground(var PaintRect: TRect); override;
   end;
 
-  TThemedDropDownButtonEx= class(TThemedDropDownButton)
+  TThemedDropDownButtonEx = class(TThemedDropDownButton)
   protected
     procedure DrawBackground(var PaintRect: TRect); override;
   end;
@@ -76,7 +105,7 @@ type
 { TThemedMenuItemHelper }
 function TThemedMenuItemHelper.GetPaintRect: TRect;
 begin
-  Result:=TThemedMenuItemHack(Self).FPaintRect;
+  Result := TThemedMenuItemHack(Self).FPaintRect;
 end;
 
 function GetActionControlStyle: TActionControlStyle;
@@ -140,7 +169,8 @@ begin
           csStandard: Result := TStandardMenuItem;
           csXPStyle: Result := TXPStyleMenuItem;
         else
-          Result := TThemedMenuItemEx;
+          Result:=TStandardMenuItem;
+//          Result := TThemedMenuItemEx;
         end
       else
       case GetActionControlStyle of
@@ -156,7 +186,7 @@ begin
       csStandard: Result := TStandardMenuItem;
       csXPStyle: Result := TXPStyleMenuItem;
     else
-      Result := TThemedMenuItemEx;
+      Result := TThemedMenuItem;
     end
   else
   case GetActionControlStyle of
@@ -173,7 +203,7 @@ begin
 end;
 
 { TThemedMenuItemEx }
-
+{
 procedure TThemedMenuItemEx.NativeDrawText(DC: HDC; const Text: string;
   var Rect: TRect; Flags: Integer);
 const
@@ -238,6 +268,7 @@ begin
     NativeDrawText(Canvas.Handle, ActionClient.ShortCutText, LRect, Flags);
   end;
 end;
+}
 
 { TThemedMenuButtonEx }
 procedure TThemedMenuButtonEx.NativeDrawText(const Text: string; var Rect: TRect;

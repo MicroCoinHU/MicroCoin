@@ -62,8 +62,8 @@ type
 
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
-    class constructor Create;
-    class destructor Destroy;
+    class constructor CreateClass;
+    class destructor DestroyClass;
 
     function NetServer: TNetServer;
     procedure NotifyNetClientMessage(Sender: TNetConnection; const TheMessage: AnsiString);
@@ -154,7 +154,7 @@ begin
   end;
   try
     // Check block number:
-    if TBlock.EqualsOperationBlock(BlockManager.LastOperationBlock, NewBlockOperations.BlockHeader) then
+    if TBlock.EqualsOperationBlock(BlockManager.LastBlock, NewBlockOperations.BlockHeader) then
     begin
       errors := 'Duplicated block';
       exit;
@@ -162,7 +162,7 @@ begin
     ms := TMemoryStream.Create;
     try
       FOperations.SaveBlockToStream(false, ms);
-      Result := BlockManager.AddNewBlockChainBlock(NewBlockOperations,
+      Result := BlockManager.AddNewBlockToBlockChain(NewBlockOperations,
         TConnectionManager.Instance.NetworkAdjustedTime.GetMaxAllowedTimestampForNewBlock, newBlockAccount, errors);
       if Result then
       begin
@@ -512,7 +512,7 @@ begin
   TConnectionManager.Instance.DiscoverServers;
 end;
 
-class constructor TNode.Create;
+class constructor TNode.CreateClass;
 begin
   CriticalSection := TCriticalSection.Create;
 end;
@@ -605,7 +605,7 @@ begin
   until (ips_string = '');
 end;
 
-class destructor TNode.Destroy;
+class destructor TNode.DestroyClass;
 begin
   FreeAndNil(CriticalSection);
 end;
@@ -714,12 +714,12 @@ begin
     WhyNot := 'No connection to check blockchain';
     exit;
   end;
-  if (BlockManager.LastOperationBlock.Block <= 0) then
+  if (BlockManager.LastBlock.Block <= 0) then
   begin
     WhyNot := 'No blockchain';
     exit;
   end;
-  unixtimediff := UnivDateTimeToUnix(DateTime2UnivDateTime(Now)) - BlockManager.LastOperationBlock.timestamp;
+  unixtimediff := UnivDateTimeToUnix(DateTime2UnivDateTime(Now)) - BlockManager.LastBlock.timestamp;
   if (unixtimediff < 0) then
   begin
     WhyNot := 'Invalid Last Block Time';
@@ -955,7 +955,7 @@ begin
   while (not Result) and (Block > 0) do
   begin
     aux_block := Block;
-    if not BlockManager.LoadOperations(OperationComp, Block) then
+    if not BlockManager.LoadTransactions(OperationComp, Block) then
       exit;
     for i := OperationComp.Count - 1 downto 0 do
     begin

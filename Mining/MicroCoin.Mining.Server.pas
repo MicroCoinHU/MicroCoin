@@ -516,9 +516,9 @@ begin
         // CONGRATS !!!
         json := TPCJSONObject.Create;
         try
-          json.GetAsVariant('block').Value := FNodeNotifyEvents.Node.BlockManager.LastOperationBlock.Block;
+          json.GetAsVariant('block').Value := FNodeNotifyEvents.Node.BlockManager.LastBlock.Block;
           json.GetAsVariant('pow').Value :=
-            TCrypto.ToHexaString(FNodeNotifyEvents.Node.BlockManager.LastOperationBlock.proof_of_work);
+            TCrypto.ToHexaString(FNodeNotifyEvents.Node.BlockManager.LastBlock.proof_of_work);
           json.GetAsVariant('payload').Value := nbOperations.BlockPayload;
           json.GetAsVariant('timestamp').Value := nbOperations.timestamp;
           json.GetAsVariant('nonce').Value := nbOperations.nonce;

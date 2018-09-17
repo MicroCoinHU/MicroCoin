@@ -1,14 +1,36 @@
+{==============================================================================|
+| MicroCoin                                                                    |
+| Copyright (c) 2017-2018 MicroCoin Developers                                 |
+|==============================================================================|
+| Permission is hereby granted, free of charge, to any person obtaining a copy |
+| of this software and associated documentation files (the "Software"), to     |
+| deal in the Software without restriction, including without limitation the   |
+| rights to use, copy, modify, merge, publish, distribute, sublicense, and/or  |
+| sell opies of the Software, and to permit persons to whom the Software is    |
+| furnished to do so, subject to the following conditions:                     |
+|                                                                              |
+| The above copyright notice and this permission notice shall be included in   |
+| all copies or substantial portions of the Software.                          |
+|------------------------------------------------------------------------------|
+| THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR   |
+| IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,     |
+| FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE  |
+| AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER       |
+| LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING      |
+| FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER          |
+| DEALINGS IN THE SOFTWARE.                                                    |
+|==============================================================================|
+| This unit contains portions from PascalCoin                                  |
+| Copyright (c) Albert Molina 2016 - 2018                                      |
+|                                                                              |
+| Distributed under the MIT software license, see the accompanying file        |
+| LICENSE or visit http://www.opensource.org/licenses/mit-license.php.         |
+|==============================================================================|
+| File:       MicroCoin.BlockChain.BlockManager.pas                            |
+| Created at: 2018-09-16                                                       |
+| Purpose:                                                                     |
+|==============================================================================}
 unit MicroCoin.BlockChain.BlockManager;
-
-{
-  This unit contains code from PascalCoin:
-
-  Copyright (c) Albert Molina 2016 - 2018 original code from PascalCoin https://pascalcoin.org/
-
-  Distributed under the MIT software license, see the accompanying file LICENSE
-  or visit http://www.opensource.org/licenses/mit-license.php.
-
-}
 
 {$IFDEF FPC}
 {$MODE Delphi}
@@ -16,7 +38,7 @@ unit MicroCoin.BlockChain.BlockManager;
 
 interface
 
-uses Classes, UCrypto, ULog, UThread, SyncObjs,
+uses Classes, UCrypto, ULog, UThread, SyncObjs, Math,
   MicroCoin.Transaction.Base, MicroCoin.BlockChain.Base,
   MicroCoin.Transaction.Manager, MicroCoin.Transaction.HashTree,
   MicroCoin.Account.AccountKey, MicroCoin.BlockChain.BlockHeader,
@@ -29,7 +51,7 @@ type
   TBlockManager = class;
   TBlockManagerNotify = class;
 
-  TBlockManagerLog = procedure(Sender: TBlockManager; Operations: TBlock; Logtype: TLogType; Logtxt: AnsiString)
+  TBlockManagerLog = procedure(Sender: TBlockManager; ATransactions: TBlock; Logtype: TLogType; Logtxt: AnsiString)
     of object;
 
   TBlockManagerNotify = class(TComponent)
@@ -52,8 +74,9 @@ type
     FStorage: TStorage;
     FAccountStorage: TAccountStorage;
     FLastBlockCache: TBlock;
-    FLastOperationBlock: TBlockHeader;
+    FLastBlockHeader: TBlockHeader;
     FIsRestoringFromFile: Boolean;
+    FIsLoadingBlocks: Boolean;
     FUpgradingToV2: Boolean;
     FOnLog: TBlockManagerLog;
     FAccountStorageLock: TPCCriticalSection;
@@ -65,7 +88,7 @@ type
   protected
     function GetAccountStorage: TAccountStorage; override;
     function GetBlocksCount: Cardinal; override;
-    function GetLastOperationBlock: TBlockHeader; override;
+    function GetLastBlockHeader: TBlockHeader; override;
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
@@ -75,16 +98,16 @@ type
     function GetTargetSecondsAverage(FromBlock, BackBlocks: Cardinal): Real;
     function LoadAccountsFromStream(Stream: TStream; useSecureLoad: Boolean; var errors: AnsiString): Boolean; override;
     procedure Clear;
-    function LoadOperations(Operations: TBlock; Block: Cardinal): Boolean;
-    function AddNewBlockChainBlock(Operations: TBlock; MaxAllowedTimestamp: Cardinal;
+    function LoadTransactions(ABlock: TBlock; ABlockNumber: Cardinal): Boolean;
+    function AddNewBlockToBlockChain(ABlock: TBlock; MaxAllowedTimestamp: Cardinal;
       var newBlock: TAccountStorageEntry; var errors: AnsiString): Boolean;
-    procedure DiskRestoreFromOperations(max_block: Int64);
-    procedure NewLog(Operations: TBlock; Logtype: TLogType; Logtxt: AnsiString);
+    procedure DiskRestoreFromTransactions(max_block: Int64);
+    procedure NewLog(ABlock: TBlock; Logtype: TLogType; Logtxt: AnsiString);
     function IsReady(var CurrentProcess: AnsiString): Boolean;
 
     property OnLog: TBlockManagerLog read FOnLog write FOnLog;
 
-    property LastOperationBlock: TBlockHeader read GetLastOperationBlock;
+    property LastBlock: TBlockHeader read GetLastBlockHeader;
     property Storage: TStorage read GetStorage;
     property StorageClass: TStorageClass read FStorageClass write SetStorageClass;
     property LastBlockFound: TBlock read FLastBlockCache;
@@ -92,6 +115,7 @@ type
     property AccountStorage: TAccountStorage read GetAccountStorage;
     property BlocksCount: Cardinal read GetBlocksCount;
     property Stopped : Boolean read FStopped write FStopped;
+    property IsLoadingBlocks: Boolean read FIsLoadingBlocks;
   end;
 
 implementation
@@ -108,7 +132,7 @@ begin
   Result := FAccountStorage.AccountsCount;
 end;
 
-function TBlockManager.AddNewBlockChainBlock(Operations: TBlock; MaxAllowedTimestamp: Cardinal;
+function TBlockManager.AddNewBlockToBlockChain(ABlock: TBlock; MaxAllowedTimestamp: Cardinal;
   var newBlock: TAccountStorageEntry; var errors: AnsiString): Boolean;
 var
   buffer, PoW: AnsiString;
@@ -119,15 +143,15 @@ begin
     Result := false;
     errors := '';
     try
-      if not Operations.ValidateOperationBlock(errors) then
+      if not ABlock.ValidateOperationBlock(errors) then
       begin
         exit;
       end;
-      if (Operations.BlockHeader.Block > 0) then
+      if (ABlock.BlockHeader.Block > 0) then
       begin
-        if ((MaxAllowedTimestamp > 0) and (Operations.BlockHeader.timestamp > MaxAllowedTimestamp)) then
+        if ((MaxAllowedTimestamp > 0) and (ABlock.BlockHeader.timestamp > MaxAllowedTimestamp)) then
         begin
-          errors := 'Invalid timestamp (Future time: New timestamp ' + Inttostr(Operations.BlockHeader.timestamp) +
+          errors := 'Invalid timestamp (Future time: New timestamp ' + Inttostr(ABlock.BlockHeader.timestamp) +
             ' > max allowed ' + Inttostr(MaxAllowedTimestamp) + ')';
           exit;
         end;
@@ -136,7 +160,7 @@ begin
       // WINNER !!!
       // Congrats!
 
-      if not Operations.AccountTransaction.Commit(Operations.BlockHeader, errors) then
+      if not ABlock.AccountTransaction.Commit(ABlock.BlockHeader, errors) then
       begin
         exit;
       end;
@@ -144,26 +168,24 @@ begin
       newBlock := AccountStorage.Block(AccountStorage.BlocksCount - 1);
 
       // Initialize values
-      FLastOperationBlock := Operations.BlockHeader;
+      FLastBlockHeader := ABlock.BlockHeader;
       // log it!
-      NewLog(Operations, ltupdate,
-        Format('New block height:%d nOnce:%d timestamp:%d Operations:%d Fee:%d SafeBoxBalance:%d=%d PoW:%s Operations previous Safe Box hash:%s Future old Safe Box hash for next block:%s',
-        [Operations.BlockHeader.Block, Operations.BlockHeader.nonce, Operations.BlockHeader.timestamp,
-        Operations.Count, Operations.BlockHeader.Fee, AccountStorage.TotalBalance,
-        Operations.AccountTransaction.TotalBalance, TCrypto.ToHexaString(Operations.BlockHeader.proof_of_work),
-        TCrypto.ToHexaString(Operations.BlockHeader.initial_safe_box_hash),
-        TCrypto.ToHexaString(AccountStorage.AccountStorageHash)]));
+      NewLog(ABlock, ltupdate,
+        Format('New block height:%d nOnce:%d timestamp:%d Operations:%d Fee:%d SafeBoxBalance:%d=%d',
+        [ABlock.BlockHeader.Block, ABlock.BlockHeader.nonce, ABlock.BlockHeader.timestamp,
+        ABlock.Count, ABlock.BlockHeader.Fee, AccountStorage.TotalBalance,
+        ABlock.AccountTransaction.TotalBalance]));
       // Save Operations to disk
       if not FIsRestoringFromFile then
       begin
-        Storage.SaveBlockChainBlock(Operations);
+        Storage.SaveBlockChainBlock(ABlock);
       end;
-      FLastBlockCache.CopyFrom(Operations);
-      Operations.Clear(true);
+      FLastBlockCache.CopyFrom(ABlock);
+      ABlock.Clear(true);
       Result := true;
     finally
       if not Result then
-        NewLog(Operations, lterror, 'Invalid new block ' + Inttostr(Operations.BlockHeader.Block) + ': ' + errors);
+        NewLog(ABlock, lterror, 'Invalid new block ' + Inttostr(ABlock.BlockHeader.Block) + ': ' + errors);
     end;
   finally
     FAccountStorageLock.Release;
@@ -191,7 +213,7 @@ begin
 
   d := TBlockManager(Dest);
   d.AccountStorage.CopyFrom(AccountStorage);
-  d.FLastOperationBlock := FLastOperationBlock;
+  d.FLastBlockHeader := FLastBlockHeader;
   d.FIsRestoringFromFile := FIsRestoringFromFile;
   d.FLastBlockCache.CopyFrom(FLastBlockCache);
 end;
@@ -204,8 +226,8 @@ end;
 procedure TBlockManager.Clear;
 begin
   AccountStorage.Clear;
-  FLastOperationBlock := TBlock.GetFirstBlock;
-  FLastOperationBlock.initial_safe_box_hash := TCrypto.DoSha256(CT_Genesis_Magic_String_For_Old_Block_Hash);
+  FLastBlockHeader := TBlock.GetFirstBlock;
+  FLastBlockHeader.initial_safe_box_hash := TCrypto.DoSha256(CT_Genesis_Magic_String_For_Old_Block_Hash);
   // Genesis hash
   FLastBlockCache.Clear(true);
   NewLog(nil, ltupdate, 'Clear cache and account storage');
@@ -256,7 +278,7 @@ begin
   end;
 end;
 
-procedure TBlockManager.DiskRestoreFromOperations(max_block: Int64);
+procedure TBlockManager.DiskRestoreFromTransactions(max_block: Int64);
 var
   errors: AnsiString;
   newBlock: TAccountStorageEntry;
@@ -294,6 +316,7 @@ begin
         Inttostr(BlocksCount) + ' Orphan: ' + Storage.Orphan);
       Operations := TBlock.Create(Self);
       try
+        FIsLoadingBlocks := true;
         while ((BlocksCount <= max_block)) do
         begin
           if FStopped then exit;
@@ -302,7 +325,7 @@ begin
             if Storage.LoadBlockChainBlock(Operations, BlocksCount) then
             begin
               SetLength(errors, 0);
-              if not AddNewBlockChainBlock(Operations, 0, newBlock, errors) then
+              if not AddNewBlockToBlockChain(Operations, 0, newBlock, errors) then
               begin
                 NewLog(Operations, lterror, 'Error restoring block: ' + Inttostr(BlocksCount) + ' Errors: ' + errors);
                 Storage.DeleteBlockChainBlocks(BlocksCount);
@@ -331,6 +354,7 @@ begin
           Storage.CleanupVersion1Data;
       finally
         Operations.Free;
+        FIsLoadingBlocks := false;
       end;
       NewLog(nil, ltinfo, 'End restoring from disk operations (Max ' + Inttostr(max_block) + ') Orphan: ' +
         Storage.Orphan + ' Restored ' + Inttostr(BlocksCount) + ' blocks');
@@ -371,9 +395,9 @@ begin
   Result := (ts1 - ts2) / BackBlocks;
 end;
 
-function TBlockManager.GetLastOperationBlock: TBlockHeader;
+function TBlockManager.GetLastBlockHeader: TBlockHeader;
 begin
-  Result := FLastOperationBlock;
+  Result := FLastBlockHeader;
 end;
 
 function TBlockManager.GetTargetSecondsAverage(FromBlock, BackBlocks: Cardinal): Real;
@@ -424,8 +448,10 @@ begin
   begin
     if FUpgradingToV2 then
       CurrentProcess := 'Migrating to version 2 format'
-    else
-      CurrentProcess := 'Restoring from file'
+    else if not FIsLoadingBlocks
+         then CurrentProcess := Format('Loading checkpoint blocks %d/%d',[BlocksCount, Storage.LastBlock])
+         else CurrentProcess := Format('Loading blockchain %d%%',
+         [Round(100*(BlocksCount mod 100) / Max(1, (Storage.LastBlock) mod 100)) ])
   end
   else
     Result := true;
@@ -460,11 +486,11 @@ begin
       if not Result then
         exit;
       if AccountStorage.BlocksCount > 0 then
-        FLastOperationBlock := AccountStorage.Block(AccountStorage.BlocksCount - 1).BlockHeader
+        FLastBlockHeader := AccountStorage.Block(AccountStorage.BlocksCount - 1).BlockHeader
       else
       begin
-        FLastOperationBlock := TBlock.GetFirstBlock;
-        FLastOperationBlock.initial_safe_box_hash := TCrypto.DoSha256(CT_Genesis_Magic_String_For_Old_Block_Hash);
+        FLastBlockHeader := TBlock.GetFirstBlock;
+        FLastBlockHeader.initial_safe_box_hash := TCrypto.DoSha256(CT_Genesis_Magic_String_For_Old_Block_Hash);
         // Genesis hash
       end;
     finally
@@ -480,36 +506,36 @@ begin
   end;
 end;
 
-function TBlockManager.LoadOperations(Operations: TBlock; Block: Cardinal): Boolean;
+function TBlockManager.LoadTransactions(ABlock: TBlock; ABlockNumber: Cardinal): Boolean;
 begin
   TPCThread.ProtectEnterCriticalSection(Self, FAccountStorageLock);
   try
-    if (Block > 0) and (Block = FLastBlockCache.BlockHeader.Block) then
+    if (ABlockNumber > 0) and (ABlockNumber = FLastBlockCache.BlockHeader.Block) then
     begin
       // Same as cache, sending cache
-      Operations.CopyFrom(FLastBlockCache);
+      ABlock.CopyFrom(FLastBlockCache);
       Result := true;
     end
     else
     begin
-      Result := Storage.LoadBlockChainBlock(Operations, Block);
+      Result := Storage.LoadBlockChainBlock(ABlock, ABlockNumber);
     end;
   finally
     FAccountStorageLock.Release;
   end;
 end;
 
-procedure TBlockManager.NewLog(Operations: TBlock; Logtype: TLogType; Logtxt: AnsiString);
+procedure TBlockManager.NewLog(ABlock: TBlock; Logtype: TLogType; Logtxt: AnsiString);
 var
   s: AnsiString;
 begin
-  if Assigned(Operations) then
-    s := Operations.Classname
+  if Assigned(ABlock) then
+    s := ABlock.Classname
   else
     s := Classname;
   TLog.NewLog(Logtype, s, Logtxt);
   if Assigned(FOnLog) then
-    FOnLog(Self, Operations, Logtype, Logtxt);
+    FOnLog(Self, ABlock, Logtype, Logtxt);
 end;
 
 procedure TBlockManager.SetStorageClass(const value: TStorageClass);
