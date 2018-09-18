@@ -72,31 +72,27 @@ type
     procedure InitializeData; override;
     function SaveToStream(Stream: TStream; SaveExtendedData: Boolean): Boolean; override;
     function LoadFromStream(Stream: TStream; LoadExtendedData: Boolean): Boolean; override;
-  protected
     function GetAmount: Int64; override;
     function GetFee: UInt64; override;
     function GetPayload: TRawBytes; override;
     function GetSignerAccount: Cardinal; override;
     function GetDestinationAccount: Int64; override;
     function GetNumberOfTransactions: Cardinal; override;
-    function GetOpType: Byte; override;
+    function GetTransactionType: Byte; override;
   public
     class function GetOperationHashToSign(const op: TOpChangeAccountInfoData): TRawBytes;
     class function DoSignOperation(key: TECPrivateKey; var op: TOpChangeAccountInfoData): Boolean;
 
-    function GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes; override;
-
+    function GetBuffer(UseProtocolV2: Boolean): TRawBytes; override;
     function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean; override;
     procedure AffectedAccounts(list: TList); override;
+    function GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal; var TransactionData: TTransactionData): Boolean; override;
+    function ToString: string; override;
 
     constructor CreateChangeAccountInfo(account_signer, n_operation, account_target: Cardinal; key: TECPrivateKey;
       change_key: Boolean; const new_account_key: TAccountKey; change_name: Boolean; const new_name: TRawBytes;
       change_type: Boolean; const new_type: Word; fee: UInt64; payload: TRawBytes);
 
-    function GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal;
-      var TransactionData: TTransactionData): Boolean; override;
-
-    function toString: string; override;
 
     property Data: TOpChangeAccountInfoData read FData;
   end;
@@ -236,14 +232,14 @@ begin
   setlength(raw, 0);
 end;
 
-function TOpChangeAccountInfo.GetOpType: Byte;
+function TOpChangeAccountInfo.GetTransactionType: Byte;
 begin
   Result := CT_Op_ChangeAccountInfo;
 end;
 
-function TOpChangeAccountInfo.GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes;
+function TOpChangeAccountInfo.GetBuffer(UseProtocolV2: Boolean): TRawBytes;
 begin
-  Result := inherited GetBufferForOpHash(true);
+  Result := inherited GetBuffer(true);
 end;
 
 function TOpChangeAccountInfo.ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString)

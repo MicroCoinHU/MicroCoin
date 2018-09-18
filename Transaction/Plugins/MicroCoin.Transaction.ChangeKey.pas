@@ -47,7 +47,7 @@ type
     function GetSignerAccount: Cardinal; override;
     function GetDestinationAccount: Int64; override;
     function GetNumberOfTransactions: Cardinal; override;
-    function GetOpType: Byte; override;
+    function GetTransactionType: Byte; override;
   public
     constructor Create(account_signer, n_operation, account_target: Cardinal; key: TECPrivateKey;
       new_account_key: TAccountKey; fee: UInt64; payload: TRawBytes);
@@ -55,7 +55,7 @@ type
     class function GetOperationHashToSign(const op: TOpChangeKeyData): TRawBytes;
     class function DoSignOperation(key: TECPrivateKey; var op: TOpChangeKeyData): Boolean;
 
-    function GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes; override;
+    function GetBuffer(UseProtocolV2: Boolean): TRawBytes; override;
     function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean; override;
     procedure AffectedAccounts(list: TList); override;
     function GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal;
@@ -67,7 +67,7 @@ type
 
   TChangeKeySignedTransaction = class(TChangeKeyTransaction)
   protected
-    function GetOpType: Byte; override;
+    function GetTransactionType: Byte; override;
   public
     function GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal;
       var TransactionData: TTransactionData): Boolean; override;
@@ -93,12 +93,12 @@ begin
   inherited Create;
   FData.account_signer := account_signer;
   FData.account_target := account_target;
-  if (OpType = CT_Op_Changekey) then
+  if (TransactionType = CT_Op_Changekey) then
   begin
     if (account_signer <> account_target) then
       raise Exception.Create('ERROR DEV 20170530-4');
   end
-  else if (OpType = CT_Op_ChangeKeySigned) then
+  else if (TransactionType = CT_Op_ChangeKeySigned) then
   begin
     // Allowed signer<>target
   end
@@ -264,13 +264,13 @@ begin
   end;
 end;
 
-function TChangeKeyTransaction.GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes;
+function TChangeKeyTransaction.GetBuffer(UseProtocolV2: Boolean): TRawBytes;
 var
   ms: TMemoryStream;
   s: AnsiString;
 begin
   if UseProtocolV2 then
-    Result := inherited GetBufferForOpHash(UseProtocolV2)
+    Result := inherited GetBuffer(UseProtocolV2)
   else
   begin
     ms := TMemoryStream.Create;
@@ -346,11 +346,11 @@ begin
   if Stream.Size - Stream.Position < 16 then
     Exit; // Invalid stream
   Stream.Read(FData.account_signer, Sizeof(FData.account_signer));
-  if (OpType = CT_Op_Changekey) then
+  if (TransactionType = CT_Op_Changekey) then
   begin
     FData.account_target := FData.account_signer;
   end
-  else if (OpType = CT_Op_ChangeKeySigned) then
+  else if (TransactionType = CT_Op_ChangeKeySigned) then
   begin
     Stream.Read(FData.account_target, Sizeof(FData.account_target));
   end
@@ -391,7 +391,7 @@ begin
   Result := FData.payload;
 end;
 
-function TChangeKeyTransaction.GetOpType: Byte;
+function TChangeKeyTransaction.GetTransactionType : Byte;
 begin
   Result := CT_Op_Changekey;
 end;
@@ -399,12 +399,12 @@ end;
 function TChangeKeyTransaction.SaveToStream(Stream: TStream; SaveExtendedData: Boolean): Boolean;
 begin
   Stream.Write(FData.account_signer, Sizeof(FData.account_signer));
-  if (OpType = CT_Op_Changekey) then
+  if (TransactionType = CT_Op_Changekey) then
   begin
     if FData.account_target <> FData.account_signer then
       raise Exception.Create('ERROR DEV 20170530-2');
   end
-  else if (OpType = CT_Op_ChangeKeySigned) then
+  else if (TransactionType = CT_Op_ChangeKeySigned) then
   begin
     Stream.Write(FData.account_target, Sizeof(FData.account_target));
   end
@@ -467,7 +467,7 @@ begin
     FData.n_operation, length(FData.payload)]);
 end;
 
-function TChangeKeySignedTransaction.GetOpType: Byte;
+function TChangeKeySignedTransaction.GetTransactionType: Byte;
 begin
   Result := CT_Op_ChangeKeySigned;
 end;

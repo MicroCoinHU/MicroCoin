@@ -1422,7 +1422,7 @@ var
     ansistr: AnsiString;
     auxpubkey: TAccountKey;
   begin
-    PubKey := CT_Account_NUL.accountInfo.AccountKey;
+    PubKey := TAccount.Empty.AccountInfo.AccountKey;
     errortxt := '';
     Result := false;
     if (params.IndexOfName(prefix + 'b58_pubkey') >= 0) then

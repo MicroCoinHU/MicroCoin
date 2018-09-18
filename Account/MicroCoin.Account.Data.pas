@@ -69,6 +69,20 @@ type
     class operator NotEqual(const accountInfo1, accountInfo2: TAccountInfo): Boolean;
   end;
 
+  TSubAccount = record
+    AccountKey: TAccountKey;
+    DailyLimit: Int64;
+    TotalLimit: Int64;
+    Balance: UInt64;
+    Currency: Cardinal;
+  end;
+
+  TExtraData = record
+    DataType: byte;
+    ExtraType: byte;
+    Data: TRawBytes;
+  end;
+
   PAccount = ^TAccount;
 
   TAccount = record
@@ -80,7 +94,11 @@ type
     name: TRawBytes; // Protocol 2. Unique name
     account_type: Word; // Protocol 2. Layer 2 use case
     previous_updated_block: Cardinal;
-    // New Build 1.0.8 -> Only used to store this info to storage. It helps App to search when an account was updated. NOT USED FOR HASH CALCULATIONS!
+    {$IFDEF EXTENDEDACCOUNT}
+    SubAccounts: array of TSubAccount;
+    ExtraData: TExtraData;
+    {$ENDIF}
+    class function Empty: TAccount; static;
     class function IsAccountBlockedByProtocol(account_number, blocks_count: Cardinal): Boolean; static;
     class function AccountNumberToAccountTxtNumber(account_number: Cardinal): AnsiString; static;
     class function AccountTxtNumberToAccountNumber(const account_txt_number: AnsiString; var account_number: Cardinal) : Boolean; static;
@@ -101,7 +119,8 @@ type
     function Find(const account_number: Cardinal; var Index: Integer): Boolean;
   end;
 
-  TMemAccount = record // TAccount with less memory usage
+  TMemAccount = TAccount;
+  { record // TAccount with less memory usage
     // account number is discarded (-4 bytes)
     AccountInfo: TDynRawBytes;
     balance: UInt64;
@@ -110,7 +129,9 @@ type
     name: TRawBytes;
     account_type: Word;
     previous_updated_block: Cardinal;
-  end;
+    Subaccounts : array of TSubAccount;
+    ExtraData: TExtraData;
+  end; }
 
   TMemOperationBlock = record // TOperationBlock with less memory usage
     // block number is discarded (-4 bytes)
@@ -141,9 +162,6 @@ type
 const
   CT_AccountInfo_NUL: TAccountInfo = (state: as_Unknown; AccountKey: (EC_OpenSSL_NID: 0; x: ''; y: '');
     locked_until_block: 0; price: 0; account_to_pay: 0; new_publicKey: (EC_OpenSSL_NID: 0; x: ''; y: ''));
-  CT_Account_NUL: TAccount = (AccountNumber: 0; AccountInfo: (state: as_Unknown; AccountKey: (EC_OpenSSL_NID: 0; x: '';
-    y: ''); locked_until_block: 0; price: 0; account_to_pay: 0; new_publicKey: (EC_OpenSSL_NID: 0; x: ''; y: ''));
-    balance: 0; updated_block: 0; n_operation: 0; name: ''; account_type: 0; previous_updated_block: 0);
 
 implementation
 
@@ -344,6 +362,24 @@ begin
   rn := StrToIntDef(Copy(account_txt_number, i, length(account_txt_number)), 0);
   anaux := ((an * 101) mod 89) + 10;
   Result := rn = anaux;
+end;
+
+class function TAccount.Empty: TAccount;
+begin
+  Result.AccountNumber := 0;
+  Result.AccountInfo := CT_AccountInfo_NUL;
+  Result.balance := 0;
+  Result.updated_block := 0;
+  Result.n_operation := 0;
+  Result.name := '';
+  Result.account_type := 0;
+  Result.previous_updated_block := 0;
+  {$IFDEF EXTENDEDACCOUNT}
+    SetLength(Result.SubAccounts, 0);
+    Result.ExtraData.DataType := 1;
+    Result.ExtraData.ExtraType := 0;
+    Result.ExtraData.Data := '';
+  {$ENDIF}
 end;
 
 class function TAccount.IsAccountBlockedByProtocol(account_number, blocks_count: Cardinal): Boolean;

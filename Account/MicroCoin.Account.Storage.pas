@@ -182,12 +182,12 @@ const
     account_type: 0; previous_updated_block: 0)); block_hash: ''; accumulatedWork: 0);
 
 procedure ToTMemAccount(const Source: TAccount; var dest: TMemAccount);
-{$IFDEF uselowmem}
+{.$IFDEF uselowmem}
 var
   raw: TRawBytes;
-{$ENDIF}
+{.$ENDIF}
 begin
-{$IFDEF uselowmem}
+{$IFDEF OLDVERSION}
   Source.AccountInfo.ToRawString(raw);
   TBaseType.To256RawBytes(raw, dest.AccountInfo);
   dest.balance := Source.balance;
@@ -196,6 +196,8 @@ begin
   dest.name := Source.name;
   dest.account_type := Source.account_type;
   dest.previous_updated_block := Source.previous_updated_block;
+  dest.Subaccounts := Source.SubAccounts;
+  dest.ExtraData := Source.ExtraData;
 {$ELSE}
   dest := Source;
 {$ENDIF}
@@ -207,7 +209,7 @@ var
   raw: TRawBytes;
 {$ENDIF}
 begin
-{$IFDEF uselowmem}
+{$IFDEF ouselowmem}
   dest.AccountNumber := account_number;
   TBaseType.ToRawBytes(Source.AccountInfo, raw);
   TAccountInfo.FromRawString(raw, dest.AccountInfo);
@@ -318,7 +320,7 @@ begin
   SetLength(accs, length(Result.accounts));
   for i := low(Result.accounts) to high(Result.accounts) do
   begin
-    Result.accounts[i] := CT_Account_NUL;
+    Result.accounts[i] := TAccount.Empty;
     Result.accounts[i].AccountNumber := base_addr + i;
     Result.accounts[i].AccountInfo.state := as_Normal;
     Result.accounts[i].AccountInfo.AccountKey := BlockChain.account_key;
@@ -555,7 +557,7 @@ begin
     for i := 0 to FBlockAccountsList.Count - 1 do
     begin
       P := FBlockAccountsList.Items[i];
-      setLength(TMemBlockAccount(p^).accounts[0].AccountInfo,0);
+//      setLength(TMemBlockAccount(p^).accounts[0].AccountInfo,0);
       TMemBlockAccount(p^).accounts[0] := Default(TMemAccount);
       TMemBlockAccount(p^).accounts[1] := Default(TMemAccount);
       TMemBlockAccount(p^).accounts[2] := Default(TMemAccount);
@@ -702,6 +704,8 @@ var
   nPos, posOffsetZone: Int64;
   offsets: array of Cardinal;
   sbHeader: TAccountStorageHeader;
+  xIsExtendedAccount: boolean;
+  b: byte;
 begin
   StartThreadSafe;
   try
@@ -772,8 +776,14 @@ begin
             ' of block ' + inttostr(iblock + 1) + '/' + inttostr(sbHeader.blocksCount);
           if stream.Read(block.accounts[iacc].AccountNumber, 4) < 4 then
             exit;
-          if TStreamOp.ReadAnsiString(stream, s) < 0 then
-            exit;
+          if TStreamOp.ReadAnsiString(stream, s) < 0
+          then exit;
+          if s=''
+          then xIsExtendedAccount := true
+          else xIsExtendedAccount := false;
+          if xIsExtendedAccount
+          then if TStreamOp.ReadAnsiString(stream, s) < 0
+               then exit;
           block.accounts[iacc].AccountInfo := TAccountInfo.FromRawString(s);
           if stream.Read(block.accounts[iacc].balance, Sizeof(UInt64)) < Sizeof(UInt64) then
             exit;
@@ -791,6 +801,28 @@ begin
           //
           if stream.Read(block.accounts[iacc].previous_updated_block, 4) < 4 then
             exit;
+          {$IFDEF EXTENDEDACCOUNT}
+          if xIsExtendedAccount
+          then begin
+            if stream.Read(b,1) < 1
+            then exit;
+            SetLength(block.accounts[iacc].SubAccounts, b);
+            if b > 0 then begin
+              for I := 0 to b - 1
+              do begin
+                TStreamOp.ReadAccountKey(stream, block.accounts[iacc].SubAccounts[i].AccountKey);
+                stream.Read(block.accounts[iacc].SubAccounts[i].DailyLimit, SizeOf(Int64));
+                stream.Read(block.accounts[iacc].SubAccounts[i].TotalLimit, SizeOf(Int64));
+                stream.Read(block.accounts[iacc].SubAccounts[i].Balance, SizeOf(UInt64));
+                stream.Read(block.accounts[iacc].SubAccounts[i].Currency, SizeOf(Cardinal));
+              end;
+            end;
+            Stream.Read(b, SizeOf(block.accounts[iacc].ExtraData.DataType));
+            block.accounts[iacc].ExtraData.DataType := b;
+            Stream.Read(block.accounts[iacc].ExtraData.ExtraType, SizeOf(block.accounts[iacc].ExtraData.ExtraType));
+            TStreamOp.ReadAnsiString(stream, block.accounts[iacc].ExtraData.Data);
+          end;
+          {$ENDIF}
           // check valid
           if (block.accounts[iacc].name <> '') then
           begin
@@ -998,6 +1030,9 @@ var
   b: TAccountStorageEntry;
   iacc: Integer;
   ws: UInt64;
+  bs: byte;
+  was: word;
+  i: integer;
 begin
   ws := FWorkSum;
   b := block(nBlock);
@@ -1005,6 +1040,10 @@ begin
   for iacc := low(b.accounts) to high(b.accounts) do
   begin
     stream.Write(b.accounts[iacc].AccountNumber, Sizeof(b.accounts[iacc].AccountNumber));
+    {$ifdef EXTENDEDACCOUNT}
+      was:=0;
+      stream.Write(was, 2);
+    {$ENDIF}
     TStreamOp.WriteAnsiString(stream, b.accounts[iacc].AccountInfo.ToRawString);
     stream.Write(b.accounts[iacc].balance, Sizeof(b.accounts[iacc].balance));
     stream.Write(b.accounts[iacc].updated_block, Sizeof(b.accounts[iacc].updated_block));
@@ -1015,6 +1054,21 @@ begin
       stream.Write(b.accounts[iacc].account_type, Sizeof(b.accounts[iacc].account_type));
     end;
     stream.Write(b.accounts[iacc].previous_updated_block, Sizeof(b.accounts[iacc].previous_updated_block));
+    {$ifdef EXTENDEDACCOUNT}
+      bs := Byte(Length(b.accounts[iacc].SubAccounts));
+      stream.Write(bs, 1);
+      for i := 0 to High(b.accounts[iacc].SubAccounts)
+      do begin
+        TStreamOp.WriteAccountKey(stream, b.accounts[iacc].SubAccounts[i].AccountKey);
+        stream.Write(b.accounts[iacc].SubAccounts[i].DailyLimit, sizeof(b.accounts[iacc].SubAccounts[i].DailyLimit));
+        stream.Write(b.accounts[iacc].SubAccounts[i].TotalLimit, sizeof(b.accounts[iacc].SubAccounts[i].TotalLimit));
+        stream.Write(b.accounts[iacc].SubAccounts[i].Balance, sizeof(b.accounts[iacc].SubAccounts[i].Balance));
+        stream.Write(b.accounts[iacc].SubAccounts[i].Currency, sizeof(b.accounts[iacc].SubAccounts[i].Currency));
+      end;
+      stream.Write(b.accounts[iacc].ExtraData.DataType, sizeof(b.accounts[iacc].ExtraData.DataType));
+      stream.Write(b.accounts[iacc].ExtraData.ExtraType, sizeof(b.accounts[iacc].ExtraData.ExtraType));
+      TStreamOp.WriteAnsiString(stream, b.accounts[iacc].ExtraData.Data);
+    {$endif}
   end;
   TStreamOp.WriteAnsiString(stream, b.block_hash);
   stream.Write(b.accumulatedWork, Sizeof(b.accumulatedWork));

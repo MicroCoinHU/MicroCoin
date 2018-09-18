@@ -63,7 +63,7 @@ type
     class function DoSignOperation(key: TECPrivateKey; var operation: TOpListAccountData): Boolean;
     function IsPrivateSale: Boolean;
     function IsDelist: Boolean; virtual; abstract;
-    function GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes; override;
+    function GetBuffer(UseProtocolV2: Boolean): TRawBytes; override;
     function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean; override;
     procedure AffectedAccounts(list: TList); override;
     function toString: string; override;
@@ -72,7 +72,7 @@ type
 
   TOpListAccountForSale = class(TOpListAccount)
   protected
-    function GetOpType: Byte; override;
+    function GetTransactionType: Byte; override;
   public
     constructor CreateListAccountForSale(account_signer, n_operation, account_target: Cardinal;
       account_price, fee: UInt64; account_to_pay: Cardinal; new_public_key: TAccountKey; locked_until_block: Cardinal;
@@ -84,7 +84,7 @@ type
 
   TOpDelistAccountForSale = class(TOpListAccount)
   public
-    function GetOpType: Byte; override;
+    function GetTransactionType: Byte; override;
     constructor CreateDelistAccountForSale(account_signer, n_operation, account_target: Cardinal; fee: UInt64;
       key: TECPrivateKey; payload: TRawBytes);
     function IsDelist: Boolean; override;
@@ -288,10 +288,10 @@ begin
   end;
 end;
 
-function TOpListAccount.GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes;
+function TOpListAccount.GetBuffer(UseProtocolV2: Boolean): TRawBytes;
 begin
   // This Operation is new from protocol V2, so we cannot hash it as a previous protocol!
-  Result := inherited GetBufferForOpHash(true);
+  Result := inherited GetBuffer(true);
 end;
 
 class function TOpListAccount.GetOperationHashToSign(const operation: TOpListAccountData): TRawBytes;
@@ -519,7 +519,7 @@ begin
   Result := false;
 end;
 
-function TOpListAccountForSale.GetOpType: Byte;
+function TOpListAccountForSale.GetTransactionType: Byte;
 begin
   Result := CT_Op_ListAccountForSale;
 end;
@@ -571,7 +571,7 @@ begin
   Result := true;
 end;
 
-function TOpDelistAccountForSale.GetOpType: Byte;
+function TOpDelistAccountForSale.GetTransactionType: Byte;
 begin
   Result := CT_Op_DelistAccount;
 end;

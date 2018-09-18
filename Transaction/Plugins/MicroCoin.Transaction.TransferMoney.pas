@@ -52,7 +52,7 @@ type
     procedure InitializeData; override;
     function SaveToStream(Stream: TStream; SaveExtendedData: Boolean): Boolean; override;
     function LoadFromStream(Stream: TStream; LoadExtendedData: Boolean): Boolean; override;
-    function GetOpType: Byte; override;
+    function GetTransactionType: Byte; override;
     function GetAmount: Int64; override;
     function GetFee: UInt64; override;
     function GetPayload: TRawBytes; override;
@@ -61,7 +61,7 @@ type
     function GetSellerAccount: Int64; override;
     function GetNumberOfTransactions: Cardinal; override;
   public
-    function GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes; override;
+    function GetBuffer(UseProtocolV2: Boolean): TRawBytes; override;
     function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean; override;
     procedure AffectedAccounts(list: TList); override;
     //
@@ -78,7 +78,7 @@ type
   TBuyAccountTransaction = class(TTransferMoneyTransaction)
   protected
     procedure InitializeData; override;
-    function GetOpType: Byte; override;
+    function GetTransactionType: Byte; override;
   public
     constructor CreateBuy(account_number, n_operation, account_to_buy, account_to_pay: Cardinal;
       price, amount, fee: UInt64; new_public_key: TAccountKey; key: TECPrivateKey; payload: TRawBytes);
@@ -337,12 +337,12 @@ begin
   SetLength(s, 0);
 end;
 
-function TTransferMoneyTransaction.GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes;
+function TTransferMoneyTransaction.GetBuffer(UseProtocolV2: Boolean): TRawBytes;
 var
   ms: TMemoryStream;
 begin
   if UseProtocolV2 then
-    Result := inherited GetBufferForOpHash(UseProtocolV2)
+    Result := inherited GetBuffer(UseProtocolV2)
   else
   begin
     ms := TMemoryStream.Create;
@@ -385,7 +385,7 @@ begin
     TransactionData.fee := (-1) * Int64(GetFee);
   end;
   TransactionData.AffectedAccount := Affected_account_number;
-  TransactionData.OpType := OpType;
+  TransactionData.OpType := TransactionType;
   TransactionData.SignerAccount := GetSignerAccount;
   Result := false;
   TransactionData.DestAccount := Data.target;
@@ -586,7 +586,7 @@ begin
   Result := FData.payload;
 end;
 
-function TTransferMoneyTransaction.GetOpType: Byte;
+function TTransferMoneyTransaction.GetTransactionType: Byte;
 begin
   Result := CT_Op_Transaction;
 end;
@@ -710,7 +710,7 @@ begin
   FData.opTransactionStyle := buy_account;
 end;
 
-function TBuyAccountTransaction.GetOpType: Byte;
+function TBuyAccountTransaction.GetTransactionType : Byte;
 begin
   Result := CT_Op_BuyAccount;
 end;

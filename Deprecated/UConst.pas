@@ -114,6 +114,7 @@ Const
   CT_Op_BuyAccount = $06;
   CT_Op_ChangeKeySigned = $07;
   CT_Op_ChangeAccountInfo = $08;
+  CT_Op_CreateSubAccount = $09;
 
   CT_OpSubtype_TransactionSender          = 11;
   CT_OpSubtype_TransactionReceiver        = 12;
@@ -130,6 +131,7 @@ Const
   CT_OpSubtype_BuyAccountSeller           = 63;
   CT_OpSubtype_ChangeKeySigned            = 71;
   CT_OpSubtype_ChangeAccountInfo          = 81;
+  CT_OpSubtype_CreateSubAccount           = 91;
 
   CT_ClientAppVersion : AnsiString = {$IFDEF PRODUCTION}'1.1.3'{$ELSE}{$IFDEF TESTNET}'TESTNET 1.1.3'{$ELSE}{$ENDIF}{$ENDIF};
   {$IFDEF PRODUCTION}
