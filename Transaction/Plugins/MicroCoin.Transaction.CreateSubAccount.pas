@@ -60,6 +60,7 @@ type
     function GetTransactionType: Byte; override;
     class function GetHashForSignature(const ATransaction: TCreateSubAccountData): TRawBytes; static;
   public
+    constructor Create(AAccountNumber : Cardinal; Afee: UInt64; ANTransactions: Cardinal; AKey: TECPrivateKey; APublicKey: TECDSA_Public); reintroduce;
     function GetBuffer(UseProtocolV2: Boolean): TRawBytes; override;
     function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean; override;
     procedure AffectedAccounts(list: TList); override;
@@ -79,6 +80,7 @@ end;
 function TCreateSubAccountTransaction.ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean;
 var
   xTargetAccount: TAccount;
+  xAccount: PAccount;
 begin
 
   Result := False;
@@ -150,7 +152,31 @@ begin
     exit;
   end
   else FHasValidSignature := true;
+  xAccount :=  AccountTransaction.GetInternalAccount(xTargetAccount.AccountNumber);
+  xAccount^.n_operation := FData.n_operation;
+  xAccount^.balance := xAccount^.balance - FData.fee;
+  SetLength(xAccount^.SubAccounts, Length(xAccount^.SubAccounts)+1);
+  xAccount^.SubAccounts[High(xAccount^.SubAccounts)].AccountKey := xTargetAccount.AccountInfo.AccountKey;
+  xAccount^.SubAccounts[High(xAccount^.SubAccounts)].Balance := 0;
+  xAccount^.SubAccounts[High(xAccount^.SubAccounts)].DailyLimit := 0;
+  xAccount^.SubAccounts[High(xAccount^.SubAccounts)].TotalLimit := 0;
+  Result := true;
+end;
 
+constructor TCreateSubAccountTransaction.Create(AAccountNumber: Cardinal;
+  Afee: uInt64; ANTransactions: Cardinal; AKey: TECPrivateKey; APublicKey: TECDSA_Public);
+var
+  s: AnsiString;
+begin
+  inherited Create;
+  FData.account_signer := AAccountNumber;
+//  FData.account_number := AAccountNumber;
+  FData.n_operation := ANTransactions;
+  FData.fee := Afee;
+  FData.payload := '';
+  FData.public_key := APublicKey;
+  s := GetHashForSignature(FData);
+  FData.sign := TCrypto.ECDSASign(Akey, s);
 end;
 
 function TCreateSubAccountTransaction.GetAmount: Int64;
@@ -188,7 +214,7 @@ begin
 
   try
     Stream.Write(ATransaction.account_signer, SizeOf(ATransaction.account_signer));
-    Stream.Write(ATransaction.account_number, SizeOf(ATransaction.account_number));
+//    Stream.Write(ATransaction.account_number, SizeOf(ATransaction.account_number));
     Stream.Write(ATransaction.n_operation, Sizeof(ATransaction.n_operation));
     Stream.Write(ATransaction.fee, Sizeof(ATransaction.fee));
 
@@ -237,6 +263,8 @@ var
 begin
   Result := true;
   TransactionData := TTransactionData.Empty;
+  TransactionData.OpType := GetTransactionType;
+  TransactionData.OpSubtype := CT_Op_CreateSubAccount;
   TransactionData.DestAccount := GetDestinationAccount;
   s := '';
   TransactionData.OperationTxt := Format('Create sub account (%d)', [FData.account_number]);

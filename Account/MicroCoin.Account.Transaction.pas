@@ -54,11 +54,11 @@ type
     FPreviusHash: TRawBytes;
     FAccountNames_Deleted: TOrderedRawList;
     FAccountNames_Added: TOrderedRawList;
-    function GetInternalAccount(account_number: Cardinal): PAccount;
   protected
   public
     constructor Create(AccountStorage: TAccountStorage);
     destructor Destroy; override;
+    function GetInternalAccount(account_number: Cardinal): PAccount;
     function TransferAmount(sender, target: Cardinal; n_operation: Cardinal; amount, fee: UInt64;
       var errors: AnsiString): Boolean;
     function UpdateAccountInfo(signer_account, signer_n_operation, target_account: Cardinal; AccountInfo: TAccountInfo;
@@ -242,7 +242,7 @@ begin
     begin
       Pa := FOrderedList.GetPointer(i);
       FreezedAccounts.SetAccount(Pa^.AccountNumber, Pa^.AccountInfo, Pa^.name, Pa^.account_type, Pa^.balance,
-        Pa^.n_operation);
+        Pa^.n_operation, Pa^.SubAccounts, Pa^.ExtraData);
     end;
     //
     if (FFreezedAccounts.TotalBalance <> FTotalBalance) then
@@ -431,7 +431,7 @@ begin
   Result := true;
 end;
 
-function TAccountTransaction.UpdateAccountInfo(signer_account, signer_n_operation, target_account: Cardinal;
+  function TAccountTransaction.UpdateAccountInfo(signer_account, signer_n_operation, target_account: Cardinal;
   AccountInfo: TAccountInfo; newName: TRawBytes; newType: Word; fee: UInt64; var errors: AnsiString): Boolean;
 var
   i: Integer;

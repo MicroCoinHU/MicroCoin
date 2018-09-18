@@ -85,7 +85,7 @@ type
     constructor Create;
     destructor Destroy; override;
     procedure SetAccount(account_number: Cardinal; const newAccountInfo: TAccountInfo; const newName: TRawBytes;
-      newType: Word; newBalance: UInt64; newN_operation: Cardinal);
+      newType: Word; newBalance: UInt64; newN_operation: Cardinal; SubAccounts: array of TSubAccount; Extra: TExtraData);
     function AddNew(const BlockChain: TBlockHeader): TAccountStorageEntry;
     function AccountsCount: Integer;
     function blocksCount: Integer;
@@ -1637,7 +1637,9 @@ begin
 end;
 
 procedure TAccountStorage.SetAccount(account_number: Cardinal; const newAccountInfo: TAccountInfo;
-  const newName: TRawBytes; newType: Word; newBalance: UInt64; newN_operation: Cardinal);
+  const newName: TRawBytes; newType: Word; newBalance: UInt64; newN_operation: Cardinal;
+  SubAccounts: array of TSubAccount; Extra: TExtraData
+  );
 var
   iblock: Cardinal;
   i, j, iAccount: Integer;
@@ -1689,6 +1691,10 @@ begin
     acc.updated_block := blocksCount;
   end;
   acc.n_operation := newN_operation;
+  SetLength(acc.SubAccounts, Length(SubAccounts));
+  for I := Low(SubAccounts) to High(SubAccounts)
+  do acc.SubAccounts[i] := SubAccounts[i];
+  acc.ExtraData := Extra;
   // Save new account values
   ToTMemAccount(acc, P^.accounts[iAccount]);
   // Update block_hash
