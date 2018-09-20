@@ -16,7 +16,7 @@ unit MicroCoin.BlockChain.FileStorage;
 interface
 
 uses Classes, MicroCoin.BlockChain.BlockManager, SyncObjs, UThread, UCrypto, MicroCoin.Account.Storage,
-  MicroCoin.BlockChain.Storage, MicroCoin.BlockChain.Block;
+  MicroCoin.BlockChain.Storage, MicroCoin.BlockChain.Block, UFolderHelper;
 
 {$I config.inc}
 
@@ -73,7 +73,7 @@ type
     function DoCreateSafeBoxStream(blockCount: Cardinal): TStream; override;
     procedure DoEraseStorage; override;
   public
-    constructor Create(AOwner: TComponent); override;
+    constructor Create; override;
     destructor Destroy; override;
     class function GetSafeboxCheckpointingFileName(const BaseDataFolder: AnsiString; Block: Cardinal): AnsiString;
     property DatabaseFolder: AnsiString read FDatabaseFolder write SetDatabaseFolder;
@@ -186,7 +186,7 @@ begin
   end;
 end;
 
-constructor TFileStorage.Create(AOwner: TComponent);
+constructor TFileStorage.Create;
 begin
   inherited;
   FDatabaseFolder := '';
@@ -196,6 +196,7 @@ begin
   FStreamFirstBlockNumber := 0;
   FStreamLastBlockNumber := -1;
   FStorageLock := TPCCriticalSection.Create('TFileStorage_StorageLock');
+  FDatabaseFolder := TFolderHelper.GetMicroCoinDataFolder + PathDelim + 'Data';
 end;
 
 destructor TFileStorage.Destroy;
@@ -361,7 +362,7 @@ begin
     try
       if not Assigned(db) then
       begin
-        db := TFileStorage.Create(nil);
+        db := TFileStorage.Create;
         db.DatabaseFolder := Self.DatabaseFolder;
         db.BlockManager := Self.BlockManager;
         db.Orphan := DestOrphan;
@@ -1119,5 +1120,8 @@ begin
     until FindNext(searchRec) <> 0;
   FindClose(searchRec);
 end;
+
+initialization
+  TBlockManager.StorageClass := TFileStorage;
 
 end.

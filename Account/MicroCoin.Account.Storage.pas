@@ -85,7 +85,7 @@ type
     constructor Create;
     destructor Destroy; override;
     procedure SetAccount(account_number: Cardinal; const newAccountInfo: TAccountInfo; const newName: TRawBytes;
-      newType: Word; newBalance: UInt64; newN_operation: Cardinal; SubAccounts: array of TSubAccount; Extra: TExtraData);
+      newType: Word; newBalance: UInt64; newN_operation: Cardinal{$IFDEF EXTENDEDACCOUNT}; SubAccounts: array of TSubAccount; Extra: TExtraData{$ENDIF});
     function AddNew(const BlockChain: TBlockHeader): TAccountStorageEntry;
     function AccountsCount: Integer;
     function blocksCount: Integer;
@@ -115,14 +115,15 @@ type
     function block(block_number: Cardinal): TAccountStorageEntry;
     function CalculateHash: TRawBytes;
     function CalcBlockHashRateInKhs(block_number: Cardinal; Previous_blocks_average: Cardinal): Int64;
-    property TotalBalance: UInt64 read FTotalBalance;
     procedure StartThreadSafe;
     procedure EndThreadSave;
+    function CanUpgradeToProtocol2: Boolean;
+    procedure CheckMemory;
+
+    property TotalBalance: UInt64 read FTotalBalance;
     property AccountStorageHash: TRawBytes read FAccountStorageHash;
     property WorkSum: UInt64 read FWorkSum;
     property CurrentProtocol: Integer read FCurrentProtocol;
-    function CanUpgradeToProtocol2: Boolean;
-    procedure CheckMemory;
     property TotalFee: Int64 read FTotalFee;
     property ListOfOrderedAccountKeysList: TList read FListOfOrderedAccountKeysList;
   end;
@@ -198,6 +199,7 @@ begin
   dest.previous_updated_block := Source.previous_updated_block;
   dest.Subaccounts := Source.SubAccounts;
   dest.ExtraData := Source.ExtraData;
+  dest.HasExtraData := Source.HasExtraData;
 {$ELSE}
   dest := Source;
 {$ENDIF}
@@ -321,6 +323,10 @@ begin
   for i := low(Result.accounts) to high(Result.accounts) do
   begin
     Result.accounts[i] := TAccount.Empty;
+    {$IFDEF EXTENDEDACCOUNT}
+    if BlockChain.block > 419
+    then Result.accounts[i].HasExtraData := true;
+    {$ENDIF}
     Result.accounts[i].AccountNumber := base_addr + i;
     Result.accounts[i].AccountInfo.state := as_Normal;
     Result.accounts[i].AccountInfo.AccountKey := BlockChain.account_key;
@@ -403,7 +409,7 @@ class function TAccountStorage.CalcBlockHash(const block: TAccountStorageEntry; 
 var
   raw: TRawBytes;
   ms: TMemoryStream;
-  i: Integer;
+  i,j: Integer;
 begin
   ms := TMemoryStream.Create;
 //  ms.SetSize(2048);
@@ -442,6 +448,25 @@ begin
           ms.WriteBuffer(block.accounts[i].name[1], length(block.accounts[i].name));
         end;
         ms.Write(block.accounts[i].account_type, 2);
+        {$IFDEF EXTENDEDACCOUNT}
+        if block.accounts[i].HasExtraData
+        then begin
+          ms.Write(block.accounts[i].ExtraData.DataType, Sizeof(block.accounts[i].ExtraData.DataType));
+          ms.Write(block.accounts[i].ExtraData.ExtraType, Sizeof(block.accounts[i].ExtraData.ExtraType));
+          if block.accounts[i].ExtraData.Data<>''
+          then ms.WriteBuffer(block.accounts[i].ExtraData.Data[1], Length(block.accounts[i].ExtraData.Data));
+          for j := Low(block.accounts[i].SubAccounts) to High(block.accounts[i].SubAccounts)
+          do begin
+            raw := block.accounts[i].SubAccounts[j].AccountKey.ToRawString;
+            ms.WriteBuffer(raw[1], length(raw));
+            ms.Write(block.accounts[i].SubAccounts[j].DailyLimit, SizeOf(block.accounts[i].SubAccounts[j].DailyLimit));
+            ms.Write(block.accounts[i].SubAccounts[j].TotalLimit, SizeOf(block.accounts[i].SubAccounts[j].TotalLimit));
+            ms.Write(block.accounts[i].SubAccounts[j].Balance, SizeOf(block.accounts[i].SubAccounts[j].Balance));
+            ms.Write(block.accounts[i].SubAccounts[j].Currency, SizeOf(block.accounts[i].SubAccounts[j].Currency));
+          end;
+        end;
+        {$ENDIF}
+
       end;
       ms.Write(block.accumulatedWork, Sizeof(block.accumulatedWork));
     end;
@@ -804,6 +829,7 @@ begin
           {$IFDEF EXTENDEDACCOUNT}
           if xIsExtendedAccount
           then begin
+            block.accounts[iacc].HasExtraData := true;
             if stream.Read(b,1) < 1
             then exit;
             SetLength(block.accounts[iacc].SubAccounts, b);
@@ -1637,8 +1663,8 @@ begin
 end;
 
 procedure TAccountStorage.SetAccount(account_number: Cardinal; const newAccountInfo: TAccountInfo;
-  const newName: TRawBytes; newType: Word; newBalance: UInt64; newN_operation: Cardinal;
-  SubAccounts: array of TSubAccount; Extra: TExtraData
+  const newName: TRawBytes; newType: Word; newBalance: UInt64; newN_operation: Cardinal
+  {$IFDEF EXTENDEDACCOUNT};SubAccounts: array of TSubAccount; Extra: TExtraData{$ENDIF}
   );
 var
   iblock: Cardinal;
@@ -1691,10 +1717,12 @@ begin
     acc.updated_block := blocksCount;
   end;
   acc.n_operation := newN_operation;
+  {$IFDEF EXTENDEDACCOUNT}
   SetLength(acc.SubAccounts, Length(SubAccounts));
   for I := Low(SubAccounts) to High(SubAccounts)
   do acc.SubAccounts[i] := SubAccounts[i];
   acc.ExtraData := Extra;
+  {$ENDIF}
   // Save new account values
   ToTMemAccount(acc, P^.accounts[iAccount]);
   // Update block_hash

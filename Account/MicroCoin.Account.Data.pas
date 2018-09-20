@@ -86,6 +86,9 @@ type
   PAccount = ^TAccount;
 
   TAccount = record
+  private
+    FHasExtraData: boolean;
+  public
     AccountNumber: Cardinal; // FIXED value. Account number
     AccountInfo: TAccountInfo;
     balance: UInt64; // Balance, always >= 0
@@ -103,6 +106,7 @@ type
     class function AccountNumberToAccountTxtNumber(account_number: Cardinal): AnsiString; static;
     class function AccountTxtNumberToAccountNumber(const account_txt_number: AnsiString; var account_number: Cardinal) : Boolean; static;
     class function AccountBlock(const account_number: Cardinal): Cardinal; static;
+    property HasExtraData: boolean read FHasExtraData write FHasExtraData;
   end;
 
   TOrderedAccountList = class
@@ -374,9 +378,10 @@ begin
   Result.name := '';
   Result.account_type := 0;
   Result.previous_updated_block := 0;
+  Result.HasExtraData := false;
   {$IFDEF EXTENDEDACCOUNT}
     SetLength(Result.SubAccounts, 0);
-    Result.ExtraData.DataType := 1;
+    Result.ExtraData.DataType := 0;
     Result.ExtraData.ExtraType := 0;
     Result.ExtraData.Data := '';
   {$ENDIF}

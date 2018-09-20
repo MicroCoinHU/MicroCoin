@@ -23,7 +23,7 @@ type
 
   TStorageClass = class of TStorage;
 
-  TStorage = class(TComponent)
+  TStorage = class
   private
     FOrphan: TOrphan;
     FBlockManager: TBlockManagerBase;
@@ -52,7 +52,7 @@ type
     procedure DeleteBlockChainBlocks(StartingDeleteBlock: Cardinal);
     function SaveAccountStorage: Boolean;
     function RestoreAccountStorage(max_block: Int64): Boolean;
-    constructor Create(AOwner: TComponent); override;
+    constructor Create; virtual;
     property Orphan: TOrphan read FOrphan write SetOrphan;
     property readonly: Boolean read FReadOnly write SetReadOnly;
     property BlockManager: TBlockManagerBase read FBlockManager write SetBlockManager;
@@ -73,7 +73,7 @@ begin
   Orphan := CopyFrom.Orphan;
 end;
 
-constructor TStorage.Create(AOwner: TComponent);
+constructor TStorage.Create();
 begin
   inherited;
   FOrphan := '';

@@ -71,7 +71,9 @@ type
 
   TBlockManager = class(TBlockManagerBase)
   private
-    FStorage: TStorage;
+    class var FStorage: TStorage;
+    class var FStorageClass: TStorageClass;
+  private
     FAccountStorage: TAccountStorage;
     FLastBlockCache: TBlock;
     FLastBlockHeader: TBlockHeader;
@@ -81,10 +83,9 @@ type
     FOnLog: TBlockManagerLog;
     FAccountStorageLock: TPCCriticalSection;
     FNotifyList: TList;
-    FStorageClass: TStorageClass;
     FStopped : boolean;
     function GetStorage: TStorage;
-    procedure SetStorageClass(const value: TStorageClass);
+    class procedure SetStorageClass(const value: TStorageClass); static;
   protected
     function GetAccountStorage: TAccountStorage; override;
     function GetBlocksCount: Cardinal; override;
@@ -109,7 +110,7 @@ type
 
     property LastBlock: TBlockHeader read GetLastBlockHeader;
     property Storage: TStorage read GetStorage;
-    property StorageClass: TStorageClass read FStorageClass write SetStorageClass;
+    class property StorageClass: TStorageClass read FStorageClass write SetStorageClass;
     property LastBlockFound: TBlock read FLastBlockCache;
     property UpgradingToV2: Boolean read FUpgradingToV2;
     property AccountStorage: TAccountStorage read GetAccountStorage;
@@ -237,7 +238,6 @@ constructor TBlockManager.Create(AOwner: TComponent);
 begin
   inherited;
   FStorage := nil;
-  FStorageClass := nil;
   FAccountStorageLock := TPCCriticalSection.Create('TBlockManager_LOCKSTORAGE');
   FIsRestoringFromFile := false;
   FOnLog := nil;
@@ -434,7 +434,7 @@ begin
   begin
     if not Assigned(FStorageClass) then
       raise Exception.Create('StorageClass not defined');
-    FStorage := FStorageClass.Create(Self);
+    FStorage := FStorageClass.Create;
     FStorage.BlockManager := Self;
   end;
   Result := FStorage;
@@ -538,7 +538,7 @@ begin
     FOnLog(Self, ABlock, Logtype, Logtxt);
 end;
 
-procedure TBlockManager.SetStorageClass(const value: TStorageClass);
+class procedure TBlockManager.SetStorageClass(const value: TStorageClass);
 begin
   if FStorageClass = value then
     exit;

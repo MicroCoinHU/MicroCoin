@@ -242,7 +242,7 @@ begin
     begin
       Pa := FOrderedList.GetPointer(i);
       FreezedAccounts.SetAccount(Pa^.AccountNumber, Pa^.AccountInfo, Pa^.name, Pa^.account_type, Pa^.balance,
-        Pa^.n_operation, Pa^.SubAccounts, Pa^.ExtraData);
+        Pa^.n_operation{$IFDEF EXTENDEDACCOUNT}, Pa^.SubAccounts, Pa^.ExtraData{$ENDIF});
     end;
     //
     if (FFreezedAccounts.TotalBalance <> FTotalBalance) then

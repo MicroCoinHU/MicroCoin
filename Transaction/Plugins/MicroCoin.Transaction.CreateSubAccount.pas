@@ -45,6 +45,7 @@ type
       payload: TRawBytes;
       public_key: TECDSA_Public;
       sign: TECDSA_SIG;
+      balance: UInt64;
   end;
   strict private FData: TCreateSubAccountData;
   strict protected
@@ -60,7 +61,7 @@ type
     function GetTransactionType: Byte; override;
     class function GetHashForSignature(const ATransaction: TCreateSubAccountData): TRawBytes; static;
   public
-    constructor Create(AAccountNumber : Cardinal; Afee: UInt64; ANTransactions: Cardinal; AKey: TECPrivateKey; APublicKey: TECDSA_Public); reintroduce;
+    constructor Create(AAccountNumber : Cardinal; Afee: UInt64; ANTransactions: Cardinal; AKey: TECPrivateKey; APublicKey: TECDSA_Public; ABalance: UInt64); reintroduce;
     function GetBuffer(UseProtocolV2: Boolean): TRawBytes; override;
     function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean; override;
     procedure AffectedAccounts(list: TList); override;
@@ -155,16 +156,18 @@ begin
   xAccount :=  AccountTransaction.GetInternalAccount(xTargetAccount.AccountNumber);
   xAccount^.n_operation := FData.n_operation;
   xAccount^.balance := xAccount^.balance - FData.fee;
+  {$IFDEF EXTENDEDACCOUNT}
   SetLength(xAccount^.SubAccounts, Length(xAccount^.SubAccounts)+1);
   xAccount^.SubAccounts[High(xAccount^.SubAccounts)].AccountKey := xTargetAccount.AccountInfo.AccountKey;
-  xAccount^.SubAccounts[High(xAccount^.SubAccounts)].Balance := 0;
+  xAccount^.SubAccounts[High(xAccount^.SubAccounts)].Balance := FData.balance;
   xAccount^.SubAccounts[High(xAccount^.SubAccounts)].DailyLimit := 0;
   xAccount^.SubAccounts[High(xAccount^.SubAccounts)].TotalLimit := 0;
+  {$ENDIF}
   Result := true;
 end;
 
 constructor TCreateSubAccountTransaction.Create(AAccountNumber: Cardinal;
-  Afee: uInt64; ANTransactions: Cardinal; AKey: TECPrivateKey; APublicKey: TECDSA_Public);
+  Afee: uInt64; ANTransactions: Cardinal; AKey: TECPrivateKey; APublicKey: TECDSA_Public; ABalance : UInt64);
 var
   s: AnsiString;
 begin
@@ -175,6 +178,7 @@ begin
   FData.fee := Afee;
   FData.payload := '';
   FData.public_key := APublicKey;
+  FData.balance := ABalance;
   s := GetHashForSignature(FData);
   FData.sign := TCrypto.ECDSASign(Akey, s);
 end;
@@ -293,6 +297,7 @@ begin
   FData.public_key := CT_TECDSA_Public_Nul;
   FData.sign.r := '';
   FData.sign.s := '';
+  FData.balance := 0;
 end;
 
 function TCreateSubAccountTransaction.LoadFromStream(Stream: TStream;
@@ -317,13 +322,13 @@ begin
   if TStreamOp.ReadAnsiString(Stream, FData.sign.s) < 0
   then exit;
 
+  Stream.Read(FData.balance, SizeOf(FData.balance));
+
   Result := true;
 end;
 
-function TCreateSubAccountTransaction.SaveToStream(Stream: TStream;
-  SaveExtendedData: Boolean): Boolean;
+function TCreateSubAccountTransaction.SaveToStream(Stream: TStream; SaveExtendedData: Boolean): Boolean;
 begin
-
   Result := false;
 
   Stream.Write(FData.account_signer, SizeOf(FData.account_signer));
@@ -343,8 +348,9 @@ begin
   if TStreamOp.WriteAnsiString(Stream, FData.sign.s) < 0
   then exit;
 
-  Result := true;
+  Stream.Write(FData.balance, SizeOf(FData.balance));
 
+  Result := true;
 end;
 
 function TCreateSubAccountTransaction.ToString: string;
