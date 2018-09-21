@@ -179,8 +179,13 @@ begin
     src_start := 0;
   end;
   {$IFDEF OpenSSL10}
-  EVP_CIPHER_CTX_init(@ctx);
-  pctx := @ctx;
+    {$IFDEF LINUX}
+      new(pctx);
+      EVP_CIPHER_CTX_init(pctx);
+    {$ELSE}
+      EVP_CIPHER_CTX_init(@ctx);
+      pctx := @ctx;
+    {$ENDIF}
   {$ELSE}
   pctx := EVP_CIPHER_CTX_new;
   {$ENDIF}
@@ -231,10 +236,14 @@ begin
   cipher := EVP_aes_256_cbc;
   salt := EVP_GetSalt;
   EVP_GetKeyIV(APassword, cipher, salt, key, iv);
-
   {$IFDEF OpenSSL10}
-  EVP_CIPHER_CTX_init(@ctx);
-  pctx := @ctx;
+    {$IFDEF LINUX}
+      new(pctx);
+      EVP_CIPHER_CTX_init(pctx);
+    {$ELSE}
+      EVP_CIPHER_CTX_init(@ctx);
+      pctx := @ctx;
+    {$ENDIF}
   {$ELSE}
   pctx := EVP_CIPHER_CTX_new;
   {$ENDIF}
