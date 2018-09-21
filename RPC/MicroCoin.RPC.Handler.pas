@@ -1629,7 +1629,7 @@ var
   function CreateOperationChangeAccountInfo(account_signer, account_last_n_operation, account_target: cardinal;
     const account_signer_pubkey: TAccountKey; changePubKey: Boolean; const new_account_pubkey: TAccountKey;
     changeName: Boolean; const new_name: TRawBytes; changeType: Boolean; new_type: Word; fee: UInt64;
-    RawPayload: TRawBytes; const Payload_method, EncodePwd: AnsiString): SenderAccount;
+    RawPayload: TRawBytes; const Payload_method, EncodePwd: AnsiString): TChangeAccountInfoTransaction;
   // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
   var
     i: integer;
@@ -1686,7 +1686,7 @@ var
     end
     else
       f_raw := '';
-    Result := SenderAccount.CreateChangeAccountInfo(account_signer, account_last_n_operation + 1, account_target,
+    Result := TChangeAccountInfoTransaction.CreateChangeAccountInfo(account_signer, account_last_n_operation + 1, account_target,
       TRPCServer.Instance.WalletKeys.Key[i].PrivateKey, changePubKey, new_account_pubkey, changeName, new_name,
       changeType, new_type, fee, f_raw);
     if not Result.HasValidSignature then
@@ -1707,7 +1707,7 @@ var
   // "new_name" is the new account name
   // "new_type" is the new account type
   var
-    opChangeInfo: SenderAccount;
+    opChangeInfo: TChangeAccountInfoTransaction;
     account_signer, account_target: cardinal;
     fee: Int64;
     ChangeKey, changeName, changeType: Boolean;

@@ -50,7 +50,7 @@ type
   TChangeAccountInfoType = (public_key, account_name, account_type);
   TChangeAccountInfoTypes = set of TChangeAccountInfoType;
 
-  SenderAccount = class(TTransaction)
+  TChangeAccountInfoTransaction = class(TTransaction)
   protected type
     TChangeAccountInfoTransactionData = record
       SignerAccount, TargetAccount: Cardinal;
@@ -100,18 +100,18 @@ type
 implementation
 
 const
-  CT_TOpChangeAccountInfoData_NUL: SenderAccount.TChangeAccountInfoTransactionData = (SignerAccount: 0; TargetAccount: 0; NumberOfTransactions: 0;
+  CT_TOpChangeAccountInfoData_NUL: TChangeAccountInfoTransaction.TChangeAccountInfoTransactionData = (SignerAccount: 0; TargetAccount: 0; NumberOfTransactions: 0;
     Fee: 0; Payload: ''; PublicKey: (EC_OpenSSL_NID: 0; x: ''; y: ''); ChangeType: [];
     NewAccountKey: (EC_OpenSSL_NID: 0; x: ''; y: ''); NewName: ''; NewType: 0; Signature: (r: ''; s: ''));
 
 
-procedure SenderAccount.InitializeData;
+procedure TChangeAccountInfoTransaction.InitializeData;
 begin
   inherited InitializeData;
   FData := CT_TOpChangeAccountInfoData_NUL;
 end;
 
-function SenderAccount.SaveToStream(Stream: TStream; SaveExtendedData: Boolean): Boolean;
+function TChangeAccountInfoTransaction.SaveToStream(Stream: TStream; SaveExtendedData: Boolean): Boolean;
 var
   b: Byte;
 begin
@@ -137,7 +137,7 @@ begin
   Result := true;
 end;
 
-function SenderAccount.LoadFromStream(Stream: TStream; LoadExtendedData: Boolean): Boolean;
+function TChangeAccountInfoTransaction.LoadFromStream(Stream: TStream; LoadExtendedData: Boolean): Boolean;
 var
   b: Byte;
 begin
@@ -175,7 +175,7 @@ begin
   Result := true;
 end;
 
-class function SenderAccount.GetHashForSignature(const ATransactionData: TChangeAccountInfoTransactionData): TRawBytes;
+class function TChangeAccountInfoTransaction.GetHashForSignature(const ATransactionData: TChangeAccountInfoTransactionData): TRawBytes;
 var
   Stream: TMemoryStream;
   b: Byte;
@@ -207,7 +207,7 @@ begin
   end;
 end;
 
-class function SenderAccount.DoSignTransaction(key: TECPrivateKey; var ATransactionData: TChangeAccountInfoTransactionData): Boolean;
+class function TChangeAccountInfoTransaction.DoSignTransaction(key: TECPrivateKey; var ATransactionData: TChangeAccountInfoTransactionData): Boolean;
 var
   raw: TRawBytes;
   _sign: TECDSA_SIG;
@@ -232,17 +232,17 @@ begin
   setlength(raw, 0);
 end;
 
-function SenderAccount.GetTransactionType: Byte;
+function TChangeAccountInfoTransaction.GetTransactionType: Byte;
 begin
   Result := CT_Op_ChangeAccountInfo;
 end;
 
-function SenderAccount.GetBuffer(UseProtocolV2: Boolean): TRawBytes;
+function TChangeAccountInfoTransaction.GetBuffer(UseProtocolV2: Boolean): TRawBytes;
 begin
   Result := inherited GetBuffer(true);
 end;
 
-function SenderAccount.ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString)
+function TChangeAccountInfoTransaction.ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString)
   : Boolean;
 var
   account_signer, account_target: TAccount;
@@ -387,27 +387,27 @@ begin
     account_target.accountInfo, account_target.name, account_target.account_type, FData.Fee, errors);
 end;
 
-function SenderAccount.GetAmount: Int64;
+function TChangeAccountInfoTransaction.GetAmount: Int64;
 begin
   Result := 0;
 end;
 
-function SenderAccount.GetFee: UInt64;
+function TChangeAccountInfoTransaction.GetFee: UInt64;
 begin
   Result := FData.Fee;
 end;
 
-function SenderAccount.GetPayload: TRawBytes;
+function TChangeAccountInfoTransaction.GetPayload: TRawBytes;
 begin
   Result := FData.Payload;
 end;
 
-function SenderAccount.GetSignerAccount: Cardinal;
+function TChangeAccountInfoTransaction.GetSignerAccount: Cardinal;
 begin
   Result := FData.SignerAccount;
 end;
 
-function SenderAccount.GetTransactionData(Block, Affected_account_number: Cardinal;
+function TChangeAccountInfoTransaction.GetTransactionData(Block, Affected_account_number: Cardinal;
   var TransactionData: TTransactionData): Boolean;
 
 var
@@ -449,24 +449,24 @@ begin
   TransactionData.valid := true;
 end;
 
-function SenderAccount.GetDestinationAccount: Int64;
+function TChangeAccountInfoTransaction.GetDestinationAccount: Int64;
 begin
   Result := FData.TargetAccount;
 end;
 
-function SenderAccount.GetNumberOfTransactions: Cardinal;
+function TChangeAccountInfoTransaction.GetNumberOfTransactions: Cardinal;
 begin
   Result := FData.NumberOfTransactions;
 end;
 
-procedure SenderAccount.AffectedAccounts(list: TList);
+procedure TChangeAccountInfoTransaction.AffectedAccounts(list: TList);
 begin
   list.Add(TObject(FData.SignerAccount));
   if (FData.TargetAccount <> FData.SignerAccount) then
     list.Add(TObject(FData.TargetAccount));
 end;
 
-constructor SenderAccount.CreateChangeAccountInfo(account_signer, n_operation, account_target: Cardinal;
+constructor TChangeAccountInfoTransaction.CreateChangeAccountInfo(account_signer, n_operation, account_target: Cardinal;
   key: TECPrivateKey; change_key: Boolean; const new_account_key: TAccountKey; change_name: Boolean;
   const new_name: TRawBytes; change_type: Boolean; const new_type: Word; fee: UInt64; payload: TRawBytes);
 begin
@@ -503,7 +503,7 @@ begin
     FHasValidSignature := true;
 end;
 
-function SenderAccount.toString: string;
+function TChangeAccountInfoTransaction.toString: string;
 var
   s: string;
 begin
@@ -529,6 +529,6 @@ end;
 
 initialization
 
-TTransactionManager.RegisterTransactionPlugin(SenderAccount, CT_Op_ChangeAccountInfo);
+TTransactionManager.RegisterTransactionPlugin(TChangeAccountInfoTransaction, CT_Op_ChangeAccountInfo);
 
 end.
