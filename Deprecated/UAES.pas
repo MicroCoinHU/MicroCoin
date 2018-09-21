@@ -208,12 +208,17 @@ begin
       exit;
     src_start := 0;
   end;
-{$IFDEF OpenSSL10}
-  EVP_CIPHER_CTX_init(@ctx);
-  pctx := @ctx;
-{$ELSE}
+  {$IFDEF OpenSSL10}
+    {$IFDEF LINUX}
+      new(pctx);
+      EVP_CIPHER_CTX_init(pctx);
+    {$ELSE}
+      EVP_CIPHER_CTX_init(@ctx);
+      pctx := @ctx;
+    {$ENDIF}
+  {$ELSE}
   pctx := EVP_CIPHER_CTX_new;
-{$ENDIF}
+  {$ENDIF}
   try
     if EVP_DecryptInit(pctx, cipher, @Key[0], @IV[0]) <> 1 then
       exit;
@@ -265,12 +270,17 @@ begin
   salt := EVP_GetSalt;
   EVP_GetKeyIV(APassword, cipher, salt, Key, IV);
 
-{$IFDEF OpenSSL10}
-  EVP_CIPHER_CTX_init(@ctx);
-  pctx := @ctx;
-{$ELSE}
+  {$IFDEF OpenSSL10}
+    {$IFDEF LINUX}
+      new(pctx);
+      EVP_CIPHER_CTX_init(pctx);
+    {$ELSE}
+      EVP_CIPHER_CTX_init(@ctx);
+      pctx := @ctx;
+    {$ENDIF}
+  {$ELSE}
   pctx := EVP_CIPHER_CTX_new;
-{$ENDIF}
+  {$ENDIF}
   try
     EVP_EncryptInit(pctx, cipher, @Key[0], @IV[0]);
     block_size := EVP_CIPHER_CTX_block_size(pctx);
