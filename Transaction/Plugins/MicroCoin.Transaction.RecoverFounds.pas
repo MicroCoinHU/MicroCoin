@@ -43,11 +43,11 @@ type
     function GetPayload: TRawBytes; override;
     function GetSignerAccount: Cardinal; override;
     function GetNumberOfTransactions: Cardinal; override;
-    function GetOpType: Byte; override;
+    function GetTransactionType: Byte; override;
   public
     constructor Create(account_number, n_operation: Cardinal; fee: UInt64);
 
-    function GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes; override;
+    function GetBuffer(UseProtocolV2: Boolean): TRawBytes; override;
     function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean; override;
     procedure AffectedAccounts(list: TList); override;
     function GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal;
@@ -105,7 +105,7 @@ begin
       AccountTransaction.FreezedAccountStorage.BlocksCount]);
     Exit;
   end;
-  if ((acc.n_operation + 1) <> FData.n_operation) then
+  if ((acc.numberOfTransactions + 1) <> FData.n_operation) then
   begin
     errors := 'Invalid n_operation';
     Exit;
@@ -124,12 +124,12 @@ begin
   Result := AccountTransaction.TransferAmount(FData.Account, FData.Account, FData.n_operation, 0, FData.fee, errors);
 end;
 
-function TRecoverFoundsTransaction.GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes;
+function TRecoverFoundsTransaction.GetBuffer(UseProtocolV2: Boolean): TRawBytes;
 var
   ms: TMemoryStream;
 begin
   if UseProtocolV2 then
-    Result := inherited GetBufferForOpHash(UseProtocolV2)
+    Result := inherited GetBuffer(UseProtocolV2)
   else
   begin
     ms := TMemoryStream.Create;
@@ -178,7 +178,7 @@ begin
   Result := '';
 end;
 
-function TRecoverFoundsTransaction.GetOpType: Byte;
+function TRecoverFoundsTransaction.GetTransactionType: Byte;
 begin
   Result := CT_Op_Recover;
 end;
@@ -200,7 +200,7 @@ function TRecoverFoundsTransaction.GetTransactionData(Block, Affected_account_nu
   var TransactionData: TTransactionData): Boolean;
 begin
   TransactionData := TTransactionData.Empty;
-  TransactionData.OpSubtype := CT_OpSubtype_Recover;
+  TransactionData.transactionSubtype := CT_OpSubtype_Recover;
   TransactionData.OperationTxt := 'Recover founds';
   Result := true;
   TransactionData.OriginalPayload := GetPayload;
@@ -224,7 +224,7 @@ end;
 function TRecoverFoundsTransaction.toString: string;
 begin
   Result := Format('Recover founds of account %s fee:%s (n_op:%d)',
-    [TAccount.AccountNumberToAccountTxtNumber(FData.Account), TCurrencyUtils.FormatMoney(FData.fee),
+    [TAccount.AccountNumberToAccountTxtNumber(FData.Account), TCurrencyUtils.CurrencyToString(FData.fee),
     FData.n_operation]);
 end;
 

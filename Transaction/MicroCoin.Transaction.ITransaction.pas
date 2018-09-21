@@ -96,7 +96,7 @@ type
     property DestinationAccount: Int64 read GetDestinationAccount;
     property SellerAccount: Int64 read GetSellerAccount;
     property NumberOfTransactions: Cardinal read GetNumberOfTransactions;
-    property OpType: byte read GetTransactionType;
+    property TransactionType: byte read GetTransactionType;
     property Tag: Integer read GetTag write SetTag;
 
   end;

@@ -31,92 +31,92 @@ uses MicroCoin.Net.Connection,
 
 procedure TThreadGetNewBlockChainFromClient.BCExecute;
 var
-  i, j, iMax: Integer;
-  maxWork: UInt64;
-  nsa: TNodeServer;
-  candidates: TList;
-  lop: TBlockHeader;
-  nc: TNetConnection;
+  i, j, xAccount: Integer;
+  xMaxWork: UInt64;
+  xNodeServer: TNodeServer;
+  xCandidateList: TList;
+  xBlockHeader: TBlockHeader;
+  xConnection: TNetConnection;
 begin
   // Search better candidates:
-  candidates := TList.Create;
+  xCandidateList := TList.Create;
   try
-    lop := CT_OperationBlock_NUL;
+    xBlockHeader := TBlockHeader.Empty;
 //    TConnectionManager.Instance.MaxRemoteOperationBlock := CT_OperationBlock_NUL;
     // First round: Find by most work
-    iMax := 0;
-    maxWork := 0;
+    xAccount := 0;
+    xMaxWork := 0;
     j := TConnectionManager.Instance.ConnectionsCountAll;
     for i := 0 to j - 1 do
     begin
-      if TConnectionManager.Instance.GetConnection(i, nc) then
+      if TConnectionManager.Instance.GetConnection(i, xConnection) then
       begin
-        if (nc.RemoteAccumulatedWork > maxWork) and (nc.RemoteAccumulatedWork > TNode.Node.BlockManager.AccountStorage.WorkSum)
+        if (xConnection.RemoteAccumulatedWork > xMaxWork) and (xConnection.RemoteAccumulatedWork > TNode.Node.BlockManager.AccountStorage.WorkSum)
         then
         begin
-          maxWork := nc.RemoteAccumulatedWork;
-          iMax := i;
+          xMaxWork := xConnection.RemoteAccumulatedWork;
+          xAccount := i;
         end;
         // Preventing downloading
-        if nc.IsDownloadingBlocks then
+        if xConnection.IsDownloadingBlocks then
           exit;
       end;
     end;
-    if (maxWork > 0) then
+    if (xMaxWork > 0) then
     begin
       for i := 0 to j - 1 do
       begin
-        if TConnectionManager.Instance.GetConnection(i, nc) then
+        if TConnectionManager.Instance.GetConnection(i, xConnection) then
         begin
-          if (nc.RemoteAccumulatedWork >= maxWork) then
+          if (xConnection.RemoteAccumulatedWork >= xMaxWork) then
           begin
-            candidates.Add(nc);
-            lop := nc.RemoteOperationBlock;
+            xCandidateList.Add(xConnection);
+            xBlockHeader := xConnection.RemoteOperationBlock;
           end;
         end;
       end;
     end;
     // Second round: Find by most height
-    if candidates.Count = 0 then
+    if xCandidateList.Count = 0 then
     begin
       for i := 0 to j - 1 do
       begin
-        if (TConnectionManager.Instance.GetConnection(i, nc)) then
+        if (TConnectionManager.Instance.GetConnection(i, xConnection)) then
         begin
-          if (nc.RemoteOperationBlock.Block >= TNode.Node.BlockManager.BlocksCount) and
-            (nc.RemoteOperationBlock.Block >= lop.Block) then
+          if (xConnection.RemoteOperationBlock.Block >= TNode.Node.BlockManager.BlocksCount) and
+            (xConnection.RemoteOperationBlock.Block >= xBlockHeader.Block) then
           begin
-            lop := nc.RemoteOperationBlock;
+            xBlockHeader := xConnection.RemoteOperationBlock;
           end;
         end;
       end;
-      if (lop.Block > 0) then
+      if (xBlockHeader.Block > 0) then
       begin
         for i := 0 to j - 1 do
         begin
-          if (TConnectionManager.Instance.GetConnection(i, nc)) then
+          if (TConnectionManager.Instance.GetConnection(i, xConnection)) then
           begin
-            if (nc.RemoteOperationBlock.Block >= lop.Block) then
+            if (xConnection.RemoteOperationBlock.Block >= xBlockHeader.Block) then
             begin
-              candidates.Add(nc);
+              xCandidateList.Add(xConnection);
             end;
           end;
         end;
       end;
     end;
-    TConnectionManager.Instance.MaxRemoteOperationBlock := lop;
-    if (candidates.Count > 0) then
+    TConnectionManager.Instance.MaxRemoteOperationBlock := xBlockHeader;
+    if (xCandidateList.Count > 0) then
     begin
       // Random a candidate
       i := 0;
-      if (candidates.Count > 1) then
-        i := Random(candidates.Count); // i = 0..count-1
-      nc := TNetConnection(candidates[i]);
-      TConnectionManager.Instance.GetNewBlockChainFromClient(nc, Format('Candidate block: %d sum: %d',
-        [nc.RemoteOperationBlock.Block, nc.RemoteAccumulatedWork]));
+      if (xCandidateList.Count > 1) then
+        i := Random(xCandidateList.Count); // i = 0..count-1
+      xConnection := TNetConnection(xCandidateList[i]);
+      TConnectionManager.Instance.GetNewBlockChainFromClient(xConnection, Format('Candidate block: %d sum: %d',
+        [xConnection.RemoteOperationBlock.Block, xConnection.RemoteAccumulatedWork]));
     end;
   finally
-    candidates.Free;
+    xCandidateList.Free;
   end;
 end;
 

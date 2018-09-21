@@ -93,7 +93,7 @@ type
     AccountInfo: TAccountInfo;
     balance: UInt64; // Balance, always >= 0
     updated_block: Cardinal; // Number of block where was updated
-    n_operation: Cardinal; // count number of owner operations (when receive, this is not updated)
+    numberOfTransactions: Cardinal; // count number of owner operations (when receive, this is not updated)
     name: TRawBytes; // Protocol 2. Unique name
     account_type: Word; // Protocol 2. Layer 2 use case
     previous_updated_block: Cardinal;
@@ -106,6 +106,7 @@ type
     class function AccountNumberToAccountTxtNumber(account_number: Cardinal): AnsiString; static;
     class function AccountTxtNumberToAccountNumber(const account_txt_number: AnsiString; var account_number: Cardinal) : Boolean; static;
     class function AccountBlock(const account_number: Cardinal): Cardinal; static;
+    class function LoadFromStream(AStream : TStream; var RAccount : TAccount; ACurrentProtocol: shortint) : boolean; static;
     property HasExtraData: boolean read FHasExtraData write FHasExtraData;
   end;
 
@@ -137,7 +138,7 @@ type
     ExtraData: TExtraData;
   end; }
 
-  TMemOperationBlock = record // TOperationBlock with less memory usage
+  TMemTransactionBlock = record // TOperationBlock with less memory usage
     // block number is discarded (-4 bytes)
     account_key: TDynRawBytes;
     reward: UInt64;
@@ -149,12 +150,12 @@ type
     nonce: Cardinal;
     block_payload: TDynRawBytes;
     initial_safe_box_hash: T32Bytes; // 32 direct bytes instead of use an AnsiString (-8 bytes)
-    operations_hash: T32Bytes; // 32 direct bytes instead of use an AnsiString (-8 bytes)
+    transactionHash: T32Bytes; // 32 direct bytes instead of use an AnsiString (-8 bytes)
     proof_of_work: T32Bytes; // 32 direct bytes instead of use an AnsiString (-8 bytes)
   end;
 
   TMemBlockAccount = record // TBlockAccount with less memory usage
-    blockchainInfo: TMemOperationBlock;
+    blockchainInfo: TMemTransactionBlock;
     accounts: array [0 .. CT_AccountsPerBlock - 1] of TMemAccount;
     block_hash: T32Bytes; // 32 direct bytes instead of use an AnsiString (-8 bytes)
     accumulatedWork: UInt64;
@@ -374,7 +375,7 @@ begin
   Result.AccountInfo := CT_AccountInfo_NUL;
   Result.balance := 0;
   Result.updated_block := 0;
-  Result.n_operation := 0;
+  Result.numberOfTransactions := 0;
   Result.name := '';
   Result.account_type := 0;
   Result.previous_updated_block := 0;
@@ -402,6 +403,74 @@ begin
   begin
     Result := ((blocks_count - waitBlocks) * CT_AccountsPerBlock) <= account_number;
   end;
+end;
+
+class function TAccount.LoadFromStream(AStream: TStream;
+  var RAccount: TAccount; ACurrentProtocol: shortint): boolean;
+var
+  s: AnsiString;
+  xIsExtendedAccount : boolean;
+  b: byte;
+  i: integer;
+begin
+  Result := false;
+
+  if AStream.Read(RAccount.AccountNumber, 4) < 4
+  then exit;
+
+  if TStreamOp.ReadAnsiString(AStream, s) < 0
+  then exit;
+
+  if s=''
+  then xIsExtendedAccount := true
+  else xIsExtendedAccount := false;
+
+  if xIsExtendedAccount
+  then if TStreamOp.ReadAnsiString(AStream, s) < 0
+       then exit;
+
+  RAccount.AccountInfo := TAccountInfo.FromRawString(s);
+
+  if AStream.Read(RAccount.balance, Sizeof(UInt64)) < Sizeof(UInt64)
+  then exit;
+  if AStream.Read(RAccount.updated_block, 4) < 4
+  then exit;
+  if AStream.Read(RAccount.numberOfTransactions, 4) < 4
+  then exit;
+  if ACurrentProtocol >= CT_PROTOCOL_2 then
+  begin
+    if TStreamOp.ReadAnsiString(AStream, RAccount.name) < 0 then
+      exit;
+    if AStream.Read(RAccount.account_type, 2) < 2 then
+      exit;
+  end;
+  //
+  if AStream.Read(RAccount.previous_updated_block, 4) < 4 then
+    exit;
+  {$IFDEF EXTENDEDACCOUNT}
+  if xIsExtendedAccount
+  then begin
+    RAccount.HasExtraData := true;
+    if AStream.Read(b,1) < 1
+    then exit;
+    SetLength(RAccount.SubAccounts, b);
+    if b > 0 then begin
+      for i := 0 to b - 1
+      do begin
+        TStreamOp.ReadAccountKey(AStream, RAccount.SubAccounts[i].AccountKey);
+        AStream.Read(RAccount.SubAccounts[i].DailyLimit, SizeOf(Int64));
+        AStream.Read(RAccount.SubAccounts[i].TotalLimit, SizeOf(Int64));
+        AStream.Read(RAccount.SubAccounts[i].Balance, SizeOf(UInt64));
+        AStream.Read(RAccount.SubAccounts[i].Currency, SizeOf(Cardinal));
+      end;
+    end;
+    AStream.Read(b, SizeOf(RAccount.ExtraData.DataType));
+    RAccount.ExtraData.DataType := b;
+    AStream.Read(RAccount.ExtraData.ExtraType, SizeOf(RAccount.ExtraData.ExtraType));
+    TStreamOp.ReadAnsiString(AStream, RAccount.ExtraData.Data);
+  end;
+  {$ENDIF}
+  Result := true;
 end;
 
 function TOrderedAccountList.Add(const Account: TAccount): Integer;

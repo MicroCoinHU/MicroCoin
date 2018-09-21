@@ -489,7 +489,7 @@ begin
       fs.Size := 0;
       ms := TMemoryStream.Create;
       try
-        BlockManager.AccountStorage.SaveToStream(ms, 0, BlockManager.AccountStorage.blockscount - 1);
+        BlockManager.AccountStorage.SaveToStream(ms, 0, BlockManager.AccountStorage.BlocksCount - 1);
         ms.Position := 0;
         fs.Position := 0;
         fs.CopyFrom(ms, 0);

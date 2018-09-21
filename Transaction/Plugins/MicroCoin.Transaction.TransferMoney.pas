@@ -45,6 +45,7 @@ type
       AccountPrice: UInt64;
       SellerAccount: Cardinal;
       new_accountkey: TAccountKey;
+      function CheckIsValid(AAccountTransaction : TAccountTransaction; RErros: string) : boolean;
     end;
   private
     FData: TTransferMoneyTransactionData;
@@ -136,55 +137,14 @@ var
 begin
   Result := false;
   errors := '';
-  //
-  if (FData.sender >= AccountTransaction.FreezedAccountStorage.AccountsCount) then
-  begin
-    errors := Format('Invalid sender %d', [FData.sender]);
-    Exit;
-  end;
-  if (FData.target >= AccountTransaction.FreezedAccountStorage.AccountsCount) then
-  begin
-    errors := Format('Invalid target %d', [FData.target]);
-    Exit;
-  end;
-  if (FData.sender = FData.target) then
-  begin
-    errors := Format('Sender=Target %d', [FData.sender]);
-    Exit;
-  end;
-  if TAccount.IsAccountBlockedByProtocol(FData.sender, AccountTransaction.FreezedAccountStorage.BlocksCount) then
-  begin
-    errors := Format('sender (%d) is blocked for protocol', [FData.sender]);
-    Exit;
-  end;
-  if TAccount.IsAccountBlockedByProtocol(FData.target, AccountTransaction.FreezedAccountStorage.BlocksCount) then
-  begin
-    errors := Format('target (%d) is blocked for protocol', [FData.target]);
-    Exit;
-  end;
-  if (FData.amount <= 0) or (FData.amount > CT_MaxTransactionAmount) then
-  begin
-    errors := Format('Invalid amount %d (0 or max: %d)', [FData.amount, CT_MaxTransactionAmount]);
-    Exit;
-  end;
-  if (FData.fee < 0) or (FData.fee > CT_MaxTransactionFee) then
-  begin
-    errors := Format('Invalid fee %d (max %d)', [FData.fee, CT_MaxTransactionFee]);
-    Exit;
-  end;
-  if (length(FData.payload) > CT_MaxPayloadSize) then
-  begin
-    errors := 'Invalid Payload size:' + inttostr(length(FData.payload)) + ' (Max: ' + inttostr(CT_MaxPayloadSize) + ')';
-    if (AccountTransaction.FreezedAccountStorage.CurrentProtocol >= CT_PROTOCOL_2) then
-    begin
-      Exit; // BUG from protocol 1
-    end;
-  end;
+  if not FData.CheckIsValid(AccountTransaction, errors)
+  then exit;
+
   sender := AccountTransaction.Account(FData.sender);
   target := AccountTransaction.Account(FData.target);
-  if ((sender.n_operation + 1) <> FData.n_operation) then
+  if ((sender.numberOfTransactions + 1) <> FData.n_operation) then
   begin
-    errors := Format('Invalid n_operation %d (expected %d)', [FData.n_operation, sender.n_operation + 1]);
+    errors := Format('Invalid n_operation %d (expected %d)', [FData.n_operation, sender.numberOfTransactions + 1]);
     Exit;
   end;
   totalamount := FData.amount + FData.fee;
@@ -385,7 +345,7 @@ begin
     TransactionData.fee := (-1) * Int64(GetFee);
   end;
   TransactionData.AffectedAccount := Affected_account_number;
-  TransactionData.OpType := TransactionType;
+  TransactionData.transactionType := TransactionType;
   TransactionData.SignerAccount := GetSignerAccount;
   Result := false;
   TransactionData.DestAccount := Data.target;
@@ -393,7 +353,7 @@ begin
   begin
     if Data.sender = Affected_account_number then
     begin
-      TransactionData.OpSubtype := CT_OpSubtype_BuyTransactionBuyer;
+      TransactionData.transactionSubtype := CT_OpSubtype_BuyTransactionBuyer;
       TransactionData.OperationTxt := 'Tx-Out (MCCA ' + TAccount.AccountNumberToAccountTxtNumber(Data.target) +
         ' Purchase) ' + TCurrencyUtils.CurrencyToString(Data.amount) + ' MCC from ' +
         TAccount.AccountNumberToAccountTxtNumber(Data.sender) + ' to ' + TAccount.AccountNumberToAccountTxtNumber
@@ -409,7 +369,7 @@ begin
     end
     else if Data.target = Affected_account_number then
     begin
-      TransactionData.OpSubtype := CT_OpSubtype_BuyTransactionTarget;
+      TransactionData.transactionSubtype := CT_OpSubtype_BuyTransactionTarget;
       TransactionData.OperationTxt := 'Tx-In (MCCA ' + TAccount.AccountNumberToAccountTxtNumber(Data.target) +
         ' Purchase) ' + TCurrencyUtils.CurrencyToString(Data.amount) + ' MCC from ' +
         TAccount.AccountNumberToAccountTxtNumber(Data.sender) + ' to ' + TAccount.AccountNumberToAccountTxtNumber
@@ -420,7 +380,7 @@ begin
     end
     else if Data.SellerAccount = Affected_account_number then
     begin
-      TransactionData.OpSubtype := CT_OpSubtype_BuyTransactionSeller;
+      TransactionData.transactionSubtype := CT_OpSubtype_BuyTransactionSeller;
       TransactionData.OperationTxt := 'Tx-In Sold account ' + TAccount.AccountNumberToAccountTxtNumber(Data.target) +
         ' price ' + TCurrencyUtils.CurrencyToString(Data.AccountPrice) + ' MCC';
       TransactionData.amount := Data.AccountPrice;
@@ -434,7 +394,7 @@ begin
   begin
     if Data.sender = Affected_account_number then
     begin
-      TransactionData.OpSubtype := CT_OpSubtype_TransactionSender;
+      TransactionData.transactionSubtype := CT_OpSubtype_TransactionSender;
       TransactionData.OperationTxt := 'Tx-Out ' + TCurrencyUtils.CurrencyToString(Data.amount) + ' MCC from ' +
         TAccount.AccountNumberToAccountTxtNumber(Data.sender) + ' to ' + TAccount.AccountNumberToAccountTxtNumber
         (Data.target);
@@ -443,7 +403,7 @@ begin
     end
     else if Data.target = Affected_account_number then
     begin
-      TransactionData.OpSubtype := CT_OpSubtype_TransactionReceiver;
+      TransactionData.transactionSubtype := CT_OpSubtype_TransactionReceiver;
       TransactionData.OperationTxt := 'Tx-In ' + TCurrencyUtils.CurrencyToString(Data.amount) + ' MCC from ' +
         TAccount.AccountNumberToAccountTxtNumber(Data.sender) + ' to ' + TAccount.AccountNumberToAccountTxtNumber
         (Data.target);
@@ -722,7 +682,7 @@ begin
   TransactionData.DestAccount := Data.target;
   if Data.sender = Affected_account_number then
   begin
-    TransactionData.OpSubtype := CT_OpSubtype_BuyAccountBuyer;
+    TransactionData.transactionSubtype := CT_OpSubtype_BuyAccountBuyer;
     TransactionData.OperationTxt := 'Buy account ' + TAccount.AccountNumberToAccountTxtNumber(Data.target) + ' for ' +
       TCurrencyUtils.CurrencyToString(Data.AccountPrice) + ' MCC';
     TransactionData.amount := Int64(Data.amount) * (-1);
@@ -730,7 +690,7 @@ begin
   end
   else if Data.target = Affected_account_number then
   begin
-    TransactionData.OpSubtype := CT_OpSubtype_BuyAccountTarget;
+    TransactionData.transactionSubtype := CT_OpSubtype_BuyAccountTarget;
     TransactionData.OperationTxt := 'Purchased account ' + TAccount.AccountNumberToAccountTxtNumber(Data.target) +
       ' by ' + TAccount.AccountNumberToAccountTxtNumber(Data.sender) + ' for ' +
       TCurrencyUtils.CurrencyToString(Data.AccountPrice) + ' MCC';
@@ -740,7 +700,7 @@ begin
   end
   else if Data.SellerAccount = Affected_account_number then
   begin
-    TransactionData.OpSubtype := CT_OpSubtype_BuyAccountSeller;
+    TransactionData.transactionSubtype := CT_OpSubtype_BuyAccountSeller;
     TransactionData.OperationTxt := 'Sold account ' + TAccount.AccountNumberToAccountTxtNumber(Data.target) + ' by ' +
       TAccount.AccountNumberToAccountTxtNumber(Data.sender) + ' for ' +
       TCurrencyUtils.CurrencyToString(Data.AccountPrice) + ' MCC';
@@ -761,6 +721,62 @@ begin
     TransactionData.OperationHash_OLD := TransactionHash_OLD(Block);
   end;
   TransactionData.valid := true;
+end;
+
+{ TTransferMoneyTransaction.TTransferMoneyTransactionData }
+
+function TTransferMoneyTransaction.TTransferMoneyTransactionData.CheckIsValid(
+  AAccountTransaction: TAccountTransaction; RErros: string): boolean;
+begin
+
+  Result := false;
+
+  if (sender >= AAccountTransaction.FreezedAccountStorage.AccountsCount) then
+  begin
+    RErros := Format('Invalid sender %d', [sender]);
+    Exit;
+  end;
+  if (target >= AAccountTransaction.FreezedAccountStorage.AccountsCount) then
+  begin
+    RErros := Format('Invalid target %d', [target]);
+    Exit;
+  end;
+  if (sender = target) then
+  begin
+    RErros := Format('Sender=Target %d', [sender]);
+    Exit;
+  end;
+  if TAccount.IsAccountBlockedByProtocol(sender, AAccountTransaction.FreezedAccountStorage.BlocksCount) then
+  begin
+    RErros := Format('sender (%d) is blocked for protocol', [sender]);
+    Exit;
+  end;
+  if TAccount.IsAccountBlockedByProtocol(target, AAccountTransaction.FreezedAccountStorage.BlocksCount) then
+  begin
+    RErros := Format('target (%d) is blocked for protocol', [target]);
+    Exit;
+  end;
+  if (amount <= 0) or (amount > CT_MaxTransactionAmount) then
+  begin
+    RErros := Format('Invalid amount %d (0 or max: %d)', [amount, CT_MaxTransactionAmount]);
+    Exit;
+  end;
+  if (fee < 0) or (fee > CT_MaxTransactionFee) then
+  begin
+    RErros := Format('Invalid fee %d (max %d)', [fee, CT_MaxTransactionFee]);
+    Exit;
+  end;
+  if (length(payload) > CT_MaxPayloadSize) then
+  begin
+    RErros := 'Invalid Payload size:' + inttostr(length(payload)) + ' (Max: ' + inttostr(CT_MaxPayloadSize) + ')';
+    if (AAccountTransaction.FreezedAccountStorage.CurrentProtocol >= CT_PROTOCOL_2) then
+    begin
+      Exit; // BUG from protocol 1
+    end;
+  end;
+
+  Result := true;
+
 end;
 
 initialization

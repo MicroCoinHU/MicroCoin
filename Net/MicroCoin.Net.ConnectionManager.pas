@@ -77,7 +77,6 @@ type
     function GetOnReceivedHelloMessage: TNotifyEvent;
     function GetOnStatisticsChanged: TNotifyEvent;
 
-
   strict protected
     class function GetInstance: TConnectionManager; static;
   public
@@ -519,7 +518,7 @@ begin
   FMaxConnections := CT_MaxClientsConnected;
   FNetConnectionsActive := true;
   SetLength(FFixedServers, 0);
-  FMaxRemoteOperationBlock := CT_OperationBlock_NUL;
+  FMaxRemoteOperationBlock := TBlockHeader.Empty;
   FNetStatistics := TNetStatistics.Empty;
   FOnStatisticsChanged := nil;
   FOnNetConnectionsUpdated := nil;
@@ -923,55 +922,55 @@ const
   function Do_GetOperationsBlock(AssignToBank: TBlockManager; block_start, block_end, MaxWaitMilliseconds: Cardinal;
     OnlyOperationBlock: Boolean; BlocksList: TList): Boolean;
   var
-    SendData, ReceiveData: TMemoryStream;
-    HeaderData: TNetHeaderData;
-    op: TBlock;
-    request_id, opcount, i: Cardinal;
-    errors: AnsiString;
-    noperation: Integer;
+    xSendData, xReceiveData: TMemoryStream;
+    xHeaderData: TNetHeaderData;
+    xBlock: TBlock;
+    xRequestId, xCount, i: Cardinal;
+    xErrors: AnsiString;
+    xNumberOfTransactions: Integer;
   begin
     Result := false;
     BlocksList.Clear;
     if (Connection.RemoteOperationBlock.Block < block_end) then
       block_end := Connection.RemoteOperationBlock.Block;
     // First receive operations from
-    SendData := TMemoryStream.Create;
-    ReceiveData := TMemoryStream.Create;
+    xSendData := TMemoryStream.Create;
+    xReceiveData := TMemoryStream.Create;
     try
       if OnlyOperationBlock then
       begin
-        noperation := CT_NetOp_GetOperationsBlock;
+        xNumberOfTransactions := CT_NetOp_GetOperationsBlock;
       end
       else
       begin
-        noperation := CT_NetOp_GetBlocks;
+        xNumberOfTransactions := CT_NetOp_GetBlocks;
       end;
       TLog.NewLog(ltdebug, CT_LogSender, Format('Sending %s from block %d to %d (Total: %d)',
-        [TConnectionManager.OperationToText(noperation), block_start, block_end, block_end - block_start + 1]));
-      SendData.Write(block_start, 4);
-      SendData.Write(block_end, 4);
-      request_id := TConnectionManager.Instance.NewRequestId;
-      if Connection.DoSendAndWaitForResponse(noperation, request_id, SendData, ReceiveData, MaxWaitMilliseconds,
-        HeaderData) then
+        [TConnectionManager.OperationToText(xNumberOfTransactions), block_start, block_end, block_end - block_start + 1]));
+      xSendData.Write(block_start, 4);
+      xSendData.Write(block_end, 4);
+      xRequestId := TConnectionManager.Instance.NewRequestId;
+      if Connection.DoSendAndWaitForResponse(xNumberOfTransactions, xRequestId, xSendData, xReceiveData, MaxWaitMilliseconds,
+        xHeaderData) then
       begin
-        if HeaderData.is_error then
+        if xHeaderData.is_error then
           exit;
-        if ReceiveData.Read(opcount, 4) < 4 then
+        if xReceiveData.Read(xCount, 4) < 4 then
           exit; // Error in data
         i := 0;
-        while (i < opcount) do
+        while (i < xCount) do
         begin
           // decode data
-          op := TBlock.Create(AssignToBank);
-          if op.LoadBlockFromStream(ReceiveData, errors) then
+          xBlock := TBlock.Create(AssignToBank);
+          if xBlock.LoadBlockFromStream(xReceiveData, xErrors) then
           begin
-            BlocksList.Add(op);
+            BlocksList.Add(xBlock);
           end
           else
           begin
             TLog.NewLog(ltError, CT_LogSender, Format('Error reading OperationBlock from received stream %d/%d: %s',
-              [i + 1, opcount, errors]));
-            op.Free;
+              [i + 1, xCount, xErrors]));
+            xBlock.Free;
             break;
           end;
           Inc(i);
@@ -981,11 +980,11 @@ const
       else
       begin
         TLog.NewLog(ltError, CT_LogSender, Format('No received response after waiting %d request id %d operation %s',
-          [MaxWaitMilliseconds, request_id, TConnectionManager.OperationToText(noperation)]));
+          [MaxWaitMilliseconds, xRequestId, TConnectionManager.OperationToText(xNumberOfTransactions)]));
       end;
     finally
-      SendData.Free;
-      ReceiveData.Free;
+      xSendData.Free;
+      xReceiveData.Free;
     end;
   end;
 
@@ -994,7 +993,7 @@ const
     BlocksList: TList;
     i: Integer;
   begin
-    OperationBlock := CT_OperationBlock_NUL;
+    OperationBlock := TBlockHeader.Empty;
     BlocksList := TList.Create;
     try
       Result := Do_GetOperationsBlock(TNode.Node.BlockManager, Block, Block, MaxWaitMilliseconds, true, BlocksList);
@@ -1018,7 +1017,7 @@ const
     BlocksList: TList;
   begin
     Result := false;
-    OperationBlock := CT_OperationBlock_NUL;
+    OperationBlock := TBlockHeader.Empty;
     repeat
       BlocksList := TList.Create;
       try
@@ -1040,7 +1039,7 @@ const
           ant_nblock := auxBlock.Block;
           //
           sbBlock := TNode.Node.BlockManager.AccountStorage.Block(auxBlock.Block).Blockheader;
-          if TBlock.EqualsOperationBlock(sbBlock, auxBlock) then
+          if TBlock.Equals(sbBlock, auxBlock) then
           begin
             distinctmin := auxBlock.Block;
             OperationBlock := auxBlock;
@@ -1061,7 +1060,7 @@ const
         BlocksList.Free;
       end;
     until (distinctmin = distinctmax);
-    Result := (OperationBlock.proof_of_work <> CT_OperationBlock_NUL.proof_of_work);
+    Result := (OperationBlock.proof_of_work <> TBlockHeader.Empty.proof_of_work);
   end;
 
   function GetNewBank(start_block: Int64): Boolean;
@@ -1176,7 +1175,7 @@ const
                     for i := 0 to OpExecute.Count - 1 do
                     begin
                       // TODO: NEED TO EXCLUDE OPERATIONS ALREADY INCLUDED IN BLOCKCHAIN?
-                      oldBlockchainOperations.AddTransactionToHashTree(OpExecute.operation[i]);
+                      oldBlockchainOperations.AddTransactionToHashTree(OpExecute.Transaction[i]);
                     end;
                     TLog.NewLog(ltInfo, CT_LogSender, 'Recovered ' + Inttostr(OpExecute.Count) +
                       ' operations from block ' + Inttostr(start));
@@ -1200,10 +1199,10 @@ const
           end;
           // Finally add new operations:
           // Rescue old operations from old blockchain to new blockchain
-          if oldBlockchainOperations.OperationsCount > 0 then
+          if oldBlockchainOperations.TransactionCount > 0 then
           begin
             TLog.NewLog(ltInfo, CT_LogSender, Format('Executing %d operations from block %d to %d',
-              [oldBlockchainOperations.OperationsCount, start_c, TNode.Node.BlockManager.BlocksCount - 1]));
+              [oldBlockchainOperations.TransactionCount, start_c, TNode.Node.BlockManager.BlocksCount - 1]));
             opsResume := TTransactionList.Create;
             try
               // Re-add orphaned operations back into the pending pool.
@@ -1211,7 +1210,7 @@ const
               // the origin, and current sender needs these operations.
               i := TNode.Node.AddOperations(nil, oldBlockchainOperations, opsResume, errors);
               TLog.NewLog(ltInfo, CT_LogSender, Format('Executed %d/%d operations. Returned errors: %s',
-                [i, oldBlockchainOperations.OperationsCount, errors]));
+                [i, oldBlockchainOperations.TransactionCount, errors]));
             finally
               opsResume.Free;
             end;
@@ -1307,89 +1306,89 @@ type
 
   function DownloadSafeBox(IsMyBlockchainValid: Boolean): Boolean;
   var
-    _blockcount, request_id: Cardinal;
-    ReceiveData, receiveChunk, chunk1: TStream;
-    op: TBlockHeader;
-    safeBoxHeader: TAccountStorageHeader;
-    errors: AnsiString;
-    chunks: array of TSafeBoxChunkData;
+    x_blockcount, xRequestId: Cardinal;
+    xReceiveData, xReceiveChunk, xChunk1: TStream;
+    xBlockHeader: TBlockHeader;
+    xAccountStorageHeader: TAccountStorageHeader;
+    xErrors: AnsiString;
+    xChunks: array of TSafeBoxChunkData;
     i: Integer;
   begin
     Result := false;
     // Will try to download penultimate saved safebox
-    _blockcount := ((Connection.RemoteOperationBlock.Block div CT_BankToDiskEveryNBlocks) - 1) *
+    x_blockcount := ((Connection.RemoteOperationBlock.Block div CT_BankToDiskEveryNBlocks) - 1) *
       CT_BankToDiskEveryNBlocks;
-    if not Do_GetOperationBlock(_blockcount, 5000, op) then
+    if not Do_GetOperationBlock(x_blockcount, 5000, xBlockHeader) then
     begin
       Connection.DisconnectInvalidClient(false, Format('Cannot obtain operation block %d for downloading safebox',
-        [_blockcount]));
+        [x_blockcount]));
       exit;
     end;
-    ReceiveData := TMemoryStream.Create;
+    xReceiveData := TMemoryStream.Create;
     try
-      SetLength(chunks, 0);
+      SetLength(xChunks, 0);
       try
         // Will obtain chunks of 10000 blocks each
-        for i := 0 to _blockcount div 10000 do
+        for i := 0 to x_blockcount div 10000 do
         begin
-          receiveChunk := TMemoryStream.Create;
-          if (not DownloadSafeBoxChunk(_blockcount, op.initial_safe_box_hash, (i * 10000), ((i + 1) * 10000) - 1,
-            receiveChunk, safeBoxHeader, errors)) then
+          xReceiveChunk := TMemoryStream.Create;
+          if (not DownloadSafeBoxChunk(x_blockcount, xBlockHeader.initial_safe_box_hash, (i * 10000), ((i + 1) * 10000) - 1,
+            xReceiveChunk, xAccountStorageHeader, xErrors)) then
           begin
-            receiveChunk.Free;
-            TLog.NewLog(ltError, CT_LogSender, errors);
+            xReceiveChunk.Free;
+            TLog.NewLog(ltError, CT_LogSender, xErrors);
             exit;
           end;
-          SetLength(chunks, length(chunks) + 1);
-          chunks[high(chunks)].safeBoxHeader := safeBoxHeader;
-          chunks[high(chunks)].chunkStream := receiveChunk;
+          SetLength(xChunks, length(xChunks) + 1);
+          xChunks[high(xChunks)].safeBoxHeader := xAccountStorageHeader;
+          xChunks[high(xChunks)].chunkStream := xReceiveChunk;
         end;
         // Will concat safeboxs:
-        chunk1 := TMemoryStream.Create;
+        xChunk1 := TMemoryStream.Create;
         try
-          chunk1.CopyFrom(chunks[0].chunkStream, 0);
-          for i := 1 to high(chunks) do
+          xChunk1.CopyFrom(xChunks[0].chunkStream, 0);
+          for i := 1 to high(xChunks) do
           begin
-            ReceiveData.Size := 0;
-            chunk1.Position := 0;
-            chunks[i].chunkStream.Position := 0;
-            if not TAccountStorage.ConcatStream(chunk1, chunks[i].chunkStream, ReceiveData, errors) then
+            xReceiveData.Size := 0;
+            xChunk1.Position := 0;
+            xChunks[i].chunkStream.Position := 0;
+            if not TAccountStorage.ConcatStream(xChunk1, xChunks[i].chunkStream, xReceiveData, xErrors) then
             begin
-              TLog.NewLog(ltError, CT_LogSender, errors);
+              TLog.NewLog(ltError, CT_LogSender, xErrors);
               exit;
             end;
-            chunk1.Size := 0;
-            chunk1.CopyFrom(ReceiveData, 0);
+            xChunk1.Size := 0;
+            xChunk1.CopyFrom(xReceiveData, 0);
           end;
         finally
-          chunk1.Free;
+          xChunk1.Free;
         end;
       finally
-        for i := 0 to high(chunks) do
+        for i := 0 to high(xChunks) do
         begin
-          chunks[i].chunkStream.Free;
+          xChunks[i].chunkStream.Free;
         end;
-        SetLength(chunks, 0);
+        SetLength(xChunks, 0);
       end;
       // Now receiveData is the ALL safebox
       TNode.Node.DisableNewBlocks;
       try
         TNode.Node.BlockManager.AccountStorage.StartThreadSafe;
         try
-          ReceiveData.Position := 0;
-          if TNode.Node.BlockManager.LoadAccountsFromStream(ReceiveData, true, errors) then
+          xReceiveData.Position := 0;
+          if TNode.Node.BlockManager.LoadAccountsFromStream(xReceiveData, true, xErrors) then
           begin
             TLog.NewLog(ltInfo, Classname, 'Received new safebox!');
             if not IsMyBlockchainValid then
             begin
               TNode.Node.BlockManager.Storage.EraseStorage;
             end;
-            Connection.Send_GetBlocks(TNode.Node.BlockManager.BlocksCount, 100, request_id);
+            Connection.Send_GetBlocks(TNode.Node.BlockManager.BlocksCount, 100, xRequestId);
             Result := true;
           end
           else
           begin
-            Connection.DisconnectInvalidClient(false, 'Cannot load from stream! ' + errors);
+            Connection.DisconnectInvalidClient(false, 'Cannot load from stream! ' + xErrors);
             exit;
           end;
         finally
@@ -1399,13 +1398,13 @@ type
         TNode.Node.EnableNewBlocks;
       end;
     finally
-      ReceiveData.Free;
+      xReceiveData.Free;
     end;
   end;
 
 var
   rid: Cardinal;
-  my_op, client_op: TBlockHeader;
+  xMyBlockHeader, xClientBlockHeader: TBlockHeader;
 begin
   // Protection against discovering servers...
   if FIsDiscoveringServers then
@@ -1443,20 +1442,20 @@ begin
       TBlock.BlockToString(TNode.Node.BlockManager.LastBlock) + ')');
     // NOTE: FRemoteOperationBlock.block >= TNode.Node.Bank.BlocksCount
     // First capture same block than me (TNode.Node.Bank.BlocksCount-1) to check if i'm an orphan block...
-    my_op := TNode.Node.BlockManager.LastBlock;
-    if not Do_GetOperationBlock(my_op.Block, 5000, client_op) then
+    xMyBlockHeader := TNode.Node.BlockManager.LastBlock;
+    if not Do_GetOperationBlock(xMyBlockHeader.Block, 5000, xClientBlockHeader) then
     begin
-      TLog.NewLog(ltError, CT_LogSender, 'Cannot receive information about my block (' + Inttostr(my_op.Block)
+      TLog.NewLog(ltError, CT_LogSender, 'Cannot receive information about my block (' + Inttostr(xMyBlockHeader.Block)
         + ')...');
       // Disabled at Build 1.0.6 >  Connection.DisconnectInvalidClient(false,'Cannot receive information about my block ('+inttostr(my_op.block)+')... Invalid client. Disconnecting');
       exit;
     end;
 
-    if (not TBlock.EqualsOperationBlock(my_op, client_op)) then
+    if (not TBlock.Equals(xMyBlockHeader, xClientBlockHeader)) then
     begin
       TLog.NewLog(ltInfo, CT_LogSender, 'My blockchain is not equal... received: ' +
-        TBlock.BlockToString(client_op) + ' My: ' + TBlock.BlockToString(my_op));
-      if not FindLastSameBlockByOperationsBlock(0, client_op.Block, client_op) then
+        TBlock.BlockToString(xClientBlockHeader) + ' My: ' + TBlock.BlockToString(xMyBlockHeader));
+      if not FindLastSameBlockByOperationsBlock(0, xClientBlockHeader.Block, xClientBlockHeader) then
       begin
         TLog.NewLog(ltInfo, CT_LogSender, 'No found base block to start process... Receiving ALL');
         if (Connection.RemoteOperationBlock.protocol_version >= CT_PROTOCOL_2) then
@@ -1470,17 +1469,17 @@ begin
       end
       else
       begin
-        TLog.NewLog(ltInfo, CT_LogSender, 'Found base new block: ' + TBlock.BlockToString(client_op));
+        TLog.NewLog(ltInfo, CT_LogSender, 'Found base new block: ' + TBlock.BlockToString(xClientBlockHeader));
         // Move operations to orphan folder... (temporal... waiting for a confirmation)
-        GetNewBank(client_op.Block + 1);
+        GetNewBank(xClientBlockHeader.Block + 1);
       end;
     end
     else
     begin
       TLog.NewLog(ltInfo, CT_LogSender, 'My blockchain is ok! Need to download new blocks starting at ' +
-        Inttostr(my_op.Block + 1));
+        Inttostr(xMyBlockHeader.Block + 1));
       // High to new value:
-      Connection.Send_GetBlocks(my_op.Block + 1, 100, rid);
+      Connection.Send_GetBlocks(xMyBlockHeader.Block + 1, 100, rid);
     end;
   finally
     TLog.NewLog(ltdebug, CT_LogSender, 'Finalizing');

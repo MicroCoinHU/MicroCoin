@@ -30,16 +30,13 @@ type
     nonce: Cardinal; // Random value to generate a new P-o-W
     block_payload: TRawBytes; // RAW Payload that a miner can include to a blockchain
     initial_safe_box_hash: TRawBytes; // RAW Safe Box Hash value (32 bytes, it's a Sha256)
-    operations_hash: TRawBytes; // RAW sha256 (32 bytes) of Operations
+    transactionHash: TRawBytes; // RAW sha256 (32 bytes) of Operations
     proof_of_work: TRawBytes; // RAW Double Sha256
     procedure SaveToStream(const stream: TStream);
-    class function LoadFromStream(const stream: TStream; var operationBlock: TBlockHeader): Boolean; static;
+    class function LoadFromStream(const stream: TStream; var ABlockHeader: TBlockHeader): Boolean; static;
+    class function Empty : TBlockHeader; static;
   end;
 
-const
-  CT_OperationBlock_NUL: TBlockHeader = (block: 0; account_key: (EC_OpenSSL_NID: 0; x: ''; y: ''); reward: 0; fee: 0;
-    protocol_version: 0; protocol_available: 0; timestamp: 0; compact_target: 0; nonce: 0; block_payload: '';
-    operations_hash: ''; proof_of_work: '');
 
 implementation
 
@@ -56,32 +53,49 @@ begin
   stream.Write(nonce, Sizeof(nonce));
   TStreamOp.WriteAnsiString(stream, block_payload);
   TStreamOp.WriteAnsiString(stream, initial_safe_box_hash);
-  TStreamOp.WriteAnsiString(stream, operations_hash);
+  TStreamOp.WriteAnsiString(stream, transactionHash);
   TStreamOp.WriteAnsiString(stream, proof_of_work);
 end;
 
-class function TBlockHeader.LoadFromStream(const stream: TStream; var operationBlock: TBlockHeader): Boolean;
+class function TBlockHeader.Empty: TBlockHeader;
+begin
+  Result.block := 0;
+  Result.account_key := CT_TECDSA_Public_Nul;
+  Result.reward := 0;
+  Result.fee := 0;
+  Result.protocol_version := 0;
+  Result.protocol_available := 0;
+  Result.timestamp := 0;
+  Result.compact_target := 0;
+  Result.nonce := 0;
+  Result.block_payload := '';
+  Result.initial_safe_box_hash := '';
+  Result.transactionHash := '';
+  Result.proof_of_work := '';
+end;
+
+class function TBlockHeader.LoadFromStream(const stream: TStream; var ABlockHeader: TBlockHeader): Boolean;
 begin
   Result := false;
-  operationBlock := CT_OperationBlock_NUL;
-  if stream.Read(operationBlock.block, Sizeof(operationBlock.block)) < Sizeof(operationBlock.block) then
-    exit;
-  TStreamOp.ReadAccountKey(stream, operationBlock.account_key);
-  stream.Read(operationBlock.reward, Sizeof(operationBlock.reward));
-  stream.Read(operationBlock.fee, Sizeof(operationBlock.fee));
-  stream.Read(operationBlock.protocol_version, Sizeof(operationBlock.protocol_version));
-  stream.Read(operationBlock.protocol_available, Sizeof(operationBlock.protocol_available));
-  stream.Read(operationBlock.timestamp, Sizeof(operationBlock.timestamp));
-  stream.Read(operationBlock.compact_target, Sizeof(operationBlock.compact_target));
-  stream.Read(operationBlock.nonce, Sizeof(operationBlock.nonce));
-  if TStreamOp.ReadAnsiString(stream, operationBlock.block_payload) < 0 then
-    exit;
-  if TStreamOp.ReadAnsiString(stream, operationBlock.initial_safe_box_hash) < 0 then
-    exit;
-  if TStreamOp.ReadAnsiString(stream, operationBlock.operations_hash) < 0 then
-    exit;
-  if TStreamOp.ReadAnsiString(stream, operationBlock.proof_of_work) < 0 then
-    exit;
+  ABlockHeader := TBlockHeader.Empty;
+  if stream.Read(ABlockHeader.block, Sizeof(ABlockHeader.block)) < Sizeof(ABlockHeader.block)
+  then exit;
+  TStreamOp.ReadAccountKey(stream, ABlockHeader.account_key);
+  stream.Read(ABlockHeader.reward, Sizeof(ABlockHeader.reward));
+  stream.Read(ABlockHeader.fee, Sizeof(ABlockHeader.fee));
+  stream.Read(ABlockHeader.protocol_version, Sizeof(ABlockHeader.protocol_version));
+  stream.Read(ABlockHeader.protocol_available, Sizeof(ABlockHeader.protocol_available));
+  stream.Read(ABlockHeader.timestamp, Sizeof(ABlockHeader.timestamp));
+  stream.Read(ABlockHeader.compact_target, Sizeof(ABlockHeader.compact_target));
+  stream.Read(ABlockHeader.nonce, Sizeof(ABlockHeader.nonce));
+  if TStreamOp.ReadAnsiString(stream, ABlockHeader.block_payload) < 0
+  then exit;
+  if TStreamOp.ReadAnsiString(stream, ABlockHeader.initial_safe_box_hash) < 0
+  then exit;
+  if TStreamOp.ReadAnsiString(stream, ABlockHeader.transactionHash) < 0
+  then exit;
+  if TStreamOp.ReadAnsiString(stream, ABlockHeader.proof_of_work) < 0
+  then exit;
   Result := true;
 end;
 

@@ -122,13 +122,13 @@ begin
   ms := TMemoryStream.Create;
   try
     ms.WriteBuffer(operationBlock.initial_safe_box_hash[1], length(operationBlock.initial_safe_box_hash));
-    ms.WriteBuffer(operationBlock.operations_hash[1], length(operationBlock.operations_hash));
+    ms.WriteBuffer(operationBlock.transactionHash[1], length(operationBlock.transactionHash));
     // Note about fee: Fee is stored in 8 bytes, but only digest first 4 low bytes
     ms.Write(operationBlock.fee, 4);
     SetLength(Part3, ms.Size);
     ms.Position := 0;
     ms.ReadBuffer(Part3[1], ms.Size);
-    s := TCrypto.ToHexaString(operationBlock.operations_hash);
+    s := TCrypto.ToHexaString(operationBlock.transactionHash);
     s := '';
   finally
     ms.Free;
@@ -154,7 +154,7 @@ begin
     ms.WriteBuffer(operationBlock.block_payload[1], length(operationBlock.block_payload));
     // Part 3
     ms.WriteBuffer(operationBlock.initial_safe_box_hash[1], length(operationBlock.initial_safe_box_hash));
-    ms.WriteBuffer(operationBlock.operations_hash[1], length(operationBlock.operations_hash));
+    ms.WriteBuffer(operationBlock.transactionHash[1], length(operationBlock.transactionHash));
     // Note about fee: Fee is stored in 8 bytes (Int64), but only digest first 4 low bytes
     ms.Write(operationBlock.fee, 4);
     ms.Write(operationBlock.timestamp, 4);

@@ -47,8 +47,8 @@ type
     valid: Boolean;
     Block: Cardinal;
     NOpInsideBlock: Integer;
-    OpType: Word;
-    OpSubtype: Word;
+    transactionType: Word;
+    transactionSubtype: Word;
     time: Cardinal;
     AffectedAccount: Cardinal;
     SignerAccount: Int64; // Is the account that executes this operation
@@ -73,7 +73,7 @@ class function TTransactionData.Empty: TTransactionData;
 begin
   Result.valid := false;
   Result.NOpInsideBlock := -1;
-  Result.OpType := 0;
+  Result.transactionType := 0;
   Result.Block := 0;
   Result.SignerAccount := -1;
   Result.DestAccount := -1;
@@ -83,7 +83,7 @@ begin
   Result.newKey.x := '';
   Result.newKey.y := '';
   Result.time := 0;
-  Result.OpSubtype := 0;
+  Result.transactionSubtype := 0;
   Result.AffectedAccount := 0;
   Result.OperationTxt := '';
   Result.Amount := 0;

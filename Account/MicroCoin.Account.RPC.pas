@@ -77,7 +77,7 @@ var
   ansistr: AnsiString;
   auxpubkey: TAccountKey;
 begin
-  APubKey := CT_Account_NUL.accountInfo.AccountKey;
+  APubKey := TAccount.Empty.accountInfo.AccountKey;
   RErrorText := '';
   Result := false;
   if (AParams.IndexOfName(APrefix + 'b58_pubkey') >= 0) then
@@ -128,8 +128,8 @@ procedure TRPCAccountPlugin.FillAccountObject(const AAccount: TAccount; AJsonObj
 begin
   AJsonObject.GetAsVariant('account').Value := AAccount.AccountNumber;
   AJsonObject.GetAsVariant('enc_pubkey').Value := TCrypto.ToHexaString(AAccount.accountInfo.AccountKey.ToRawString);
-  AJsonObject.GetAsVariant('balance').Value := TCurrencyUtils.ToJSONCurrency(AAccount.balance);
-  AJsonObject.GetAsVariant('n_operation').Value := AAccount.n_operation;
+  AJsonObject.GetAsVariant('balance').Value := TCurrencyUtils.ToJsonValue(AAccount.balance);
+  AJsonObject.GetAsVariant('n_operation').Value := AAccount.numberOfTransactions;
   AJsonObject.GetAsVariant('updated_b').Value := AAccount.updated_block;
   case AAccount.accountInfo.state of
     as_Normal:
@@ -420,7 +420,7 @@ begin
     begin
       inc(Account.balance, TNode.Node.Operations.AccountTransaction.Account(ocl.Get(j)).balance);
     end;
-    Result.Response.GetAsVariant('result').Value := TCurrencyUtils.ToJSONCurrency(Account.balance);
+    Result.Response.GetAsVariant('result').Value := TCurrencyUtils.ToJsonValue(Account.balance);
     Result.Success := true;
   end
   else
@@ -436,7 +436,7 @@ begin
         inc(Account.balance, TNode.Node.Operations.AccountTransaction.Account(ocl.Get(j)).balance);
       end;
     end;
-    Result.Response.GetAsVariant('result').Value := TCurrencyUtils.ToJSONCurrency(Account.balance);
+    Result.Response.GetAsVariant('result').Value := TCurrencyUtils.ToJsonValue(Account.balance);
     Result.Success := true;
   end;
 end;

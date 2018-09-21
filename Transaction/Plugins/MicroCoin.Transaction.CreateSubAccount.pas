@@ -115,7 +115,7 @@ begin
     exit;
   end;
 
-  if ((xTargetAccount.n_operation + 1) <> FData.n_operation)
+  if ((xTargetAccount.numberOfTransactions + 1) <> FData.n_operation)
   then begin
     errors := 'Invalid n_operation';
     exit;
@@ -153,8 +153,9 @@ begin
     exit;
   end
   else FHasValidSignature := true;
+
   xAccount :=  AccountTransaction.GetInternalAccount(xTargetAccount.AccountNumber);
-  xAccount^.n_operation := FData.n_operation;
+  xAccount^.numberOfTransactions := FData.n_operation;
   xAccount^.balance := xAccount^.balance - FData.fee;
   {$IFDEF EXTENDEDACCOUNT}
   SetLength(xAccount^.SubAccounts, Length(xAccount^.SubAccounts)+1);
@@ -173,7 +174,6 @@ var
 begin
   inherited Create;
   FData.account_signer := AAccountNumber;
-//  FData.account_number := AAccountNumber;
   FData.n_operation := ANTransactions;
   FData.fee := Afee;
   FData.payload := '';
@@ -267,12 +267,12 @@ var
 begin
   Result := true;
   TransactionData := TTransactionData.Empty;
-  TransactionData.OpType := GetTransactionType;
-  TransactionData.OpSubtype := CT_Op_CreateSubAccount;
+  TransactionData.transactionType := GetTransactionType;
+  TransactionData.transactionSubtype := CT_Op_CreateSubAccount;
   TransactionData.DestAccount := GetDestinationAccount;
   s := '';
   TransactionData.OperationTxt := Format('Create sub account (%d)', [FData.account_number]);
-  TransactionData.OpSubtype := CT_OpSubtype_CreateSubAccount;
+  TransactionData.transactionSubtype := CT_OpSubtype_CreateSubAccount;
   TransactionData.OriginalPayload := GetPayload;
   if TCrypto.IsHumanReadable(TransactionData.OriginalPayload) then
     TransactionData.PrintablePayload := TransactionData.OriginalPayload

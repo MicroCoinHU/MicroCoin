@@ -26,7 +26,7 @@ type
 
   TChangeKeyTransaction = class(TTransaction)
   protected type
-    TOpChangeKeyData = record
+    ChangeKeyTransactionData = record
       account_signer, account_target: Cardinal;
       n_operation: Cardinal;
       fee: UInt64;
@@ -36,7 +36,7 @@ type
       sign: TECDSA_SIG;
     end;
   private
-    FData: TOpChangeKeyData;
+    FData: ChangeKeyTransactionData;
   protected
     procedure InitializeData; override;
     function SaveToStream(Stream: TStream; SaveExtendedData: Boolean): Boolean; override;
@@ -52,17 +52,17 @@ type
     constructor Create(account_signer, n_operation, account_target: Cardinal; key: TECPrivateKey;
       new_account_key: TAccountKey; fee: UInt64; payload: TRawBytes);
 
-    class function GetOperationHashToSign(const op: TOpChangeKeyData): TRawBytes;
-    class function DoSignOperation(key: TECPrivateKey; var op: TOpChangeKeyData): Boolean;
+    class function GetHashToSignature(const AErrors: ChangeKeyTransactionData): TRawBytes;
+    class function DoSignTransaction(AKey: TECPrivateKey; var ATransaction: ChangeKeyTransactionData): Boolean;
 
     function GetBuffer(UseProtocolV2: Boolean): TRawBytes; override;
-    function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean; override;
-    procedure AffectedAccounts(list: TList); override;
-    function GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal;
+    function ApplyTransaction(AAccountTransaction: TAccountTransaction; var RErrors: AnsiString): Boolean; override;
+    procedure AffectedAccounts(AList: TList); override;
+    function GetTransactionData(ABlock: Cardinal; Affected_account_number: Cardinal;
       var TransactionData: TTransactionData): Boolean; override;
     function toString: string; override;
 
-    property Data: TOpChangeKeyData read FData;
+    property Data: ChangeKeyTransactionData read FData;
   end;
 
   TChangeKeySignedTransaction = class(TChangeKeyTransaction)
@@ -76,15 +76,15 @@ type
 implementation
 
 const
-  CT_TOpChangeKeyData_NUL: TChangeKeyTransaction.TOpChangeKeyData = (account_signer: 0; account_target: 0; n_operation: 0; fee: 0;
+  CT_TOpChangeKeyData_NUL: TChangeKeyTransaction.ChangeKeyTransactionData = (account_signer: 0; account_target: 0; n_operation: 0; fee: 0;
     payload: ''; public_key: (EC_OpenSSL_NID: 0; x: ''; y: ''); new_accountkey: (EC_OpenSSL_NID: 0; x: ''; y: '');
     sign: (r: ''; s: ''));
 
-procedure TChangeKeyTransaction.AffectedAccounts(list: TList);
+procedure TChangeKeyTransaction.AffectedAccounts(AList: TList);
 begin
-  list.Add(TObject(FData.account_signer));
+  AList.Add(TObject(FData.account_signer));
   if (FData.account_target <> FData.account_signer) then
-    list.Add(TObject(FData.account_target));
+    AList.Add(TObject(FData.account_target));
 end;
 
 constructor TChangeKeyTransaction.Create(account_signer, n_operation, account_target: Cardinal; key: TECPrivateKey;
@@ -110,7 +110,7 @@ begin
   // V2: No need to store public key because it's at safebox. Saving at least 64 bytes!
   // FData.public_key := key.PublicKey;
   FData.new_accountkey := new_account_key;
-  if not DoSignOperation(key, FData) then
+  if not DoSignTransaction(key, FData) then
   begin
     TLog.NewLog(lterror, Classname, 'Error signing a new Change key');
     FHasValidSignature := false;
@@ -119,78 +119,78 @@ begin
     FHasValidSignature := true;
 end;
 
-function TChangeKeyTransaction.ApplyTransaction(AccountTransaction: TAccountTransaction;
-  var errors: AnsiString): Boolean;
+function TChangeKeyTransaction.ApplyTransaction(AAccountTransaction: TAccountTransaction;
+  var RErrors: AnsiString): Boolean;
 var
   account_signer, account_target: TAccount;
 begin
   Result := false;
-  if (FData.account_signer >= AccountTransaction.FreezedAccountStorage.AccountsCount) then
+  if (FData.account_signer >= AAccountTransaction.FreezedAccountStorage.AccountsCount) then
   begin
-    errors := 'Invalid account number';
+    RErrors := 'Invalid account number';
     Exit;
   end;
-  if TAccount.IsAccountBlockedByProtocol(FData.account_signer, AccountTransaction.FreezedAccountStorage.BlocksCount)
+  if TAccount.IsAccountBlockedByProtocol(FData.account_signer, AAccountTransaction.FreezedAccountStorage.BlocksCount)
   then
   begin
-    errors := 'account is blocked for protocol';
+    RErrors := 'account is blocked for protocol';
     Exit;
   end;
   if (FData.account_signer <> FData.account_target) then
   begin
-    if (FData.account_target >= AccountTransaction.FreezedAccountStorage.AccountsCount) then
+    if (FData.account_target >= AAccountTransaction.FreezedAccountStorage.AccountsCount) then
     begin
-      errors := 'Invalid account target number';
+      RErrors := 'Invalid account target number';
       Exit;
     end;
-    if TAccount.IsAccountBlockedByProtocol(FData.account_target, AccountTransaction.FreezedAccountStorage.BlocksCount)
+    if TAccount.IsAccountBlockedByProtocol(FData.account_target, AAccountTransaction.FreezedAccountStorage.BlocksCount)
     then
     begin
-      errors := 'Target account is blocked for protocol';
+      RErrors := 'Target account is blocked for protocol';
       Exit;
     end;
   end;
   if (FData.fee < 0) or (FData.fee > CT_MaxTransactionFee) then
   begin
-    errors := 'Invalid fee: ' + Inttostr(FData.fee);
+    RErrors := 'Invalid fee: ' + Inttostr(FData.fee);
     Exit;
   end;
-  account_signer := AccountTransaction.Account(FData.account_signer);
-  account_target := AccountTransaction.Account(FData.account_target);
-  if ((account_signer.n_operation + 1) <> FData.n_operation) then
+  account_signer := AAccountTransaction.Account(FData.account_signer);
+  account_target := AAccountTransaction.Account(FData.account_target);
+  if ((account_signer.numberOfTransactions + 1) <> FData.n_operation) then
   begin
-    errors := 'Invalid n_operation';
+    RErrors := 'Invalid n_operation';
     Exit;
   end;
   if (account_signer.balance < FData.fee) then
   begin
-    errors := 'Insuficient founds';
+    RErrors := 'Insuficient founds';
     Exit;
   end;
   if (length(FData.payload) > CT_MaxPayloadSize) then
   begin
-    errors := 'Invalid Payload size:' + Inttostr(length(FData.payload)) + ' (Max: ' + Inttostr(CT_MaxPayloadSize) + ')';
-    if (AccountTransaction.FreezedAccountStorage.CurrentProtocol >= CT_PROTOCOL_2) then
+    RErrors := 'Invalid Payload size:' + Inttostr(length(FData.payload)) + ' (Max: ' + Inttostr(CT_MaxPayloadSize) + ')';
+    if (AAccountTransaction.FreezedAccountStorage.CurrentProtocol >= CT_PROTOCOL_2) then
     begin
       Exit; // BUG from protocol 1
     end;
   end;
   // Is locked? Protocol 2 check
-  if (account_signer.accountInfo.IsLocked(AccountTransaction.FreezedAccountStorage.BlocksCount)) then
+  if (account_signer.accountInfo.IsLocked(AAccountTransaction.FreezedAccountStorage.BlocksCount)) then
   begin
-    errors := 'Account signer is currently locked';
+    RErrors := 'Account signer is currently locked';
     Exit;
   end;
-  if not FData.new_accountkey.IsValidAccountKey(errors) then
+  if not FData.new_accountkey.IsValidAccountKey(RErrors) then
   begin
     Exit;
   end;
   // NEW v2 protocol protection: Does not allow to change key for same key
-  if (AccountTransaction.FreezedAccountStorage.CurrentProtocol >= CT_PROTOCOL_2) then
+  if (AAccountTransaction.FreezedAccountStorage.CurrentProtocol >= CT_PROTOCOL_2) then
   begin
     if (TAccountKey.EqualAccountKeys(account_target.accountInfo.AccountKey, FData.new_accountkey)) then
     begin
-      errors := 'New public key is the same public key';
+      RErrors := 'New public key is the same public key';
       Exit;
     end;
   end;
@@ -198,35 +198,35 @@ begin
   if (FData.public_key.EC_OpenSSL_NID <> CT_TECDSA_Public_Nul.EC_OpenSSL_NID) and
     (not TAccountKey.EqualAccountKeys(FData.public_key, account_signer.accountInfo.AccountKey)) then
   begin
-    errors := Format('Invalid public key for account %d. Distinct from SafeBox public key! %s <> %s',
+    RErrors := Format('Invalid public key for account %d. Distinct from SafeBox public key! %s <> %s',
       [FData.account_signer, TCrypto.ToHexaString(FData.public_key.ToRawString),
       TCrypto.ToHexaString(account_signer.accountInfo.AccountKey.ToRawString)]);
     Exit;
   end;
   if (FData.account_signer <> FData.account_target) then
   begin
-    if (account_target.accountInfo.IsLocked(AccountTransaction.FreezedAccountStorage.BlocksCount)) then
+    if (account_target.accountInfo.IsLocked(AAccountTransaction.FreezedAccountStorage.BlocksCount)) then
     begin
-      errors := 'Account target is currently locked';
+      RErrors := 'Account target is currently locked';
       Exit;
     end;
     // Check have same public key
     if not TAccountKey.EqualAccountKeys(account_signer.accountInfo.AccountKey, account_target.accountInfo.AccountKey)
     then
     begin
-      errors := 'Signer and target accounts have different public key';
+      RErrors := 'Signer and target accounts have different public key';
       Exit;
     end;
-    if (AccountTransaction.FreezedAccountStorage.CurrentProtocol < CT_PROTOCOL_2) then
+    if (AAccountTransaction.FreezedAccountStorage.CurrentProtocol < CT_PROTOCOL_2) then
     begin
-      errors := 'NOT ALLOWED ON PROTOCOL 1';
+      RErrors := 'NOT ALLOWED ON PROTOCOL 1';
       Exit;
     end;
   end;
 
-  if not TCrypto.ECDSAVerify(account_signer.accountInfo.AccountKey, GetOperationHashToSign(FData), FData.sign) then
+  if not TCrypto.ECDSAVerify(account_signer.accountInfo.AccountKey, GetHashToSignature(FData), FData.sign) then
   begin
-    errors := 'Invalid sign';
+    RErrors := 'Invalid sign';
     FHasValidSignature := false;
     Exit;
   end
@@ -241,19 +241,19 @@ begin
   account_target.accountInfo.price := 0;
   account_target.accountInfo.account_to_pay := 0;
   account_target.accountInfo.new_publicKey := CT_TECDSA_Public_Nul;
-  Result := AccountTransaction.UpdateAccountInfo(FData.account_signer, FData.n_operation, FData.account_target,
-    account_target.accountInfo, account_target.name, account_target.account_type, FData.fee, errors);
+  Result := AAccountTransaction.UpdateAccountInfo(FData.account_signer, FData.n_operation, FData.account_target,
+    account_target.accountInfo, account_target.name, account_target.account_type, FData.fee, RErrors);
 end;
 
-class function TChangeKeyTransaction.DoSignOperation(key: TECPrivateKey; var op: TOpChangeKeyData): Boolean;
+class function TChangeKeyTransaction.DoSignTransaction(AKey: TECPrivateKey; var ATransaction: ChangeKeyTransactionData): Boolean;
 var
   s: AnsiString;
   _sign: TECDSA_SIG;
 begin
-  s := GetOperationHashToSign(op);
+  s := GetHashToSignature(ATransaction);
   try
-    _sign := TCrypto.ECDSASign(key, s);
-    op.sign := _sign;
+    _sign := TCrypto.ECDSASign(AKey, s);
+    ATransaction.sign := _sign;
     Result := true;
   except
     on E: Exception do
@@ -302,26 +302,26 @@ begin
   end;
 end;
 
-class function TChangeKeyTransaction.GetOperationHashToSign(const op: TOpChangeKeyData): TRawBytes;
+class function TChangeKeyTransaction.GetHashToSignature(const AErrors: ChangeKeyTransactionData): TRawBytes;
 var
   ms: TMemoryStream;
   s: AnsiString;
 begin
   ms := TMemoryStream.Create;
   try
-    ms.Write(op.account_signer, Sizeof(op.account_signer));
-    if (op.account_signer <> op.account_target) then
-      ms.Write(op.account_target, Sizeof(op.account_target));
-    ms.Write(op.n_operation, Sizeof(op.n_operation));
-    ms.Write(op.fee, Sizeof(op.fee));
-    if length(op.payload) > 0 then
-      ms.WriteBuffer(op.payload[1], length(op.payload));
-    ms.Write(op.public_key.EC_OpenSSL_NID, Sizeof(op.public_key.EC_OpenSSL_NID));
-    if length(op.public_key.x) > 0 then
-      ms.WriteBuffer(op.public_key.x[1], length(op.public_key.x));
-    if length(op.public_key.y) > 0 then
-      ms.WriteBuffer(op.public_key.y[1], length(op.public_key.y));
-    s := op.new_accountkey.ToRawString;
+    ms.Write(AErrors.account_signer, Sizeof(AErrors.account_signer));
+    if (AErrors.account_signer <> AErrors.account_target) then
+      ms.Write(AErrors.account_target, Sizeof(AErrors.account_target));
+    ms.Write(AErrors.n_operation, Sizeof(AErrors.n_operation));
+    ms.Write(AErrors.fee, Sizeof(AErrors.fee));
+    if length(AErrors.payload) > 0 then
+      ms.WriteBuffer(AErrors.payload[1], length(AErrors.payload));
+    ms.Write(AErrors.public_key.EC_OpenSSL_NID, Sizeof(AErrors.public_key.EC_OpenSSL_NID));
+    if length(AErrors.public_key.x) > 0 then
+      ms.WriteBuffer(AErrors.public_key.x[1], length(AErrors.public_key.x));
+    if length(AErrors.public_key.y) > 0 then
+      ms.WriteBuffer(AErrors.public_key.y[1], length(AErrors.public_key.y));
+    s := AErrors.new_accountkey.ToRawString;
     if length(s) > 0 then
       ms.WriteBuffer(s[1], length(s));
     ms.Position := 0;
@@ -427,11 +427,11 @@ begin
   Result := FData.account_signer;
 end;
 
-function TChangeKeyTransaction.GetTransactionData(Block, Affected_account_number: Cardinal;
+function TChangeKeyTransaction.GetTransactionData(ABlock, Affected_account_number: Cardinal;
   var TransactionData: TTransactionData): Boolean;
 begin
   TransactionData := TTransactionData.Empty;
-  TransactionData.OpSubtype := CT_OpSubtype_ChangeKey;
+  TransactionData.transactionSubtype := CT_OpSubtype_ChangeKey;
   TransactionData.newKey := Data.new_accountkey;
   TransactionData.DestAccount := Data.account_target;
   TransactionData.OperationTxt := 'Change Key to ' + TAccountKey.GetECInfoTxt(TransactionData.newKey.EC_OpenSSL_NID);
@@ -441,10 +441,10 @@ begin
     TransactionData.PrintablePayload := TransactionData.OriginalPayload
   else
     TransactionData.PrintablePayload := TCrypto.ToHexaString(TransactionData.OriginalPayload);
-  TransactionData.OperationHash := TransactionHash(Block);
-  if (Block < CT_Protocol_Upgrade_v2_MinBlock) then
+  TransactionData.OperationHash := TransactionHash(ABlock);
+  if (ABlock < CT_Protocol_Upgrade_v2_MinBlock) then
   begin
-    TransactionData.OperationHash_OLD := TransactionHash_OLD(Block);
+    TransactionData.OperationHash_OLD := TransactionHash_OLD(ABlock);
   end;
   TransactionData.valid := true;
 end;
@@ -476,7 +476,7 @@ function TChangeKeySignedTransaction.GetTransactionData(Block, Affected_account_
   var TransactionData: TTransactionData): Boolean;
 begin
   TransactionData := TTransactionData.Empty;
-  TransactionData.OpSubtype := CT_OpSubtype_ChangeKeySigned;
+  TransactionData.transactionSubtype := CT_OpSubtype_ChangeKeySigned;
   TransactionData.newKey := Data.new_accountkey;
   TransactionData.DestAccount := Data.account_target;
   TransactionData.OperationTxt := 'Change ' + TAccount.AccountNumberToAccountTxtNumber(TransactionData.DestAccount) +

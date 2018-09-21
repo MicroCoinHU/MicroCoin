@@ -52,10 +52,10 @@ begin
       if not FNetConnection.Connected then
         exit;
       DebugStep := 'Need send opreations?';
-      if FSanitizedOperationsHashTree.OperationsCount > 0 then
+      if FSanitizedOperationsHashTree.TransactionCount > 0 then
       begin
-        DebugStep := 'Sending ' + IntToStr(FSanitizedOperationsHashTree.OperationsCount) + ' sanitized operations';
-        TLog.NewLog(ltdebug, Classname, 'Sending ' + IntToStr(FSanitizedOperationsHashTree.OperationsCount) +
+        DebugStep := 'Sending ' + IntToStr(FSanitizedOperationsHashTree.TransactionCount) + ' sanitized operations';
+        TLog.NewLog(ltdebug, Classname, 'Sending ' + IntToStr(FSanitizedOperationsHashTree.TransactionCount) +
           ' sanitized operations to ' + FNetConnection.ClientRemoteAddr);
         TNotifyTransactionThread.Create(FNetConnection, FSanitizedOperationsHashTree);
       end;

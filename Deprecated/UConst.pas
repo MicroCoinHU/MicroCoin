@@ -140,10 +140,12 @@ Const
   {$IFDEF TESTNET}
   CT_Discover_IPs =  '194.182.64.181;185.33.146.44';
   {$ENDIF}
-  CT_TRUE_FALSE : Array[Boolean] Of AnsiString = ('FALSE','TRUE');
+  CT_TRUE_FALSE : array[Boolean] Of AnsiString = ('FALSE','TRUE');
 
   CT_MAX_0_fee_operations_per_block_by_miner = {$IFDEF PRODUCTION}2000{$ELSE}{$IFDEF TESTNET}2{$ELSE}{$ENDIF}{$ENDIF};
   CT_MAX_Operations_per_block_by_miner =  {$IFDEF PRODUCTION}10000{$ELSE}{$IFDEF TESTNET}50{$ELSE}{$ENDIF}{$ENDIF};
+
+  CT_BLOCK_EXTENDED_ACCOUNT_DATA = 429;
 
 implementation
 

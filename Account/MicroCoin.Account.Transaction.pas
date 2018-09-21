@@ -107,24 +107,24 @@ begin
     errors := 'Invalid integrity in accounts transaction';
     exit;
   end;
-  if (buyer < 0) or (buyer >= (FFreezedAccounts.blocksCount * CT_AccountsPerBlock)) or (account_to_buy < 0) or
-    (account_to_buy >= (FFreezedAccounts.blocksCount * CT_AccountsPerBlock)) or (seller < 0) or
-    (seller >= (FFreezedAccounts.blocksCount * CT_AccountsPerBlock)) then
+  if (buyer < 0) or (buyer >= (FFreezedAccounts.BlocksCount * CT_AccountsPerBlock)) or (account_to_buy < 0) or
+    (account_to_buy >= (FFreezedAccounts.BlocksCount * CT_AccountsPerBlock)) or (seller < 0) or
+    (seller >= (FFreezedAccounts.BlocksCount * CT_AccountsPerBlock)) then
   begin
     errors := 'Invalid account number on buy';
     exit;
   end;
-  if TAccount.IsAccountBlockedByProtocol(buyer, FFreezedAccounts.blocksCount) then
+  if TAccount.IsAccountBlockedByProtocol(buyer, FFreezedAccounts.BlocksCount) then
   begin
     errors := 'Buyer account is blocked for protocol';
     exit;
   end;
-  if TAccount.IsAccountBlockedByProtocol(account_to_buy, FFreezedAccounts.blocksCount) then
+  if TAccount.IsAccountBlockedByProtocol(account_to_buy, FFreezedAccounts.BlocksCount) then
   begin
     errors := 'Account to buy is blocked for protocol';
     exit;
   end;
-  if TAccount.IsAccountBlockedByProtocol(seller, FFreezedAccounts.blocksCount) then
+  if TAccount.IsAccountBlockedByProtocol(seller, FFreezedAccounts.BlocksCount) then
   begin
     errors := 'Seller account is blocked for protocol';
     exit;
@@ -132,7 +132,7 @@ begin
   PaccBuyer := GetInternalAccount(buyer);
   PaccAccountToBuy := GetInternalAccount(account_to_buy);
   PaccSeller := GetInternalAccount(seller);
-  if (PaccBuyer^.n_operation + 1 <> n_operation) then
+  if (PaccBuyer^.numberOfTransactions + 1 <> n_operation) then
   begin
     errors := 'Incorrect n_operation';
     exit;
@@ -147,7 +147,7 @@ begin
     errors := 'Max fee';
     exit;
   end;
-  if (PaccBuyer^.AccountInfo.IsLocked(FFreezedAccounts.blocksCount)) then
+  if (PaccBuyer^.AccountInfo.IsLocked(FFreezedAccounts.BlocksCount)) then
   begin
     errors := 'Buyer account is locked until block ' + inttostr(PaccBuyer^.AccountInfo.locked_until_block);
     exit;
@@ -173,26 +173,26 @@ begin
     exit;
   end;
 
-  if PaccBuyer^.updated_block <> FFreezedAccounts.blocksCount then
+  if PaccBuyer^.updated_block <> FFreezedAccounts.BlocksCount then
   begin
     PaccBuyer^.previous_updated_block := PaccBuyer^.updated_block;
-    PaccBuyer^.updated_block := FFreezedAccounts.blocksCount;
+    PaccBuyer^.updated_block := FFreezedAccounts.BlocksCount;
   end;
 
-  if PaccAccountToBuy^.updated_block <> FFreezedAccounts.blocksCount then
+  if PaccAccountToBuy^.updated_block <> FFreezedAccounts.BlocksCount then
   begin
     PaccAccountToBuy^.previous_updated_block := PaccAccountToBuy^.updated_block;
-    PaccAccountToBuy^.updated_block := FFreezedAccounts.blocksCount;
+    PaccAccountToBuy^.updated_block := FFreezedAccounts.BlocksCount;
   end;
 
-  if PaccSeller^.updated_block <> FFreezedAccounts.blocksCount then
+  if PaccSeller^.updated_block <> FFreezedAccounts.BlocksCount then
   begin
     PaccSeller^.previous_updated_block := PaccSeller^.updated_block;
-    PaccSeller^.updated_block := FFreezedAccounts.blocksCount;
+    PaccSeller^.updated_block := FFreezedAccounts.BlocksCount;
   end;
 
   // Inc buyer n_operation
-  PaccBuyer^.n_operation := n_operation;
+  PaccBuyer^.numberOfTransactions := n_operation;
   // Set new balance values
   PaccBuyer^.balance := PaccBuyer^.balance - (amount + fee);
   PaccAccountToBuy^.balance := PaccAccountToBuy^.balance + amount - PaccAccountToBuy^.AccountInfo.price;
@@ -242,7 +242,7 @@ begin
     begin
       Pa := FOrderedList.GetPointer(i);
       FreezedAccounts.SetAccount(Pa^.AccountNumber, Pa^.AccountInfo, Pa^.name, Pa^.account_type, Pa^.balance,
-        Pa^.n_operation{$IFDEF EXTENDEDACCOUNT}, Pa^.SubAccounts, Pa^.ExtraData{$ENDIF});
+        Pa^.numberOfTransactions{$IFDEF EXTENDEDACCOUNT}, Pa^.SubAccounts, Pa^.ExtraData{$ENDIF});
     end;
     //
     if (FFreezedAccounts.TotalBalance <> FTotalBalance) then
@@ -366,25 +366,25 @@ begin
     errors := 'Invalid integrity in accounts transaction';
     exit;
   end;
-  if (sender < 0) or (sender >= (FFreezedAccounts.blocksCount * CT_AccountsPerBlock)) or (target < 0) or
-    (target >= (FFreezedAccounts.blocksCount * CT_AccountsPerBlock)) then
+  if (sender < 0) or (sender >= (FFreezedAccounts.BlocksCount * CT_AccountsPerBlock)) or (target < 0) or
+    (target >= (FFreezedAccounts.BlocksCount * CT_AccountsPerBlock)) then
   begin
     errors := 'Invalid sender or target on transfer';
     exit;
   end;
-  if TAccount.IsAccountBlockedByProtocol(sender, FFreezedAccounts.blocksCount) then
+  if TAccount.IsAccountBlockedByProtocol(sender, FFreezedAccounts.BlocksCount) then
   begin
     errors := 'Sender account is blocked for protocol';
     exit;
   end;
-  if TAccount.IsAccountBlockedByProtocol(target, FFreezedAccounts.blocksCount) then
+  if TAccount.IsAccountBlockedByProtocol(target, FFreezedAccounts.BlocksCount) then
   begin
     errors := 'Target account is blocked for protocol';
     exit;
   end;
   PaccSender := GetInternalAccount(sender);
   PaccTarget := GetInternalAccount(target);
-  if (PaccSender^.n_operation + 1 <> n_operation) then
+  if (PaccSender^.numberOfTransactions + 1 <> n_operation) then
   begin
     errors := 'Incorrect n_operation';
     exit;
@@ -404,25 +404,25 @@ begin
     errors := 'Max fee';
     exit;
   end;
-  if (PaccSender^.AccountInfo.IsLocked(FFreezedAccounts.blocksCount)) then
+  if (PaccSender^.AccountInfo.IsLocked(FFreezedAccounts.BlocksCount)) then
   begin
     errors := 'Sender account is locked until block ' + inttostr(PaccSender^.AccountInfo.locked_until_block);
     exit;
   end;
 
-  if PaccSender^.updated_block <> FFreezedAccounts.blocksCount then
+  if PaccSender^.updated_block <> FFreezedAccounts.BlocksCount then
   begin
     PaccSender^.previous_updated_block := PaccSender^.updated_block;
-    PaccSender^.updated_block := FFreezedAccounts.blocksCount;
+    PaccSender^.updated_block := FFreezedAccounts.BlocksCount;
   end;
 
-  if PaccTarget^.updated_block <> FFreezedAccounts.blocksCount then
+  if PaccTarget^.updated_block <> FFreezedAccounts.BlocksCount then
   begin
     PaccTarget^.previous_updated_block := PaccTarget.updated_block;
-    PaccTarget^.updated_block := FFreezedAccounts.blocksCount;
+    PaccTarget^.updated_block := FFreezedAccounts.BlocksCount;
   end;
 
-  PaccSender^.n_operation := n_operation;
+  PaccSender^.numberOfTransactions := n_operation;
   PaccSender^.balance := PaccSender^.balance - (amount + fee);
   PaccTarget^.balance := PaccTarget^.balance + (amount);
 
@@ -439,21 +439,21 @@ var
 begin
   Result := false;
   errors := '';
-  if (signer_account < 0) or (signer_account >= (FFreezedAccounts.blocksCount * CT_AccountsPerBlock)) or
-    (target_account < 0) or (target_account >= (FFreezedAccounts.blocksCount * CT_AccountsPerBlock)) then
+  if (signer_account < 0) or (signer_account >= (FFreezedAccounts.BlocksCount * CT_AccountsPerBlock)) or
+    (target_account < 0) or (target_account >= (FFreezedAccounts.BlocksCount * CT_AccountsPerBlock)) then
   begin
     errors := 'Invalid account';
     exit;
   end;
-  if (TAccount.IsAccountBlockedByProtocol(signer_account, FFreezedAccounts.blocksCount)) or
-    (TAccount.IsAccountBlockedByProtocol(target_account, FFreezedAccounts.blocksCount)) then
+  if (TAccount.IsAccountBlockedByProtocol(signer_account, FFreezedAccounts.BlocksCount)) or
+    (TAccount.IsAccountBlockedByProtocol(target_account, FFreezedAccounts.BlocksCount)) then
   begin
     errors := 'account is blocked for protocol';
     exit;
   end;
   P_signer := GetInternalAccount(signer_account);
   P_target := GetInternalAccount(target_account);
-  if (P_signer^.n_operation + 1 <> signer_n_operation) then
+  if (P_signer^.numberOfTransactions + 1 <> signer_n_operation) then
   begin
     errors := 'Incorrect n_operation';
     exit;
@@ -463,27 +463,27 @@ begin
     errors := 'Insuficient founds';
     exit;
   end;
-  if (P_signer^.AccountInfo.IsLocked(FFreezedAccounts.blocksCount)) then
+  if (P_signer^.AccountInfo.IsLocked(FFreezedAccounts.BlocksCount)) then
   begin
     errors := 'Signer account is locked until block ' + inttostr(P_signer^.AccountInfo.locked_until_block);
     exit;
   end;
-  if (P_target^.AccountInfo.IsLocked(FFreezedAccounts.blocksCount)) then
+  if (P_target^.AccountInfo.IsLocked(FFreezedAccounts.BlocksCount)) then
   begin
     errors := 'Target account is locked until block ' + inttostr(P_target^.AccountInfo.locked_until_block);
     exit;
   end;
-  if P_signer^.updated_block <> FFreezedAccounts.blocksCount then
+  if P_signer^.updated_block <> FFreezedAccounts.BlocksCount then
   begin
     P_signer^.previous_updated_block := P_signer^.updated_block;
-    P_signer^.updated_block := FFreezedAccounts.blocksCount;
+    P_signer^.updated_block := FFreezedAccounts.BlocksCount;
   end;
   if (signer_account <> target_account) then
   begin
-    if P_target^.updated_block <> FFreezedAccounts.blocksCount then
+    if P_target^.updated_block <> FFreezedAccounts.BlocksCount then
     begin
       P_target^.previous_updated_block := P_target^.updated_block;
-      P_target^.updated_block := FFreezedAccounts.blocksCount;
+      P_target^.updated_block := FFreezedAccounts.BlocksCount;
     end;
   end;
   if not TAccountKey.EqualAccountKeys(P_signer^.AccountInfo.AccountKey, P_target^.AccountInfo.AccountKey) then
@@ -532,7 +532,7 @@ begin
     end;
   end;
 
-  P_signer^.n_operation := signer_n_operation;
+  P_signer^.numberOfTransactions := signer_n_operation;
   P_target^.AccountInfo := AccountInfo;
   P_target^.name := newName;
   P_target^.account_type := newType;

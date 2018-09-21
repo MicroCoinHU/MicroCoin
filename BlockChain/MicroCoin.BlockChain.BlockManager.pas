@@ -144,7 +144,7 @@ begin
     Result := false;
     errors := '';
     try
-      if not ABlock.ValidateOperationBlock(errors) then
+      if not ABlock.ValidateBlock(errors) then
       begin
         exit;
       end;

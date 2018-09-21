@@ -240,17 +240,22 @@ end;
 
 function TEncryptedMemo.GetEncryptedMessage: AnsiString;
 begin
-  if csDesigning in ComponentState
-  then Exit('');
 
-  if Trim(Text)<>'' then begin
-    case FEncryptionMode of
-      emNone:    Result := Text;
-      emTarget:  Result := ECIESEncrypt(account.AccountInfo.AccountKey, Text);
-      emSource:  Result := ECIESEncrypt(account.AccountInfo.AccountKey, Text);
-      emPassword: Result := TAESComp.EVP_Encrypt_AES256(Text, FPassword);
-    end;
-  end else Result := '';
+  Result := '';
+
+  if csDesigning in ComponentState
+  then Exit;
+
+  if Trim(Text)=''
+  then exit;
+
+  case FEncryptionMode of
+    emNone:    Result := Text;
+    emTarget:  Result := ECIESEncrypt(account.AccountInfo.AccountKey, Text);
+    emSource:  Result := ECIESEncrypt(account.AccountInfo.AccountKey, Text);
+    emPassword: Result := TAESComp.EVP_Encrypt_AES256(Text, FPassword);
+  end;
+
 end;
 
 end.
