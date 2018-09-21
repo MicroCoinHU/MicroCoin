@@ -141,7 +141,7 @@ begin
   if xProxy = '' then
     exit;
   { Script := TPSScript.Create(nil); }
-  for i := 0 to TNodeNotifyEvents(Sender).Node.Operations.Count - 1 do
+  for i := 0 to TNodeNotifyEvents(Sender).Node.TransactionStorage.Count - 1 do
   begin
     {
       Script.AddRegisteredVariable('FromAccount', 'btString');
@@ -152,8 +152,8 @@ begin
       Script.AddRegisteredVariable('OpHash', 'btString');
       Script.AddRegisteredVariable('Payload', 'btString');
     }
-    xTransaction := TNodeNotifyEvents(Sender).Node.Operations.Transaction[i];
-    xTransaction := TNodeNotifyEvents(Sender).Node.Operations.TransactionHashTree.GetTransaction(i);
+    xTransaction := TNodeNotifyEvents(Sender).Node.TransactionStorage.Transaction[i];
+    xTransaction := TNodeNotifyEvents(Sender).Node.TransactionStorage.TransactionHashTree.GetTransaction(i);
     xTransaction.GetTransactionData(0, xTransaction.SignerAccount, xTransactionData);
     an := xTransactionData.DestAccount;
     xFromAccount := TAccount.AccountNumberToAccountTxtNumber(xTransactionData.AffectedAccount);
@@ -300,7 +300,7 @@ begin
   FCallsCounter := 0;
   FValidIPs := '127.0.0.1;localhost'; // New Build 1.5 - By default, only localhost can access to RPC
   FNodeNotifyEvents := TNodeNotifyEvents.Create(nil);
-  FNodeNotifyEvents.OnOperationsChanged := OnNodeNewOperation;
+  FNodeNotifyEvents.OnTransactionsChanged := OnNodeNewOperation;
 end;
 
 destructor TRPCServer.Destroy;

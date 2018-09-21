@@ -47,24 +47,24 @@ uses ucrypto, MicroCoin.Transaction.Transaction, SysUtils,
 
 type
 
-  TOpChangeAccountInfoType = (public_key, account_name, account_type);
-  TOpChangeAccountInfoTypes = set of TOpChangeAccountInfoType;
+  TChangeAccountInfoType = (public_key, account_name, account_type);
+  TChangeAccountInfoTypes = set of TChangeAccountInfoType;
 
-  TChangeAccountInfoTransaction = class(TTransaction)
+  SenderAccount = class(TTransaction)
   protected type
     TChangeAccountInfoTransactionData = record
-      account_signer, account_target: Cardinal;
-      n_operation: Cardinal;
-      fee: UInt64;
-      payload: TRawBytes;
-      public_key: TECDSA_Public;
-      changes_type: TOpChangeAccountInfoTypes;
+      SignerAccount, TargetAccount: Cardinal;
+      NumberOfTransactions: Cardinal;
+      Fee: UInt64;
+      Payload: TRawBytes;
+      PublicKey: TECDSA_Public;
+      ChangeType: TChangeAccountInfoTypes;
       // bits mask. $0001 = New account key , $0002 = New name , $0004 = New type
-      new_accountkey: TAccountKey;
+      NewAccountKey: TAccountKey;
       // If (changes_mask and $0001)=$0001 then change account key
-      new_name: TRawBytes; // If (changes_mask and $0002)=$0002 then change name
-      new_type: Word; // If (changes_mask and $0004)=$0004 then change type
-      sign: TECDSA_SIG;
+      NewName: TRawBytes; // If (changes_mask and $0002)=$0002 then change name
+      NewType: Word; // If (changes_mask and $0004)=$0004 then change type
+      Signature: TECDSA_SIG;
     end;
   private
     FData: TChangeAccountInfoTransactionData;
@@ -100,105 +100,105 @@ type
 implementation
 
 const
-  CT_TOpChangeAccountInfoData_NUL: TChangeAccountInfoTransaction.TChangeAccountInfoTransactionData = (account_signer: 0; account_target: 0; n_operation: 0;
-    fee: 0; payload: ''; public_key: (EC_OpenSSL_NID: 0; x: ''; y: ''); changes_type: [];
-    new_accountkey: (EC_OpenSSL_NID: 0; x: ''; y: ''); new_name: ''; new_type: 0; sign: (r: ''; s: ''));
+  CT_TOpChangeAccountInfoData_NUL: SenderAccount.TChangeAccountInfoTransactionData = (SignerAccount: 0; TargetAccount: 0; NumberOfTransactions: 0;
+    Fee: 0; Payload: ''; PublicKey: (EC_OpenSSL_NID: 0; x: ''; y: ''); ChangeType: [];
+    NewAccountKey: (EC_OpenSSL_NID: 0; x: ''; y: ''); NewName: ''; NewType: 0; Signature: (r: ''; s: ''));
 
 
-procedure TChangeAccountInfoTransaction.InitializeData;
+procedure SenderAccount.InitializeData;
 begin
   inherited InitializeData;
   FData := CT_TOpChangeAccountInfoData_NUL;
 end;
 
-function TChangeAccountInfoTransaction.SaveToStream(Stream: TStream; SaveExtendedData: Boolean): Boolean;
+function SenderAccount.SaveToStream(Stream: TStream; SaveExtendedData: Boolean): Boolean;
 var
   b: Byte;
 begin
-  Stream.Write(FData.account_signer, Sizeof(FData.account_signer));
-  Stream.Write(FData.account_target, Sizeof(FData.account_target));
-  Stream.Write(FData.n_operation, Sizeof(FData.n_operation));
-  Stream.Write(FData.fee, Sizeof(FData.fee));
-  TStreamOp.WriteAnsiString(Stream, FData.payload);
-  TStreamOp.WriteAccountKey(Stream, FData.public_key);
+  Stream.Write(FData.SignerAccount, Sizeof(FData.SignerAccount));
+  Stream.Write(FData.TargetAccount, Sizeof(FData.TargetAccount));
+  Stream.Write(FData.NumberOfTransactions, Sizeof(FData.NumberOfTransactions));
+  Stream.Write(FData.Fee, Sizeof(FData.Fee));
+  TStreamOp.WriteAnsiString(Stream, FData.Payload);
+  TStreamOp.WriteAccountKey(Stream, FData.PublicKey);
   b := 0;
-  if (public_key in FData.changes_type) then
+  if (public_key in FData.ChangeType) then
     b := b or $01;
-  if (account_name in FData.changes_type) then
+  if (account_name in FData.ChangeType) then
     b := b or $02;
-  if (account_type in FData.changes_type) then
+  if (account_type in FData.ChangeType) then
     b := b or $04;
   Stream.Write(b, Sizeof(b));
-  TStreamOp.WriteAccountKey(Stream, FData.new_accountkey);
-  TStreamOp.WriteAnsiString(Stream, FData.new_name);
-  Stream.Write(FData.new_type, Sizeof(FData.new_type));
-  TStreamOp.WriteAnsiString(Stream, FData.sign.r);
-  TStreamOp.WriteAnsiString(Stream, FData.sign.s);
+  TStreamOp.WriteAccountKey(Stream, FData.NewAccountKey);
+  TStreamOp.WriteAnsiString(Stream, FData.NewName);
+  Stream.Write(FData.NewType, Sizeof(FData.NewType));
+  TStreamOp.WriteAnsiString(Stream, FData.Signature.r);
+  TStreamOp.WriteAnsiString(Stream, FData.Signature.s);
   Result := true;
 end;
 
-function TChangeAccountInfoTransaction.LoadFromStream(Stream: TStream; LoadExtendedData: Boolean): Boolean;
+function SenderAccount.LoadFromStream(Stream: TStream; LoadExtendedData: Boolean): Boolean;
 var
   b: Byte;
 begin
   Result := False;
   if Stream.Size - Stream.Position < 20 then
     exit;
-  Stream.Read(FData.account_signer, Sizeof(FData.account_signer));
-  Stream.Read(FData.account_target, Sizeof(FData.account_target));
-  Stream.Read(FData.n_operation, Sizeof(FData.n_operation));
-  Stream.Read(FData.fee, Sizeof(FData.fee));
-  if TStreamOp.ReadAnsiString(Stream, FData.payload) < 0 then
+  Stream.Read(FData.SignerAccount, Sizeof(FData.SignerAccount));
+  Stream.Read(FData.TargetAccount, Sizeof(FData.TargetAccount));
+  Stream.Read(FData.NumberOfTransactions, Sizeof(FData.NumberOfTransactions));
+  Stream.Read(FData.Fee, Sizeof(FData.Fee));
+  if TStreamOp.ReadAnsiString(Stream, FData.Payload) < 0 then
     exit;
-  if TStreamOp.ReadAccountKey(Stream, FData.public_key) < 0 then
+  if TStreamOp.ReadAccountKey(Stream, FData.PublicKey) < 0 then
     exit;
   Stream.Read(b, Sizeof(b));
-  FData.changes_type := [];
+  FData.ChangeType := [];
   if (b and $01) = $01 then
-    FData.changes_type := FData.changes_type + [public_key];
+    FData.ChangeType := FData.ChangeType + [public_key];
   if (b and $02) = $02 then
-    FData.changes_type := FData.changes_type + [account_name];
+    FData.ChangeType := FData.ChangeType + [account_name];
   if (b and $04) = $04 then
-    FData.changes_type := FData.changes_type + [account_type];
+    FData.ChangeType := FData.ChangeType + [account_type];
   // Check
   if (b and $F8) <> 0 then
     exit;
-  if TStreamOp.ReadAccountKey(Stream, FData.new_accountkey) < 0 then
+  if TStreamOp.ReadAccountKey(Stream, FData.NewAccountKey) < 0 then
     exit;
-  if TStreamOp.ReadAnsiString(Stream, FData.new_name) < 0 then
+  if TStreamOp.ReadAnsiString(Stream, FData.NewName) < 0 then
     exit;
-  Stream.Read(FData.new_type, Sizeof(FData.new_type));
-  if TStreamOp.ReadAnsiString(Stream, FData.sign.r) < 0 then
+  Stream.Read(FData.NewType, Sizeof(FData.NewType));
+  if TStreamOp.ReadAnsiString(Stream, FData.Signature.r) < 0 then
     exit;
-  if TStreamOp.ReadAnsiString(Stream, FData.sign.s) < 0 then
+  if TStreamOp.ReadAnsiString(Stream, FData.Signature.s) < 0 then
     exit;
   Result := true;
 end;
 
-class function TChangeAccountInfoTransaction.GetHashForSignature(const ATransactionData: TChangeAccountInfoTransactionData): TRawBytes;
+class function SenderAccount.GetHashForSignature(const ATransactionData: TChangeAccountInfoTransactionData): TRawBytes;
 var
   Stream: TMemoryStream;
   b: Byte;
 begin
   Stream := TMemoryStream.Create;
   try
-    Stream.Write(ATransactionData.account_signer, Sizeof(ATransactionData.account_signer));
-    Stream.Write(ATransactionData.account_target, Sizeof(ATransactionData.account_target));
-    Stream.Write(ATransactionData.n_operation, Sizeof(ATransactionData.n_operation));
-    Stream.Write(ATransactionData.fee, Sizeof(ATransactionData.fee));
-    TStreamOp.WriteAnsiString(Stream, ATransactionData.payload);
-    TStreamOp.WriteAccountKey(Stream, ATransactionData.public_key);
+    Stream.Write(ATransactionData.SignerAccount, Sizeof(ATransactionData.SignerAccount));
+    Stream.Write(ATransactionData.TargetAccount, Sizeof(ATransactionData.TargetAccount));
+    Stream.Write(ATransactionData.NumberOfTransactions, Sizeof(ATransactionData.NumberOfTransactions));
+    Stream.Write(ATransactionData.Fee, Sizeof(ATransactionData.Fee));
+    TStreamOp.WriteAnsiString(Stream, ATransactionData.Payload);
+    TStreamOp.WriteAccountKey(Stream, ATransactionData.PublicKey);
     b := 0;
-    if (public_key in ATransactionData.changes_type) then
+    if (public_key in ATransactionData.ChangeType) then
       b := b or $01;
-    if (account_name in ATransactionData.changes_type) then
+    if (account_name in ATransactionData.ChangeType) then
       b := b or $02;
-    if (account_type in ATransactionData.changes_type) then
+    if (account_type in ATransactionData.ChangeType) then
       b := b or $04;
     Stream.Write(b, Sizeof(b));
-    TStreamOp.WriteAccountKey(Stream, ATransactionData.new_accountkey);
-    TStreamOp.WriteAnsiString(Stream, ATransactionData.new_name);
-    Stream.Write(ATransactionData.new_type, Sizeof(ATransactionData.new_type));
+    TStreamOp.WriteAccountKey(Stream, ATransactionData.NewAccountKey);
+    TStreamOp.WriteAnsiString(Stream, ATransactionData.NewName);
+    Stream.Write(ATransactionData.NewType, Sizeof(ATransactionData.NewType));
     Stream.Position := 0;
     setlength(Result, Stream.Size);
     Stream.ReadBuffer(Result[1], Stream.Size);
@@ -207,7 +207,7 @@ begin
   end;
 end;
 
-class function TChangeAccountInfoTransaction.DoSignTransaction(key: TECPrivateKey; var ATransactionData: TChangeAccountInfoTransactionData): Boolean;
+class function SenderAccount.DoSignTransaction(key: TECPrivateKey; var ATransactionData: TChangeAccountInfoTransactionData): Boolean;
 var
   raw: TRawBytes;
   _sign: TECDSA_SIG;
@@ -215,84 +215,84 @@ begin
   if not Assigned(key.PrivateKey) then
   begin
     Result := False;
-    ATransactionData.sign.r := '';
-    ATransactionData.sign.s := '';
+    ATransactionData.Signature.r := '';
+    ATransactionData.Signature.s := '';
     exit;
   end;
   raw := GetHashForSignature(ATransactionData);
   try
     _sign := TCrypto.ECDSASign(key, raw);
-    ATransactionData.sign := _sign;
+    ATransactionData.Signature := _sign;
     Result := true;
   except
-    ATransactionData.sign.r := '';
-    ATransactionData.sign.s := '';
+    ATransactionData.Signature.r := '';
+    ATransactionData.Signature.s := '';
     Result := False;
   end;
   setlength(raw, 0);
 end;
 
-function TChangeAccountInfoTransaction.GetTransactionType: Byte;
+function SenderAccount.GetTransactionType: Byte;
 begin
   Result := CT_Op_ChangeAccountInfo;
 end;
 
-function TChangeAccountInfoTransaction.GetBuffer(UseProtocolV2: Boolean): TRawBytes;
+function SenderAccount.GetBuffer(UseProtocolV2: Boolean): TRawBytes;
 begin
   Result := inherited GetBuffer(true);
 end;
 
-function TChangeAccountInfoTransaction.ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString)
+function SenderAccount.ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString)
   : Boolean;
 var
   account_signer, account_target: TAccount;
 begin
   Result := False;
-  if (FData.account_signer >= AccountTransaction.FreezedAccountStorage.AccountsCount) then
+  if (FData.SignerAccount >= AccountTransaction.FreezedAccountStorage.AccountsCount) then
   begin
     errors := 'Invalid account number';
     exit;
   end;
-  if TAccount.IsAccountBlockedByProtocol(FData.account_signer, AccountTransaction.FreezedAccountStorage.BlocksCount)
+  if TAccount.IsAccountBlockedByProtocol(FData.SignerAccount, AccountTransaction.FreezedAccountStorage.BlocksCount)
   then
   begin
     errors := 'account is blocked for protocol';
     exit;
   end;
-  if (FData.account_signer <> FData.account_target) then
+  if (FData.SignerAccount <> FData.TargetAccount) then
   begin
-    if (FData.account_target >= AccountTransaction.FreezedAccountStorage.AccountsCount) then
+    if (FData.TargetAccount >= AccountTransaction.FreezedAccountStorage.AccountsCount) then
     begin
       errors := 'Invalid account target number';
       exit;
     end;
-    if TAccount.IsAccountBlockedByProtocol(FData.account_target, AccountTransaction.FreezedAccountStorage.BlocksCount)
+    if TAccount.IsAccountBlockedByProtocol(FData.TargetAccount, AccountTransaction.FreezedAccountStorage.BlocksCount)
     then
     begin
       errors := 'Target account is blocked for protocol';
       exit;
     end;
   end;
-  if (FData.fee < 0) or (FData.fee > CT_MaxTransactionFee) then
+  if (FData.Fee < 0) or (FData.Fee > CT_MaxTransactionFee) then
   begin
-    errors := 'Invalid fee: ' + Inttostr(FData.fee);
+    errors := 'Invalid fee: ' + Inttostr(FData.Fee);
     exit;
   end;
-  account_signer := AccountTransaction.Account(FData.account_signer);
-  account_target := AccountTransaction.Account(FData.account_target);
-  if ((account_signer.numberOfTransactions + 1) <> FData.n_operation) then
+  account_signer := AccountTransaction.Account(FData.SignerAccount);
+  account_target := AccountTransaction.Account(FData.TargetAccount);
+  if ((account_signer.numberOfTransactions + 1) <> FData.NumberOfTransactions) then
   begin
     errors := 'Invalid n_operation';
     exit;
   end;
-  if (account_signer.balance < FData.fee) then
+  if (account_signer.balance < FData.Fee) then
   begin
     errors := 'Insuficient founds';
     exit;
   end;
-  if (length(FData.payload) > CT_MaxPayloadSize) then
+  if (length(FData.Payload) > CT_MaxPayloadSize) then
   begin
-    errors := 'Invalid Payload size:' + Inttostr(length(FData.payload)) + ' (Max: ' + Inttostr(CT_MaxPayloadSize) + ')';
+    errors := 'Invalid Payload size:' + Inttostr(length(FData.Payload)) + ' (Max: ' + Inttostr(CT_MaxPayloadSize) + ')';
     if (AccountTransaction.FreezedAccountStorage.CurrentProtocol >= CT_PROTOCOL_2) then
     begin
       exit; // BUG from protocol 1
@@ -309,43 +309,43 @@ begin
     errors := 'NOT ALLOWED ON PROTOCOL 1';
     exit;
   end;
-  if (public_key in FData.changes_type) then
+  if (public_key in FData.ChangeType) then
   begin
-    if not FData.new_accountkey.IsValidAccountKey(errors) then
+    if not FData.NewAccountKey.IsValidAccountKey(errors) then
     begin
       exit;
     end;
   end;
-  if (account_name in FData.changes_type) then
+  if (account_name in FData.ChangeType) then
   begin
-    if (FData.new_name <> '') then
+    if (FData.NewName <> '') then
     begin
-      if not TAccountStorage.AccountNameIsValid(FData.new_name, errors) then
+      if not TAccountStorage.AccountNameIsValid(FData.NewName, errors) then
         exit;
     end;
   end
   else
   begin
-    if (FData.new_name <> '') then
+    if (FData.NewName <> '') then
     begin
       errors := 'Invalid data in new_name field';
       exit;
     end;
   end;
-  if (FData.changes_type = []) then
+  if (FData.ChangeType = []) then
   begin
     errors := 'No change';
     exit;
   end;
-  if (FData.public_key.EC_OpenSSL_NID <> CT_TECDSA_Public_Nul.EC_OpenSSL_NID) and
-    (not TAccountKey.EqualAccountKeys(FData.public_key, account_signer.accountInfo.AccountKey)) then
+  if (FData.PublicKey.EC_OpenSSL_NID <> CT_TECDSA_Public_Nul.EC_OpenSSL_NID) and
+    (not TAccountKey.EqualAccountKeys(FData.PublicKey, account_signer.accountInfo.AccountKey)) then
   begin
     errors := Format('Invalid public key for account %d. Distinct from SafeBox public key! %s <> %s',
-      [FData.account_signer, TCrypto.ToHexaString(FData.public_key.ToRawString),
+      [FData.SignerAccount, TCrypto.ToHexaString(FData.PublicKey.ToRawString),
       TCrypto.ToHexaString(account_signer.accountInfo.AccountKey.ToRawString)]);
     exit;
   end;
-  if (FData.account_signer <> FData.account_target) then
+  if (FData.SignerAccount <> FData.TargetAccount) then
   begin
     if (account_target.accountInfo.IsLocked(AccountTransaction.FreezedAccountStorage.BlocksCount)) then
     begin
@@ -361,7 +361,7 @@ begin
     end;
   end;
 
-  if not TCrypto.ECDSAVerify(account_signer.accountInfo.AccountKey, GetHashForSignature(FData), FData.sign) then
+  if not TCrypto.ECDSAVerify(account_signer.accountInfo.AccountKey, GetHashForSignature(FData), FData.Signature) then
   begin
     errors := 'Invalid sign';
     FHasValidSignature := False;
@@ -371,43 +371,43 @@ begin
     FHasValidSignature := true;
   FPrevious_Signer_updated_block := account_signer.updated_block;
   FPrevious_Destination_updated_block := account_target.updated_block;
-  if (public_key in FData.changes_type) then
+  if (public_key in FData.ChangeType) then
   begin
-    account_target.accountInfo.AccountKey := FData.new_accountkey;
+    account_target.accountInfo.AccountKey := FData.NewAccountKey;
   end;
-  if (account_name in FData.changes_type) then
+  if (account_name in FData.ChangeType) then
   begin
-    account_target.name := FData.new_name;
+    account_target.name := FData.NewName;
   end;
-  if (account_type in FData.changes_type) then
+  if (account_type in FData.ChangeType) then
   begin
-    account_target.account_type := FData.new_type;
+    account_target.account_type := FData.NewType;
   end;
-  Result := AccountTransaction.UpdateAccountInfo(FData.account_signer, FData.n_operation, FData.account_target,
-    account_target.accountInfo, account_target.name, account_target.account_type, FData.fee, errors);
+  Result := AccountTransaction.UpdateAccountInfo(FData.SignerAccount, FData.NumberOfTransactions, FData.TargetAccount,
+    account_target.accountInfo, account_target.name, account_target.account_type, FData.Fee, errors);
 end;
 
-function TChangeAccountInfoTransaction.GetAmount: Int64;
+function SenderAccount.GetAmount: Int64;
 begin
   Result := 0;
 end;
 
-function TChangeAccountInfoTransaction.GetFee: UInt64;
+function SenderAccount.GetFee: UInt64;
 begin
-  Result := FData.fee;
+  Result := FData.Fee;
 end;
 
-function TChangeAccountInfoTransaction.GetPayload: TRawBytes;
+function SenderAccount.GetPayload: TRawBytes;
 begin
-  Result := FData.payload;
+  Result := FData.Payload;
 end;
 
-function TChangeAccountInfoTransaction.GetSignerAccount: Cardinal;
+function SenderAccount.GetSignerAccount: Cardinal;
 begin
-  Result := FData.account_signer;
+  Result := FData.SignerAccount;
 end;
 
-function TChangeAccountInfoTransaction.GetTransactionData(Block, Affected_account_number: Cardinal;
+function SenderAccount.GetTransactionData(Block, Affected_account_number: Cardinal;
   var TransactionData: TTransactionData): Boolean;
 
 var
@@ -416,23 +416,23 @@ begin
   TransactionData := TTransactionData.Empty;
   TransactionData.DestAccount := GetDestinationAccount;
   s := '';
-  if (public_key in Data.changes_type) then
+  if (public_key in Data.ChangeType) then
   begin
     s := 'key';
   end;
-  if (account_name in Data.changes_type) then
+  if (account_name in Data.ChangeType) then
   begin
     if s <> '' then
       s := s + ',';
     s := s + 'name';
   end;
-  if (account_type in Data.changes_type) then
+  if (account_type in Data.ChangeType) then
   begin
     if s <> '' then
       s := s + ',';
     s := s + 'type';
   end;
-  TransactionData.OperationTxt := 'Changed ' + s + ' of account ' + TAccount.AccountNumberToAccountTxtNumber
+  TransactionData.TransactionAsString := 'Changed ' + s + ' of account ' + TAccount.AccountNumberToAccountTxtNumber
     (GetDestinationAccount);
   TransactionData.transactionSubtype := CT_OpSubtype_ChangeAccountInfo;
   Result := true;
@@ -449,50 +449,50 @@ begin
   TransactionData.valid := true;
 end;
 
-function TChangeAccountInfoTransaction.GetDestinationAccount: Int64;
+function SenderAccount.GetDestinationAccount: Int64;
 begin
-  Result := FData.account_target;
+  Result := FData.TargetAccount;
 end;
 
-function TChangeAccountInfoTransaction.GetNumberOfTransactions: Cardinal;
+function SenderAccount.GetNumberOfTransactions: Cardinal;
 begin
-  Result := FData.n_operation;
+  Result := FData.NumberOfTransactions;
 end;
 
-procedure TChangeAccountInfoTransaction.AffectedAccounts(list: TList);
+procedure SenderAccount.AffectedAccounts(list: TList);
 begin
-  list.Add(TObject(FData.account_signer));
-  if (FData.account_target <> FData.account_signer) then
-    list.Add(TObject(FData.account_target));
+  list.Add(TObject(FData.SignerAccount));
+  if (FData.TargetAccount <> FData.SignerAccount) then
+    list.Add(TObject(FData.TargetAccount));
 end;
 
-constructor TChangeAccountInfoTransaction.CreateChangeAccountInfo(account_signer, n_operation, account_target: Cardinal;
+constructor SenderAccount.CreateChangeAccountInfo(account_signer, n_operation, account_target: Cardinal;
   key: TECPrivateKey; change_key: Boolean; const new_account_key: TAccountKey; change_name: Boolean;
   const new_name: TRawBytes; change_type: Boolean; const new_type: Word; fee: UInt64; payload: TRawBytes);
 begin
   inherited Create;
-  FData.account_signer := account_signer;
-  FData.account_target := account_target;
-  FData.n_operation := n_operation;
-  FData.fee := fee;
-  FData.payload := payload;
+  FData.SignerAccount := account_signer;
+  FData.TargetAccount := account_target;
+  FData.NumberOfTransactions := n_operation;
+  FData.Fee := fee;
+  FData.Payload := payload;
   // V2: No need to store public key because it's at safebox. Saving at least 64 bytes!
   // FData.public_key:=key.PublicKey;
-  FData.changes_type := [];
+  FData.ChangeType := [];
   if change_key then
   begin
-    FData.changes_type := FData.changes_type + [public_key];
-    FData.new_accountkey := new_account_key;
+    FData.ChangeType := FData.ChangeType + [public_key];
+    FData.NewAccountKey := new_account_key;
   end;
   if change_name then
   begin
-    FData.changes_type := FData.changes_type + [account_name];
-    FData.new_name := new_name;
+    FData.ChangeType := FData.ChangeType + [account_name];
+    FData.NewName := new_name;
   end;
   if change_type then
   begin
-    FData.changes_type := FData.changes_type + [account_type];
-    FData.new_type := new_type;
+    FData.ChangeType := FData.ChangeType + [account_type];
+    FData.NewType := new_type;
   end;
   if not DoSignTransaction(key, FData) then
   begin
@@ -503,32 +503,32 @@ begin
     FHasValidSignature := true;
 end;
 
-function TChangeAccountInfoTransaction.toString: string;
+function SenderAccount.toString: string;
 var
   s: string;
 begin
   s := '';
-  if (public_key in FData.changes_type) then
-    s := 'new public key ' + TAccountKey.GetECInfoTxt(FData.new_accountkey.EC_OpenSSL_NID);
-  if (account_name in FData.changes_type) then
+  if (public_key in FData.ChangeType) then
+    s := 'new public key ' + TAccountKey.GetECInfoTxt(FData.NewAccountKey.EC_OpenSSL_NID);
+  if (account_name in FData.ChangeType) then
   begin
     if s <> '' then
       s := s + ', ';
-    s := s + 'new name to "' + FData.new_name + '"';
+    s := s + 'new name to "' + FData.NewName + '"';
   end;
-  if (account_type in FData.changes_type) then
+  if (account_type in FData.ChangeType) then
   begin
     if s <> '' then
       s := s + ', ';
-    s := s + 'new type to ' + Inttostr(FData.new_type);
+    s := s + 'new type to ' + Inttostr(FData.NewType);
   end;
   Result := Format('Change account %s info: %s fee:%s (n_op:%d) payload size:%d',
-    [TAccount.AccountNumberToAccountTxtNumber(FData.account_target), s, TCurrencyUtils.CurrencyToString(FData.fee),
-    FData.n_operation, length(FData.payload)]);
+    [TAccount.AccountNumberToAccountTxtNumber(FData.TargetAccount), s, TCurrencyUtils.CurrencyToString(FData.Fee),
+    FData.NumberOfTransactions, length(FData.Payload)]);
 end;
 
 initialization
 
-TTransactionManager.RegisterTransactionPlugin(TChangeAccountInfoTransaction, CT_Op_ChangeAccountInfo);
+TTransactionManager.RegisterTransactionPlugin(SenderAccount, CT_Op_ChangeAccountInfo);
 
 end.

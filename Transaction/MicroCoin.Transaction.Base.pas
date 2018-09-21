@@ -55,7 +55,7 @@ type
     DestAccount: Int64; //
     SellerAccount: Int64; // Protocol 2 - only used when is a pay to transaction
     newKey: TAccountKey;
-    OperationTxt: AnsiString;
+    TransactionAsString: AnsiString;
     Amount: Int64;
     Fee: Int64;
     Balance: Int64;
@@ -85,7 +85,7 @@ begin
   Result.time := 0;
   Result.transactionSubtype := 0;
   Result.AffectedAccount := 0;
-  Result.OperationTxt := '';
+  Result.TransactionAsString := '';
   Result.Amount := 0;
   Result.Fee := 0;
   Result.OriginalPayload := '';

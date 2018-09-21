@@ -84,8 +84,9 @@ type
     function DoUpgradeToProtocol2: Boolean;
     constructor Create;
     destructor Destroy; override;
-    procedure SetAccount(account_number: Cardinal; const newAccountInfo: TAccountInfo; const newName: TRawBytes;
-      newType: Word; newBalance: UInt64; newN_operation: Cardinal{$IFDEF EXTENDEDACCOUNT}; SubAccounts: array of TSubAccount; Extra: TExtraData{$ENDIF});
+    procedure SetAccount(AAccountNumber: Cardinal; const ANewAccountInfo: TAccountInfo; const ANewName: TRawBytes;
+      ANewType: Word; ANewBalance: UInt64; ANewNumberOfTransactions: Cardinal{$IFDEF EXTENDEDACCOUNT}; SubAccounts: array of TSubAccount;
+      Extra: TExtraData{$ENDIF});
     function AddNew(const BlockChain: TBlockHeader): TAccountStorageEntry;
     function AccountsCount: Integer;
     function BlocksCount: Integer;
@@ -1611,8 +1612,8 @@ begin
     Result := -1;
 end;
 
-procedure TAccountStorage.SetAccount(account_number: Cardinal; const newAccountInfo: TAccountInfo;
-  const newName: TRawBytes; newType: Word; newBalance: UInt64; newN_operation: Cardinal
+procedure TAccountStorage.SetAccount(AAccountNumber: Cardinal; const ANewAccountInfo: TAccountInfo;
+  const ANewName: TRawBytes; ANewType: Word; ANewBalance: UInt64; ANewNumberOfTransactions: Cardinal
   {$IFDEF EXTENDEDACCOUNT};SubAccounts: array of TSubAccount; Extra: TExtraData{$ENDIF}
   );
 var
@@ -1623,20 +1624,20 @@ var
   bacc: TAccountStorageEntry;
   P: PBlockAccount;
 begin
-  iblock := account_number div CT_AccountsPerBlock;
-  iAccount := account_number mod CT_AccountsPerBlock;
-  acc := Account(account_number);
+  iblock := AAccountNumber div CT_AccountsPerBlock;
+  iAccount := AAccountNumber mod CT_AccountsPerBlock;
+  acc := Account(AAccountNumber);
   P := FBlockAccountsList.Items[iblock];
 
-  if (not TAccountKey.EqualAccountKeys(acc.AccountInfo.AccountKey, newAccountInfo.AccountKey)) then
+  if (not TAccountKey.EqualAccountKeys(acc.AccountInfo.AccountKey, ANewAccountInfo.AccountKey)) then
   begin
-    AccountKeyListRemoveAccount(acc.AccountInfo.AccountKey, [account_number]);
-    AccountKeyListAddAccounts(newAccountInfo.AccountKey, [account_number]);
+    AccountKeyListRemoveAccount(acc.AccountInfo.AccountKey, [AAccountNumber]);
+    AccountKeyListAddAccounts(ANewAccountInfo.AccountKey, [AAccountNumber]);
   end;
 
-  acc.AccountInfo := newAccountInfo;
+  acc.AccountInfo := ANewAccountInfo;
   // Name:
-  if acc.name <> newName then
+  if acc.name <> ANewName then
   begin
     if acc.name <> '' then
     begin
@@ -1646,26 +1647,26 @@ begin
       else
         FOrderedByName.Delete(i);
     end;
-    acc.name := newName;
+    acc.name := ANewName;
     if acc.name <> '' then
     begin
       i := FOrderedByName.IndexOf(acc.name);
       if i >= 0 then
         TLog.NewLog(ltError, Classname, 'ERROR DEV 20170606-2')
       else
-        FOrderedByName.Add(acc.name, account_number);
+        FOrderedByName.Add(acc.name, AAccountNumber);
     end;
   end;
-  acc.account_type := newType;
+  acc.account_type := ANewType;
   lastbalance := acc.balance;
-  acc.balance := newBalance;
+  acc.balance := ANewBalance;
   // Will update previous_updated_block only on first time/block
   if acc.updated_block <> BlocksCount then
   begin
     acc.previous_updated_block := acc.updated_block;
     acc.updated_block := BlocksCount;
   end;
-  acc.numberOfTransactions := newN_operation;
+  acc.numberOfTransactions := ANewNumberOfTransactions;
   {$IFDEF EXTENDEDACCOUNT}
   SetLength(acc.SubAccounts, Length(SubAccounts));
   for I := Low(SubAccounts) to High(SubAccounts)
@@ -1693,8 +1694,8 @@ begin
 {$ENDIF}
   end;
 
-  FTotalBalance := FTotalBalance - (Int64(lastbalance) - Int64(newBalance));
-  FTotalFee := FTotalFee + (Int64(lastbalance) - Int64(newBalance));
+  FTotalBalance := FTotalBalance - (Int64(lastbalance) - Int64(ANewBalance));
+  FTotalFee := FTotalFee + (Int64(lastbalance) - Int64(ANewBalance));
 end;
 
 procedure TAccountStorage.StartThreadSafe;

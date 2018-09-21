@@ -27,8 +27,8 @@ type
 
   TRecoverFoundsData = record
     Account: Cardinal;
-    n_operation: Cardinal;
-    fee: UInt64;
+    NumberOfTransactions: Cardinal;
+    Fee: UInt64;
   end;
 
   TRecoverFoundsTransaction = class(TTransaction)
@@ -58,7 +58,7 @@ type
   end;
 
 const
-  CT_TOpRecoverFoundsData_NUL: TRecoverFoundsData = (Account: 0; n_operation: 0; fee: 0);
+  CT_TOpRecoverFoundsData_NUL: TRecoverFoundsData = (Account: 0; NumberOfTransactions: 0; Fee: 0);
 
 implementation
 
@@ -71,8 +71,8 @@ constructor TRecoverFoundsTransaction.Create(account_number, n_operation: Cardin
 begin
   inherited Create;
   FData.Account := account_number;
-  FData.n_operation := n_operation;
-  FData.fee := fee;
+  FData.NumberOfTransactions := n_operation;
+  FData.Fee := fee;
   FHasValidSignature := true; // Recover founds doesn't need a signature
 end;
 
@@ -105,23 +105,23 @@ begin
       AccountTransaction.FreezedAccountStorage.BlocksCount]);
     Exit;
   end;
-  if ((acc.numberOfTransactions + 1) <> FData.n_operation) then
+  if ((acc.numberOfTransactions + 1) <> FData.NumberOfTransactions) then
   begin
     errors := 'Invalid n_operation';
     Exit;
   end;
-  if (FData.fee <= 0) or (FData.fee > CT_MaxTransactionFee) then
+  if (FData.Fee <= 0) or (FData.Fee > CT_MaxTransactionFee) then
   begin
-    errors := 'Invalid fee ' + Inttostr(FData.fee);
+    errors := 'Invalid fee ' + Inttostr(FData.Fee);
     Exit;
   end;
-  if (acc.balance < FData.fee) then
+  if (acc.balance < FData.Fee) then
   begin
     errors := 'Insuficient founds';
     Exit;
   end;
   FPrevious_Signer_updated_block := acc.updated_block;
-  Result := AccountTransaction.TransferAmount(FData.Account, FData.Account, FData.n_operation, 0, FData.fee, errors);
+  Result := AccountTransaction.TransferAmount(FData.Account, FData.Account, FData.NumberOfTransactions, 0, FData.Fee, errors);
 end;
 
 function TRecoverFoundsTransaction.GetBuffer(UseProtocolV2: Boolean): TRawBytes;
@@ -135,8 +135,8 @@ begin
     ms := TMemoryStream.Create;
     try
       ms.Write(FData.Account, Sizeof(FData.Account));
-      ms.Write(FData.n_operation, Sizeof(FData.n_operation));
-      ms.Write(FData.fee, Sizeof(FData.fee));
+      ms.Write(FData.NumberOfTransactions, Sizeof(FData.NumberOfTransactions));
+      ms.Write(FData.Fee, Sizeof(FData.Fee));
       ms.Position := 0;
       SetLength(Result, ms.Size);
       ms.ReadBuffer(Result[1], ms.Size);
@@ -158,8 +158,8 @@ begin
   if Stream.Size - Stream.Position < 16 then
     Exit;
   Stream.Read(FData.Account, Sizeof(FData.Account));
-  Stream.Read(FData.n_operation, Sizeof(FData.n_operation));
-  Stream.Read(FData.fee, Sizeof(FData.fee));
+  Stream.Read(FData.NumberOfTransactions, Sizeof(FData.NumberOfTransactions));
+  Stream.Read(FData.Fee, Sizeof(FData.Fee));
   Result := true;
 end;
 
@@ -170,7 +170,7 @@ end;
 
 function TRecoverFoundsTransaction.GetFee: UInt64;
 begin
-  Result := FData.fee;
+  Result := FData.Fee;
 end;
 
 function TRecoverFoundsTransaction.GetPayload: TRawBytes;
@@ -186,8 +186,8 @@ end;
 function TRecoverFoundsTransaction.SaveToStream(Stream: TStream; SaveExtendedData: Boolean): Boolean;
 begin
   Stream.Write(FData.Account, Sizeof(FData.Account));
-  Stream.Write(FData.n_operation, Sizeof(FData.n_operation));
-  Stream.Write(FData.fee, Sizeof(FData.fee));
+  Stream.Write(FData.NumberOfTransactions, Sizeof(FData.NumberOfTransactions));
+  Stream.Write(FData.Fee, Sizeof(FData.Fee));
   Result := true;
 end;
 
@@ -201,7 +201,7 @@ function TRecoverFoundsTransaction.GetTransactionData(Block, Affected_account_nu
 begin
   TransactionData := TTransactionData.Empty;
   TransactionData.transactionSubtype := CT_OpSubtype_Recover;
-  TransactionData.OperationTxt := 'Recover founds';
+  TransactionData.TransactionAsString := 'Recover founds';
   Result := true;
   TransactionData.OriginalPayload := GetPayload;
   if TCrypto.IsHumanReadable(TransactionData.OriginalPayload) then
@@ -218,14 +218,14 @@ end;
 
 function TRecoverFoundsTransaction.GetNumberOfTransactions: Cardinal;
 begin
-  Result := FData.n_operation;
+  Result := FData.NumberOfTransactions;
 end;
 
 function TRecoverFoundsTransaction.toString: string;
 begin
   Result := Format('Recover founds of account %s fee:%s (n_op:%d)',
-    [TAccount.AccountNumberToAccountTxtNumber(FData.Account), TCurrencyUtils.CurrencyToString(FData.fee),
-    FData.n_operation]);
+    [TAccount.AccountNumberToAccountTxtNumber(FData.Account), TCurrencyUtils.CurrencyToString(FData.Fee),
+    FData.NumberOfTransactions]);
 end;
 
 initialization

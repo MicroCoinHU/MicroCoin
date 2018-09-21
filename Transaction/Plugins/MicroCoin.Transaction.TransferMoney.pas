@@ -31,20 +31,20 @@ type
   TTransferMoneyTransaction = class(TTransaction)
   protected type
     TTransferMoneyTransactionData = record
-      sender: Cardinal;
-      n_operation: Cardinal;
-      target: Cardinal;
-      amount: UInt64;
-      fee: UInt64;
-      payload: TRawBytes;
-      public_key: TECDSA_Public;
-      sign: TECDSA_SIG;
+      SenderAccount: Cardinal;
+      NumberOfTransactions: Cardinal;
+      TargetAccount: Cardinal;
+      Amount: UInt64;
+      Fee: UInt64;
+      Payload: TRawBytes;
+      PublicKey: TECDSA_Public;
+      Signature: TECDSA_SIG;
       // Protocol 2
       // Next values will only be filled after this operation is executed
-      opTransactionStyle: TTransferMoneyTransactionStyle;
+      TransactionStyle: TTransferMoneyTransactionStyle;
       AccountPrice: UInt64;
       SellerAccount: Cardinal;
-      new_accountkey: TAccountKey;
+      NewAccountKey: TAccountKey;
       function CheckIsValid(AAccountTransaction : TAccountTransaction; RErros: string) : boolean;
     end;
   private
@@ -66,13 +66,13 @@ type
     function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean; override;
     procedure AffectedAccounts(list: TList); override;
     //
-    class function GetTransactionHashToSign(const trans: TTransferMoneyTransactionData): TRawBytes;
-    class function DoSignOperation(key: TECPrivateKey; var trans: TTransferMoneyTransactionData): Boolean;
-    function GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal;
+    class function GetTransactionHashForSignature(const trans: TTransferMoneyTransactionData): TRawBytes;
+    class function SignTransaction(AKey: TECPrivateKey; var RTransactionData: TTransferMoneyTransactionData): Boolean;
+    function GetTransactionData(ABlock: Cardinal; AAffectedAccountNumber: Cardinal;
       var TransactionData: TTransactionData): Boolean; override;
     property Data: TTransferMoneyTransactionData read FData;
-    constructor CreateTransaction(sender, n_operation, target: Cardinal; key: TECPrivateKey; amount, fee: UInt64;
-      payload: TRawBytes);
+    constructor CreateTransaction(ASenderAccount, ANumberOfTransactions, ATargetAccount: Cardinal; AKey: TECPrivateKey; AAmount, AFee: UInt64;
+      APayload: TRawBytes);
     function ToString: string; override;
   end;
 
@@ -91,33 +91,33 @@ type
 implementation
 
 const
-  CT_TOpTransactionData_NUL: TTransferMoneyTransaction.TTransferMoneyTransactionData = (sender: 0; n_operation: 0; target: 0; amount: 0; fee: 0;
-    payload: ''; public_key: (EC_OpenSSL_NID: 0; x: ''; y: ''); sign: (r: ''; s: ''); opTransactionStyle: Transaction;
-    AccountPrice: 0; SellerAccount: 0; new_accountkey: (EC_OpenSSL_NID: 0; x: ''; y: ''));
+  CT_TOpTransactionData_NUL: TTransferMoneyTransaction.TTransferMoneyTransactionData = (SenderAccount: 0; NumberOfTransactions: 0; TargetAccount: 0; Amount: 0; Fee: 0;
+    Payload: ''; PublicKey: (EC_OpenSSL_NID: 0; x: ''; y: ''); Signature: (r: ''; s: ''); TransactionStyle: Transaction;
+    AccountPrice: 0; SellerAccount: 0; NewAccountKey: (EC_OpenSSL_NID: 0; x: ''; y: ''));
 
 procedure TTransferMoneyTransaction.AffectedAccounts(list: TList);
 begin
-  list.Add(TObject(FData.sender));
-  list.Add(TObject(FData.target));
-  if (FData.opTransactionStyle in [transaction_with_auto_buy_account, buy_account]) then
+  list.Add(TObject(FData.SenderAccount));
+  list.Add(TObject(FData.TargetAccount));
+  if (FData.TransactionStyle in [transaction_with_auto_buy_account, buy_account]) then
   begin
     list.Add(TObject(FData.SellerAccount));
   end;
 end;
 
-constructor TTransferMoneyTransaction.CreateTransaction(sender, n_operation, target: Cardinal; key: TECPrivateKey;
-  amount, fee: UInt64; payload: TRawBytes);
+constructor TTransferMoneyTransaction.CreateTransaction(ASenderAccount, ANumberOfTransactions, ATargetAccount: Cardinal; AKey: TECPrivateKey;
+  AAmount, AFee: UInt64; APayload: TRawBytes);
 begin
   inherited Create;
-  FData.sender := sender;
-  FData.n_operation := n_operation;
-  FData.target := target;
-  FData.amount := amount;
-  FData.fee := fee;
-  FData.payload := payload;
+  FData.SenderAccount := ASenderAccount;
+  FData.NumberOfTransactions := ANumberOfTransactions;
+  FData.TargetAccount := ATargetAccount;
+  FData.Amount := AAmount;
+  FData.Fee := AFee;
+  FData.Payload := APayload;
   // V2: No need to store public key because it's at safebox. Saving at least 64 bytes!
   // FData.public_key := key.PublicKey;
-  if not DoSignOperation(key, FData) then
+  if not SignTransaction(AKey, FData) then
   begin
     TLog.NewLog(lterror, Classname, 'Error signing a new Transaction');
     FHasValidSignature := false;
@@ -140,23 +140,23 @@ begin
   if not FData.CheckIsValid(AccountTransaction, errors)
   then exit;
 
-  sender := AccountTransaction.Account(FData.sender);
-  target := AccountTransaction.Account(FData.target);
-  if ((sender.numberOfTransactions + 1) <> FData.n_operation) then
+  sender := AccountTransaction.Account(FData.SenderAccount);
+  target := AccountTransaction.Account(FData.TargetAccount);
+  if ((sender.numberOfTransactions + 1) <> FData.NumberOfTransactions) then
   begin
-    errors := Format('Invalid n_operation %d (expected %d)', [FData.n_operation, sender.numberOfTransactions + 1]);
+    errors := Format('Invalid n_operation %d (expected %d)', [FData.NumberOfTransactions, sender.numberOfTransactions + 1]);
     Exit;
   end;
-  totalamount := FData.amount + FData.fee;
+  totalamount := FData.Amount + FData.Fee;
   if (sender.balance < totalamount) then
   begin
-    errors := Format('Insuficient founds %d < (%d + %d = %d)', [sender.balance, FData.amount, FData.fee, totalamount]);
+    errors := Format('Insuficient founds %d < (%d + %d = %d)', [sender.balance, FData.Amount, FData.Fee, totalamount]);
     Exit;
   end;
-  if (target.balance + FData.amount > CT_MaxWalletAmount) then
+  if (target.balance + FData.Amount > CT_MaxWalletAmount) then
   begin
     errors := Format('Target cannot accept this transaction due to max amount %d+%d=%d > %d',
-      [target.balance, FData.amount, target.balance + FData.amount, CT_MaxWalletAmount]);
+      [target.balance, FData.Amount, target.balance + FData.Amount, CT_MaxWalletAmount]);
     Exit;
   end;
   // Is locked? Protocol 2 check
@@ -166,17 +166,17 @@ begin
     Exit;
   end;
   // Build 1.4
-  if (FData.public_key.EC_OpenSSL_NID <> CT_TECDSA_Public_Nul.EC_OpenSSL_NID) and
-    (not TAccountKey.EqualAccountKeys(FData.public_key, sender.accountInfo.AccountKey)) then
+  if (FData.PublicKey.EC_OpenSSL_NID <> CT_TECDSA_Public_Nul.EC_OpenSSL_NID) and
+    (not TAccountKey.EqualAccountKeys(FData.PublicKey, sender.accountInfo.AccountKey)) then
   begin
     errors := Format('Invalid sender public key for account %d. Distinct from SafeBox public key! %s <> %s',
-      [FData.sender, TCrypto.ToHexaString((FData.public_key.ToRawString)),
+      [FData.SenderAccount, TCrypto.ToHexaString((FData.PublicKey.ToRawString)),
       TCrypto.ToHexaString(sender.accountInfo.AccountKey.ToRawString)]);
     Exit;
   end;
   // Check signature
-  _h := GetTransactionHashToSign(FData);
-  if (not TCrypto.ECDSAVerify(sender.accountInfo.AccountKey, _h, FData.sign)) then
+  _h := GetTransactionHashForSignature(FData);
+  if (not TCrypto.ECDSAVerify(sender.accountInfo.AccountKey, _h, FData.Signature)) then
   begin
     errors := 'Invalid sign';
     FHasValidSignature := false;
@@ -188,7 +188,7 @@ begin
   FPrevious_Signer_updated_block := sender.updated_block;
   FPrevious_Destination_updated_block := target.updated_block;
   // Is buy account ?
-  if (FData.opTransactionStyle = buy_account) then
+  if (FData.TransactionStyle = buy_account) then
   begin
     if (AccountTransaction.FreezedAccountStorage.CurrentProtocol < CT_PROTOCOL_2) then
     begin
@@ -208,10 +208,10 @@ begin
         [FData.SellerAccount, target.accountInfo.account_to_pay]);
       Exit;
     end;
-    if (target.balance + FData.amount < target.accountInfo.price) then
+    if (target.balance + FData.Amount < target.accountInfo.price) then
     begin
       errors := Format('Account %d balance (%d) + amount (%d) < price (%d)',
-        [target.AccountNumber, target.balance, FData.amount, target.accountInfo.price]);
+        [target.AccountNumber, target.balance, FData.Amount, target.accountInfo.price]);
       Exit;
     end;
     if (FData.AccountPrice <> target.accountInfo.price) then
@@ -220,35 +220,35 @@ begin
         [FData.AccountPrice, target.accountInfo.price]);
       Exit;
     end;
-    if not(FData.new_accountkey.IsValidAccountKey(errors)) then
+    if not(FData.NewAccountKey.IsValidAccountKey(errors)) then
       Exit; // BUG 20171511
     _IsBuyTransaction := true;
     FPrevious_Seller_updated_block := seller.updated_block;
   end
   else if
   // Is automatic buy account?
-    (FData.opTransactionStyle = transaction_with_auto_buy_account) or
+    (FData.TransactionStyle = transaction_with_auto_buy_account) or
   // New automatic buy ?
     ((AccountTransaction.FreezedAccountStorage.CurrentProtocol >= CT_PROTOCOL_2) and
-    (FData.opTransactionStyle = Transaction) and (target.accountInfo.IsAccountForSaleAcceptingTransactions) and
-    (target.balance + FData.amount >= target.accountInfo.price)) then
+    (FData.TransactionStyle = Transaction) and (target.accountInfo.IsAccountForSaleAcceptingTransactions) and
+    (target.balance + FData.Amount >= target.accountInfo.price)) then
   begin
     if (AccountTransaction.FreezedAccountStorage.CurrentProtocol < CT_PROTOCOL_2) then
     begin
       errors := 'Tx-Buy account is not allowed on Protocol 1';
       Exit;
     end;
-    if not(FData.new_accountkey.IsValidAccountKey(errors)) then
+    if not(FData.NewAccountKey.IsValidAccountKey(errors)) then
       Exit; // BUG 20171511
     _IsBuyTransaction := true; // Automatic buy
     // Fill the purchase data
-    FData.opTransactionStyle := transaction_with_auto_buy_account;
+    FData.TransactionStyle := transaction_with_auto_buy_account;
     // Set this data!
     FData.AccountPrice := target.accountInfo.price;
     FData.SellerAccount := target.accountInfo.account_to_pay;
     seller := AccountTransaction.Account(target.accountInfo.account_to_pay);
     FPrevious_Seller_updated_block := seller.updated_block;
-    FData.new_accountkey := target.accountInfo.new_publicKey;
+    FData.NewAccountKey := target.accountInfo.new_publicKey;
   end
   else
   begin
@@ -261,37 +261,37 @@ begin
       errors := 'NOT ALLOWED ON PROTOCOL 1';
       Exit;
     end;
-    Result := AccountTransaction.BuyAccount(sender.AccountNumber, target.AccountNumber, seller.AccountNumber, FData.n_operation,
-      FData.amount, target.accountInfo.price, FData.fee, FData.new_accountkey, errors);
+    Result := AccountTransaction.BuyAccount(sender.AccountNumber, target.AccountNumber, seller.AccountNumber, FData.NumberOfTransactions,
+      FData.Amount, target.accountInfo.price, FData.Fee, FData.NewAccountKey, errors);
   end
   else
   begin
-    Result := AccountTransaction.TransferAmount(FData.sender, FData.target, FData.n_operation, FData.amount,
-      FData.fee, errors);
+    Result := AccountTransaction.TransferAmount(FData.SenderAccount, FData.TargetAccount, FData.NumberOfTransactions, FData.Amount,
+      FData.Fee, errors);
   end;
 end;
 
-class function TTransferMoneyTransaction.DoSignOperation(key: TECPrivateKey;
-  var trans: TTransferMoneyTransactionData): Boolean;
+class function TTransferMoneyTransaction.SignTransaction(AKey: TECPrivateKey;
+  var RTransactionData: TTransferMoneyTransactionData): Boolean;
 var
   s: AnsiString;
   _sign: TECDSA_SIG;
 begin
-  if not Assigned(key.PrivateKey) then
+  if not Assigned(AKey.PrivateKey) then
   begin
     Result := false;
-    trans.sign.r := '';
-    trans.sign.s := '';
+    RTransactionData.Signature.r := '';
+    RTransactionData.Signature.s := '';
     Exit;
   end;
-  s := GetTransactionHashToSign(trans);
+  s := GetTransactionHashForSignature(RTransactionData);
   try
-    _sign := TCrypto.ECDSASign(key, s);
-    trans.sign := _sign;
+    _sign := TCrypto.ECDSASign(AKey, s);
+    RTransactionData.Signature := _sign;
     Result := true;
   except
-    trans.sign.r := '';
-    trans.sign.s := '';
+    RTransactionData.Signature.r := '';
+    RTransactionData.Signature.s := '';
     Result := false;
   end;
   SetLength(s, 0);
@@ -307,22 +307,22 @@ begin
   begin
     ms := TMemoryStream.Create;
     try
-      ms.Write(FData.sender, Sizeof(FData.sender));
-      ms.Write(FData.n_operation, Sizeof(FData.n_operation));
-      ms.Write(FData.target, Sizeof(FData.target));
-      ms.Write(FData.amount, Sizeof(FData.amount));
-      ms.Write(FData.fee, Sizeof(FData.fee));
-      if length(FData.payload) > 0 then
-        ms.WriteBuffer(FData.payload[1], length(FData.payload));
-      ms.Write(FData.public_key.EC_OpenSSL_NID, Sizeof(FData.public_key.EC_OpenSSL_NID));
-      if length(FData.public_key.x) > 0 then
-        ms.WriteBuffer(FData.public_key.x[1], length(FData.public_key.x));
-      if length(FData.public_key.y) > 0 then
-        ms.WriteBuffer(FData.public_key.y[1], length(FData.public_key.y));
-      if length(FData.sign.r) > 0 then
-        ms.WriteBuffer(FData.sign.r[1], length(FData.sign.r));
-      if length(FData.sign.s) > 0 then
-        ms.WriteBuffer(FData.sign.s[1], length(FData.sign.s));
+      ms.Write(FData.SenderAccount, Sizeof(FData.SenderAccount));
+      ms.Write(FData.NumberOfTransactions, Sizeof(FData.NumberOfTransactions));
+      ms.Write(FData.TargetAccount, Sizeof(FData.TargetAccount));
+      ms.Write(FData.Amount, Sizeof(FData.Amount));
+      ms.Write(FData.Fee, Sizeof(FData.Fee));
+      if length(FData.Payload) > 0 then
+        ms.WriteBuffer(FData.Payload[1], length(FData.Payload));
+      ms.Write(FData.PublicKey.EC_OpenSSL_NID, Sizeof(FData.PublicKey.EC_OpenSSL_NID));
+      if length(FData.PublicKey.x) > 0 then
+        ms.WriteBuffer(FData.PublicKey.x[1], length(FData.PublicKey.x));
+      if length(FData.PublicKey.y) > 0 then
+        ms.WriteBuffer(FData.PublicKey.y[1], length(FData.PublicKey.y));
+      if length(FData.Signature.r) > 0 then
+        ms.WriteBuffer(FData.Signature.r[1], length(FData.Signature.r));
+      if length(FData.Signature.s) > 0 then
+        ms.WriteBuffer(FData.Signature.s[1], length(FData.Signature.s));
       SetLength(Result, ms.Size);
       ms.Position := 0;
       ms.ReadBuffer(Result[1], ms.Size);
@@ -332,56 +332,56 @@ begin
   end;
 end;
 
-function TTransferMoneyTransaction.GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal;
+function TTransferMoneyTransaction.GetTransactionData(ABlock: Cardinal; AAffectedAccountNumber: Cardinal;
   var TransactionData: TTransactionData): Boolean;
 var
   spayload: AnsiString;
   s: AnsiString;
 begin
   TransactionData := TTransactionData.Empty;
-  TransactionData.Block := Block;
-  if self.GetSignerAccount = Affected_account_number then
+  TransactionData.Block := ABlock;
+  if self.GetSignerAccount = AAffectedAccountNumber then
   begin
     TransactionData.fee := (-1) * Int64(GetFee);
   end;
-  TransactionData.AffectedAccount := Affected_account_number;
+  TransactionData.AffectedAccount := AAffectedAccountNumber;
   TransactionData.transactionType := TransactionType;
   TransactionData.SignerAccount := GetSignerAccount;
   Result := false;
-  TransactionData.DestAccount := Data.target;
-  if (Data.opTransactionStyle = transaction_with_auto_buy_account) then
+  TransactionData.DestAccount := Data.TargetAccount;
+  if (Data.TransactionStyle = transaction_with_auto_buy_account) then
   begin
-    if Data.sender = Affected_account_number then
+    if Data.SenderAccount = AAffectedAccountNumber then
     begin
       TransactionData.transactionSubtype := CT_OpSubtype_BuyTransactionBuyer;
-      TransactionData.OperationTxt := 'Tx-Out (MCCA ' + TAccount.AccountNumberToAccountTxtNumber(Data.target) +
-        ' Purchase) ' + TCurrencyUtils.CurrencyToString(Data.amount) + ' MCC from ' +
-        TAccount.AccountNumberToAccountTxtNumber(Data.sender) + ' to ' + TAccount.AccountNumberToAccountTxtNumber
-        (Data.target);
-      if (Data.sender = Data.SellerAccount) then
+      TransactionData.TransactionAsString := 'Tx-Out (MCCA ' + TAccount.AccountNumberToAccountTxtNumber(Data.TargetAccount) +
+        ' Purchase) ' + TCurrencyUtils.CurrencyToString(Data.Amount) + ' MCC from ' +
+        TAccount.AccountNumberToAccountTxtNumber(Data.SenderAccount) + ' to ' + TAccount.AccountNumberToAccountTxtNumber
+        (Data.TargetAccount);
+      if (Data.SenderAccount = Data.SellerAccount) then
       begin
         // Valid calc when sender is the same than seller
-        TransactionData.amount := (Int64(Data.amount) - (Data.AccountPrice)) * (-1);
+        TransactionData.amount := (Int64(Data.Amount) - (Data.AccountPrice)) * (-1);
       end
       else
-        TransactionData.amount := Int64(Data.amount) * (-1);
+        TransactionData.amount := Int64(Data.Amount) * (-1);
       Result := true;
     end
-    else if Data.target = Affected_account_number then
+    else if Data.TargetAccount = AAffectedAccountNumber then
     begin
       TransactionData.transactionSubtype := CT_OpSubtype_BuyTransactionTarget;
-      TransactionData.OperationTxt := 'Tx-In (MCCA ' + TAccount.AccountNumberToAccountTxtNumber(Data.target) +
-        ' Purchase) ' + TCurrencyUtils.CurrencyToString(Data.amount) + ' MCC from ' +
-        TAccount.AccountNumberToAccountTxtNumber(Data.sender) + ' to ' + TAccount.AccountNumberToAccountTxtNumber
-        (Data.target);
-      TransactionData.amount := Int64(Data.amount) - Int64(Data.AccountPrice);
+      TransactionData.TransactionAsString := 'Tx-In (MCCA ' + TAccount.AccountNumberToAccountTxtNumber(Data.TargetAccount) +
+        ' Purchase) ' + TCurrencyUtils.CurrencyToString(Data.Amount) + ' MCC from ' +
+        TAccount.AccountNumberToAccountTxtNumber(Data.SenderAccount) + ' to ' + TAccount.AccountNumberToAccountTxtNumber
+        (Data.TargetAccount);
+      TransactionData.amount := Int64(Data.Amount) - Int64(Data.AccountPrice);
       TransactionData.fee := 0;
       Result := true;
     end
-    else if Data.SellerAccount = Affected_account_number then
+    else if Data.SellerAccount = AAffectedAccountNumber then
     begin
       TransactionData.transactionSubtype := CT_OpSubtype_BuyTransactionSeller;
-      TransactionData.OperationTxt := 'Tx-In Sold account ' + TAccount.AccountNumberToAccountTxtNumber(Data.target) +
+      TransactionData.TransactionAsString := 'Tx-In Sold account ' + TAccount.AccountNumberToAccountTxtNumber(Data.TargetAccount) +
         ' price ' + TCurrencyUtils.CurrencyToString(Data.AccountPrice) + ' MCC';
       TransactionData.amount := Data.AccountPrice;
       TransactionData.fee := 0;
@@ -392,22 +392,22 @@ begin
   end
   else
   begin
-    if Data.sender = Affected_account_number then
+    if Data.SenderAccount = AAffectedAccountNumber then
     begin
       TransactionData.transactionSubtype := CT_OpSubtype_TransactionSender;
-      TransactionData.OperationTxt := 'Tx-Out ' + TCurrencyUtils.CurrencyToString(Data.amount) + ' MCC from ' +
-        TAccount.AccountNumberToAccountTxtNumber(Data.sender) + ' to ' + TAccount.AccountNumberToAccountTxtNumber
-        (Data.target);
-      TransactionData.amount := Int64(Data.amount) * (-1);
+      TransactionData.TransactionAsString := 'Tx-Out ' + TCurrencyUtils.CurrencyToString(Data.Amount) + ' MCC from ' +
+        TAccount.AccountNumberToAccountTxtNumber(Data.SenderAccount) + ' to ' + TAccount.AccountNumberToAccountTxtNumber
+        (Data.TargetAccount);
+      TransactionData.amount := Int64(Data.Amount) * (-1);
       Result := true;
     end
-    else if Data.target = Affected_account_number then
+    else if Data.TargetAccount = AAffectedAccountNumber then
     begin
       TransactionData.transactionSubtype := CT_OpSubtype_TransactionReceiver;
-      TransactionData.OperationTxt := 'Tx-In ' + TCurrencyUtils.CurrencyToString(Data.amount) + ' MCC from ' +
-        TAccount.AccountNumberToAccountTxtNumber(Data.sender) + ' to ' + TAccount.AccountNumberToAccountTxtNumber
-        (Data.target);
-      TransactionData.amount := Data.amount;
+      TransactionData.TransactionAsString := 'Tx-In ' + TCurrencyUtils.CurrencyToString(Data.Amount) + ' MCC from ' +
+        TAccount.AccountNumberToAccountTxtNumber(Data.SenderAccount) + ' to ' + TAccount.AccountNumberToAccountTxtNumber
+        (Data.TargetAccount);
+      TransactionData.amount := Data.Amount;
       TransactionData.fee := 0;
       Result := true;
     end
@@ -419,15 +419,15 @@ begin
     TransactionData.PrintablePayload := TransactionData.OriginalPayload
   else
     TransactionData.PrintablePayload := TCrypto.ToHexaString(TransactionData.OriginalPayload);
-  TransactionData.OperationHash := TransactionHash(Block);
-  if (Block < CT_Protocol_Upgrade_v2_MinBlock) then
+  TransactionData.OperationHash := TransactionHash(ABlock);
+  if (ABlock < CT_Protocol_Upgrade_v2_MinBlock) then
   begin
-    TransactionData.OperationHash_OLD := TransactionHash_OLD(Block);
+    TransactionData.OperationHash_OLD := TransactionHash_OLD(ABlock);
   end;
   TransactionData.valid := true;
 end;
 
-class function TTransferMoneyTransaction.GetTransactionHashToSign(const trans: TTransferMoneyTransactionData)
+class function TTransferMoneyTransaction.GetTransactionHashForSignature(const trans: TTransferMoneyTransactionData)
   : TRawBytes;
 var
   ms: TMemoryStream;
@@ -435,27 +435,27 @@ var
 begin
   ms := TMemoryStream.Create;
   try
-    ms.Write(trans.sender, Sizeof(trans.sender));
-    ms.Write(trans.n_operation, Sizeof(trans.n_operation));
-    ms.Write(trans.target, Sizeof(trans.target));
-    ms.Write(trans.amount, Sizeof(trans.amount));
-    ms.Write(trans.fee, Sizeof(trans.fee));
-    if length(trans.payload) > 0 then
-      ms.WriteBuffer(trans.payload[1], length(trans.payload));
-    ms.Write(trans.public_key.EC_OpenSSL_NID, Sizeof(trans.public_key.EC_OpenSSL_NID));
-    if length(trans.public_key.x) > 0 then
-      ms.WriteBuffer(trans.public_key.x[1], length(trans.public_key.x));
-    if length(trans.public_key.y) > 0 then
-      ms.WriteBuffer(trans.public_key.y[1], length(trans.public_key.y));
-    if trans.opTransactionStyle = buy_account then
+    ms.Write(trans.SenderAccount, Sizeof(trans.SenderAccount));
+    ms.Write(trans.NumberOfTransactions, Sizeof(trans.NumberOfTransactions));
+    ms.Write(trans.TargetAccount, Sizeof(trans.TargetAccount));
+    ms.Write(trans.Amount, Sizeof(trans.Amount));
+    ms.Write(trans.Fee, Sizeof(trans.Fee));
+    if length(trans.Payload) > 0 then
+      ms.WriteBuffer(trans.Payload[1], length(trans.Payload));
+    ms.Write(trans.PublicKey.EC_OpenSSL_NID, Sizeof(trans.PublicKey.EC_OpenSSL_NID));
+    if length(trans.PublicKey.x) > 0 then
+      ms.WriteBuffer(trans.PublicKey.x[1], length(trans.PublicKey.x));
+    if length(trans.PublicKey.y) > 0 then
+      ms.WriteBuffer(trans.PublicKey.y[1], length(trans.PublicKey.y));
+    if trans.TransactionStyle = buy_account then
     begin
       ms.Write(trans.AccountPrice, Sizeof(trans.AccountPrice));
       ms.Write(trans.SellerAccount, Sizeof(trans.SellerAccount));
-      ms.Write(trans.new_accountkey.EC_OpenSSL_NID, Sizeof(trans.new_accountkey.EC_OpenSSL_NID));
-      if length(trans.new_accountkey.x) > 0 then
-        ms.WriteBuffer(trans.new_accountkey.x[1], length(trans.new_accountkey.x));
-      if length(trans.new_accountkey.y) > 0 then
-        ms.WriteBuffer(trans.new_accountkey.y[1], length(trans.new_accountkey.y));
+      ms.Write(trans.NewAccountKey.EC_OpenSSL_NID, Sizeof(trans.NewAccountKey.EC_OpenSSL_NID));
+      if length(trans.NewAccountKey.x) > 0 then
+        ms.WriteBuffer(trans.NewAccountKey.x[1], length(trans.NewAccountKey.x));
+      if length(trans.NewAccountKey.y) > 0 then
+        ms.WriteBuffer(trans.NewAccountKey.y[1], length(trans.NewAccountKey.y));
     end;
     SetLength(Result, ms.Size);
     ms.Position := 0;
@@ -479,18 +479,18 @@ begin
   Result := false;
   if Stream.Size - Stream.Position < 28 then
     Exit; // Invalid stream
-  Stream.Read(FData.sender, Sizeof(FData.sender));
-  Stream.Read(FData.n_operation, Sizeof(FData.n_operation));
-  Stream.Read(FData.target, Sizeof(FData.target));
-  Stream.Read(FData.amount, Sizeof(FData.amount));
-  Stream.Read(FData.fee, Sizeof(FData.fee));
-  if TStreamOp.ReadAnsiString(Stream, FData.payload) < 0 then
+  Stream.Read(FData.SenderAccount, Sizeof(FData.SenderAccount));
+  Stream.Read(FData.NumberOfTransactions, Sizeof(FData.NumberOfTransactions));
+  Stream.Read(FData.TargetAccount, Sizeof(FData.TargetAccount));
+  Stream.Read(FData.Amount, Sizeof(FData.Amount));
+  Stream.Read(FData.Fee, Sizeof(FData.Fee));
+  if TStreamOp.ReadAnsiString(Stream, FData.Payload) < 0 then
     Exit;
-  if Stream.Read(FData.public_key.EC_OpenSSL_NID, Sizeof(FData.public_key.EC_OpenSSL_NID)) < 0 then
+  if Stream.Read(FData.PublicKey.EC_OpenSSL_NID, Sizeof(FData.PublicKey.EC_OpenSSL_NID)) < 0 then
     Exit;
-  if TStreamOp.ReadAnsiString(Stream, FData.public_key.x) < 0 then
+  if TStreamOp.ReadAnsiString(Stream, FData.PublicKey.x) < 0 then
     Exit;
-  if TStreamOp.ReadAnsiString(Stream, FData.public_key.y) < 0 then
+  if TStreamOp.ReadAnsiString(Stream, FData.PublicKey.y) < 0 then
     Exit;
   if ((LoadExtendedData) or (self is TBuyAccountTransaction)) then
   begin
@@ -500,50 +500,50 @@ begin
     end;
     case b of
       0:
-        FData.opTransactionStyle := Transaction;
+        FData.TransactionStyle := Transaction;
       1:
-        FData.opTransactionStyle := transaction_with_auto_buy_account;
+        FData.TransactionStyle := transaction_with_auto_buy_account;
       2:
         begin
-          FData.opTransactionStyle := buy_account;
+          FData.TransactionStyle := buy_account;
           if (not(self is TBuyAccountTransaction)) then
             Exit;
         end
     else
       Exit;
     end;
-    if (FData.opTransactionStyle in [transaction_with_auto_buy_account, buy_account]) then
+    if (FData.TransactionStyle in [transaction_with_auto_buy_account, buy_account]) then
     begin
       Stream.Read(FData.AccountPrice, Sizeof(FData.AccountPrice));
       Stream.Read(FData.SellerAccount, Sizeof(FData.SellerAccount));
-      if Stream.Read(FData.new_accountkey.EC_OpenSSL_NID, Sizeof(FData.new_accountkey.EC_OpenSSL_NID)) < 0 then
+      if Stream.Read(FData.NewAccountKey.EC_OpenSSL_NID, Sizeof(FData.NewAccountKey.EC_OpenSSL_NID)) < 0 then
         Exit;
-      if TStreamOp.ReadAnsiString(Stream, FData.new_accountkey.x) < 0 then
+      if TStreamOp.ReadAnsiString(Stream, FData.NewAccountKey.x) < 0 then
         Exit;
-      if TStreamOp.ReadAnsiString(Stream, FData.new_accountkey.y) < 0 then
+      if TStreamOp.ReadAnsiString(Stream, FData.NewAccountKey.y) < 0 then
         Exit;
     end;
   end;
-  if TStreamOp.ReadAnsiString(Stream, FData.sign.r) < 0 then
+  if TStreamOp.ReadAnsiString(Stream, FData.Signature.r) < 0 then
     Exit;
-  if TStreamOp.ReadAnsiString(Stream, FData.sign.s) < 0 then
+  if TStreamOp.ReadAnsiString(Stream, FData.Signature.s) < 0 then
     Exit;
   Result := true;
 end;
 
 function TTransferMoneyTransaction.GetAmount: Int64;
 begin
-  Result := FData.amount;
+  Result := FData.Amount;
 end;
 
 function TTransferMoneyTransaction.GetFee: UInt64;
 begin
-  Result := FData.fee;
+  Result := FData.Fee;
 end;
 
 function TTransferMoneyTransaction.GetPayload: TRawBytes;
 begin
-  Result := FData.payload;
+  Result := FData.Payload;
 end;
 
 function TTransferMoneyTransaction.GetTransactionType: Byte;
@@ -555,18 +555,18 @@ function TTransferMoneyTransaction.SaveToStream(Stream: TStream; SaveExtendedDat
 var
   b: Byte;
 begin
-  Stream.Write(FData.sender, Sizeof(FData.sender));
-  Stream.Write(FData.n_operation, Sizeof(FData.n_operation));
-  Stream.Write(FData.target, Sizeof(FData.target));
-  Stream.Write(FData.amount, Sizeof(FData.amount));
-  Stream.Write(FData.fee, Sizeof(FData.fee));
-  TStreamOp.WriteAnsiString(Stream, FData.payload);
-  Stream.Write(FData.public_key.EC_OpenSSL_NID, Sizeof(FData.public_key.EC_OpenSSL_NID));
-  TStreamOp.WriteAnsiString(Stream, FData.public_key.x);
-  TStreamOp.WriteAnsiString(Stream, FData.public_key.y);
+  Stream.Write(FData.SenderAccount, Sizeof(FData.SenderAccount));
+  Stream.Write(FData.NumberOfTransactions, Sizeof(FData.NumberOfTransactions));
+  Stream.Write(FData.TargetAccount, Sizeof(FData.TargetAccount));
+  Stream.Write(FData.Amount, Sizeof(FData.Amount));
+  Stream.Write(FData.Fee, Sizeof(FData.Fee));
+  TStreamOp.WriteAnsiString(Stream, FData.Payload);
+  Stream.Write(FData.PublicKey.EC_OpenSSL_NID, Sizeof(FData.PublicKey.EC_OpenSSL_NID));
+  TStreamOp.WriteAnsiString(Stream, FData.PublicKey.x);
+  TStreamOp.WriteAnsiString(Stream, FData.PublicKey.y);
   if ((SaveExtendedData) or (self is TBuyAccountTransaction)) then
   begin
-    case FData.opTransactionStyle of
+    case FData.TransactionStyle of
       Transaction:
         b := 0;
       transaction_with_auto_buy_account:
@@ -577,34 +577,34 @@ begin
       raise Exception.Create('ERROR DEV 20170424-1');
     end;
     Stream.Write(b, 1);
-    if (FData.opTransactionStyle in [transaction_with_auto_buy_account, buy_account]) then
+    if (FData.TransactionStyle in [transaction_with_auto_buy_account, buy_account]) then
     begin
       Stream.Write(FData.AccountPrice, Sizeof(FData.AccountPrice));
       Stream.Write(FData.SellerAccount, Sizeof(FData.SellerAccount));
-      Stream.Write(FData.new_accountkey.EC_OpenSSL_NID, Sizeof(FData.new_accountkey.EC_OpenSSL_NID));
-      TStreamOp.WriteAnsiString(Stream, FData.new_accountkey.x);
-      TStreamOp.WriteAnsiString(Stream, FData.new_accountkey.y);
+      Stream.Write(FData.NewAccountKey.EC_OpenSSL_NID, Sizeof(FData.NewAccountKey.EC_OpenSSL_NID));
+      TStreamOp.WriteAnsiString(Stream, FData.NewAccountKey.x);
+      TStreamOp.WriteAnsiString(Stream, FData.NewAccountKey.y);
     end;
   end;
-  TStreamOp.WriteAnsiString(Stream, FData.sign.r);
-  TStreamOp.WriteAnsiString(Stream, FData.sign.s);
+  TStreamOp.WriteAnsiString(Stream, FData.Signature.r);
+  TStreamOp.WriteAnsiString(Stream, FData.Signature.s);
   // (Stream as TMemoryStream).SaveToFile('streamy');
   Result := true;
 end;
 
 function TTransferMoneyTransaction.GetSignerAccount: Cardinal;
 begin
-  Result := FData.sender;
+  Result := FData.SenderAccount;
 end;
 
 function TTransferMoneyTransaction.GetDestinationAccount: Int64;
 begin
-  Result := FData.target;
+  Result := FData.TargetAccount;
 end;
 
 function TTransferMoneyTransaction.GetSellerAccount: Int64;
 begin
-  case FData.opTransactionStyle of
+  case FData.TransactionStyle of
     transaction_with_auto_buy_account, buy_account:
       Result := FData.SellerAccount;
   else
@@ -614,26 +614,26 @@ end;
 
 function TTransferMoneyTransaction.GetNumberOfTransactions: Cardinal;
 begin
-  Result := FData.n_operation;
+  Result := FData.NumberOfTransactions;
 end;
 
 function TTransferMoneyTransaction.ToString: string;
 begin
-  case FData.opTransactionStyle of
+  case FData.TransactionStyle of
     Transaction:
       Result := Format('Transaction from %s to %s. Amount: %s Fee: %s',
-        [TAccount.AccountNumberToAccountTxtNumber(FData.sender), TAccount.AccountNumberToAccountTxtNumber(FData.target),
-        TCurrencyUtils.CurrencyToString(FData.amount), TCurrencyUtils.CurrencyToString(FData.fee)]);
+        [TAccount.AccountNumberToAccountTxtNumber(FData.SenderAccount), TAccount.AccountNumberToAccountTxtNumber(FData.TargetAccount),
+        TCurrencyUtils.CurrencyToString(FData.Amount), TCurrencyUtils.CurrencyToString(FData.Fee)]);
     transaction_with_auto_buy_account:
       Result := Format('Transaction/Buy account %s by %s paying %s to %s amount:%s fee:%s',
-        [TAccount.AccountNumberToAccountTxtNumber(FData.target), TAccount.AccountNumberToAccountTxtNumber(FData.sender),
+        [TAccount.AccountNumberToAccountTxtNumber(FData.TargetAccount), TAccount.AccountNumberToAccountTxtNumber(FData.SenderAccount),
         TCurrencyUtils.CurrencyToString(FData.AccountPrice), TAccount.AccountNumberToAccountTxtNumber(FData.SellerAccount),
-        TCurrencyUtils.CurrencyToString(FData.amount), TCurrencyUtils.CurrencyToString(FData.fee)]);
+        TCurrencyUtils.CurrencyToString(FData.Amount), TCurrencyUtils.CurrencyToString(FData.Fee)]);
     buy_account:
       Result := Format('Buy account %s by %s paying %s to %s amount:%s fee:%s',
-        [TAccount.AccountNumberToAccountTxtNumber(FData.target), TAccount.AccountNumberToAccountTxtNumber(FData.sender),
+        [TAccount.AccountNumberToAccountTxtNumber(FData.TargetAccount), TAccount.AccountNumberToAccountTxtNumber(FData.SenderAccount),
         TCurrencyUtils.CurrencyToString(FData.AccountPrice), TAccount.AccountNumberToAccountTxtNumber(FData.SellerAccount),
-        TCurrencyUtils.CurrencyToString(FData.amount), TCurrencyUtils.CurrencyToString(FData.fee)]);
+        TCurrencyUtils.CurrencyToString(FData.Amount), TCurrencyUtils.CurrencyToString(FData.Fee)]);
   else
     raise Exception.Create('ERROR DEV 20170424-2');
   end;
@@ -643,19 +643,19 @@ constructor TBuyAccountTransaction.CreateBuy(account_number, n_operation, accoun
   price, amount, fee: UInt64; new_public_key: TAccountKey; key: TECPrivateKey; payload: TRawBytes);
 begin
   inherited Create;
-  FData.sender := account_number;
-  FData.n_operation := n_operation;
-  FData.target := account_to_buy;
-  FData.amount := amount;
-  FData.fee := fee;
-  FData.payload := payload;
+  FData.SenderAccount := account_number;
+  FData.NumberOfTransactions := n_operation;
+  FData.TargetAccount := account_to_buy;
+  FData.Amount := amount;
+  FData.Fee := fee;
+  FData.Payload := payload;
   // V2: No need to store public key because it's at safebox. Saving at least 64 bytes!
   // FData.public_key := key.PublicKey;
-  FData.opTransactionStyle := buy_account;
+  FData.TransactionStyle := buy_account;
   FData.AccountPrice := price;
   FData.SellerAccount := account_to_pay;
-  FData.new_accountkey := new_public_key;
-  if not DoSignOperation(key, FData) then
+  FData.NewAccountKey := new_public_key;
+  if not SignTransaction(key, FData) then
   begin
     TLog.NewLog(lterror, Classname, 'Error signing a new Buy operation');
     FHasValidSignature := false;
@@ -667,7 +667,7 @@ end;
 procedure TBuyAccountTransaction.InitializeData;
 begin
   inherited;
-  FData.opTransactionStyle := buy_account;
+  FData.TransactionStyle := buy_account;
 end;
 
 function TBuyAccountTransaction.GetTransactionType : Byte;
@@ -679,30 +679,30 @@ function TBuyAccountTransaction.GetTransactionData(Block, Affected_account_numbe
   var TransactionData: TTransactionData): Boolean;
 begin
   TransactionData := TTransactionData.Empty;
-  TransactionData.DestAccount := Data.target;
-  if Data.sender = Affected_account_number then
+  TransactionData.DestAccount := Data.TargetAccount;
+  if Data.SenderAccount = Affected_account_number then
   begin
     TransactionData.transactionSubtype := CT_OpSubtype_BuyAccountBuyer;
-    TransactionData.OperationTxt := 'Buy account ' + TAccount.AccountNumberToAccountTxtNumber(Data.target) + ' for ' +
+    TransactionData.TransactionAsString := 'Buy account ' + TAccount.AccountNumberToAccountTxtNumber(Data.TargetAccount) + ' for ' +
       TCurrencyUtils.CurrencyToString(Data.AccountPrice) + ' MCC';
-    TransactionData.amount := Int64(Data.amount) * (-1);
+    TransactionData.amount := Int64(Data.Amount) * (-1);
     Result := true;
   end
-  else if Data.target = Affected_account_number then
+  else if Data.TargetAccount = Affected_account_number then
   begin
     TransactionData.transactionSubtype := CT_OpSubtype_BuyAccountTarget;
-    TransactionData.OperationTxt := 'Purchased account ' + TAccount.AccountNumberToAccountTxtNumber(Data.target) +
-      ' by ' + TAccount.AccountNumberToAccountTxtNumber(Data.sender) + ' for ' +
+    TransactionData.TransactionAsString := 'Purchased account ' + TAccount.AccountNumberToAccountTxtNumber(Data.TargetAccount) +
+      ' by ' + TAccount.AccountNumberToAccountTxtNumber(Data.SenderAccount) + ' for ' +
       TCurrencyUtils.CurrencyToString(Data.AccountPrice) + ' MCC';
-    TransactionData.amount := Int64(Data.amount) - Int64(Data.AccountPrice);
+    TransactionData.amount := Int64(Data.Amount) - Int64(Data.AccountPrice);
     TransactionData.fee := 0;
     Result := true;
   end
   else if Data.SellerAccount = Affected_account_number then
   begin
     TransactionData.transactionSubtype := CT_OpSubtype_BuyAccountSeller;
-    TransactionData.OperationTxt := 'Sold account ' + TAccount.AccountNumberToAccountTxtNumber(Data.target) + ' by ' +
-      TAccount.AccountNumberToAccountTxtNumber(Data.sender) + ' for ' +
+    TransactionData.TransactionAsString := 'Sold account ' + TAccount.AccountNumberToAccountTxtNumber(Data.TargetAccount) + ' by ' +
+      TAccount.AccountNumberToAccountTxtNumber(Data.SenderAccount) + ' for ' +
       TCurrencyUtils.CurrencyToString(Data.AccountPrice) + ' MCC';
     TransactionData.amount := Data.AccountPrice;
     TransactionData.fee := 0;
@@ -731,44 +731,44 @@ begin
 
   Result := false;
 
-  if (sender >= AAccountTransaction.FreezedAccountStorage.AccountsCount) then
+  if (SenderAccount >= AAccountTransaction.FreezedAccountStorage.AccountsCount) then
   begin
-    RErros := Format('Invalid sender %d', [sender]);
+    RErros := Format('Invalid sender %d', [SenderAccount]);
     Exit;
   end;
-  if (target >= AAccountTransaction.FreezedAccountStorage.AccountsCount) then
+  if (TargetAccount >= AAccountTransaction.FreezedAccountStorage.AccountsCount) then
   begin
-    RErros := Format('Invalid target %d', [target]);
+    RErros := Format('Invalid target %d', [TargetAccount]);
     Exit;
   end;
-  if (sender = target) then
+  if (SenderAccount = TargetAccount) then
   begin
-    RErros := Format('Sender=Target %d', [sender]);
+    RErros := Format('Sender=Target %d', [SenderAccount]);
     Exit;
   end;
-  if TAccount.IsAccountBlockedByProtocol(sender, AAccountTransaction.FreezedAccountStorage.BlocksCount) then
+  if TAccount.IsAccountBlockedByProtocol(SenderAccount, AAccountTransaction.FreezedAccountStorage.BlocksCount) then
   begin
-    RErros := Format('sender (%d) is blocked for protocol', [sender]);
+    RErros := Format('sender (%d) is blocked for protocol', [SenderAccount]);
     Exit;
   end;
-  if TAccount.IsAccountBlockedByProtocol(target, AAccountTransaction.FreezedAccountStorage.BlocksCount) then
+  if TAccount.IsAccountBlockedByProtocol(TargetAccount, AAccountTransaction.FreezedAccountStorage.BlocksCount) then
   begin
-    RErros := Format('target (%d) is blocked for protocol', [target]);
+    RErros := Format('target (%d) is blocked for protocol', [TargetAccount]);
     Exit;
   end;
-  if (amount <= 0) or (amount > CT_MaxTransactionAmount) then
+  if (Amount <= 0) or (Amount > CT_MaxTransactionAmount) then
   begin
-    RErros := Format('Invalid amount %d (0 or max: %d)', [amount, CT_MaxTransactionAmount]);
+    RErros := Format('Invalid amount %d (0 or max: %d)', [Amount, CT_MaxTransactionAmount]);
     Exit;
   end;
-  if (fee < 0) or (fee > CT_MaxTransactionFee) then
+  if (Fee < 0) or (Fee > CT_MaxTransactionFee) then
   begin
-    RErros := Format('Invalid fee %d (max %d)', [fee, CT_MaxTransactionFee]);
+    RErros := Format('Invalid fee %d (max %d)', [Fee, CT_MaxTransactionFee]);
     Exit;
   end;
-  if (length(payload) > CT_MaxPayloadSize) then
+  if (length(Payload) > CT_MaxPayloadSize) then
   begin
-    RErros := 'Invalid Payload size:' + inttostr(length(payload)) + ' (Max: ' + inttostr(CT_MaxPayloadSize) + ')';
+    RErros := 'Invalid Payload size:' + inttostr(length(Payload)) + ' (Max: ' + inttostr(CT_MaxPayloadSize) + ')';
     if (AAccountTransaction.FreezedAccountStorage.CurrentProtocol >= CT_PROTOCOL_2) then
     begin
       Exit; // BUG from protocol 1

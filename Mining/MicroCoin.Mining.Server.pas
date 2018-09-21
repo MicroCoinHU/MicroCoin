@@ -120,7 +120,7 @@ begin
     else
     begin
       P := l[l.count - 1];
-      if (FNodeNotifyEvents.Node.Operations.TransactionHashTree.HashTree <> P^.OperationsComp.TransactionHashTree.HashTree)
+      if (FNodeNotifyEvents.Node.TransactionStorage.TransactionHashTree.HashTree <> P^.OperationsComp.TransactionHashTree.HashTree)
       then
       begin
         doAdd := (P^.SentDateTime + EncodeTime(0, 0, CT_WAIT_SECONDS_BEFORE_SEND_NEW_JOB, 0)) < Now;
@@ -230,7 +230,7 @@ begin
   NetTcpIpClientClass := TJSONRPCTcpIpClient;
   FNodeNotifyEvents := TNodeNotifyEvents.Create(nil);
   FNodeNotifyEvents.OnBlocksChanged := OnNodeNewBlock;
-  FNodeNotifyEvents.OnOperationsChanged := OnNodeOperationsChanged;
+  FNodeNotifyEvents.OnTransactionsChanged := OnNodeOperationsChanged;
   FNodeNotifyEvents.Node := TNode.Node;
   FMinerOperations := TBlock.Create(FNodeNotifyEvents.Node.BlockManager);
   FMinerAccountKey := CT_TECDSA_Public_Nul;
@@ -249,7 +249,7 @@ begin
   FreeAndNil(FPoolThread);
   FNodeNotifyEvents.Node := nil;
   FNodeNotifyEvents.OnBlocksChanged := nil;
-  FNodeNotifyEvents.OnOperationsChanged := nil;
+  FNodeNotifyEvents.OnTransactionsChanged := nil;
   FreeAndNil(FMinerOperations);
   FreeAndNil(FNodeNotifyEvents);
   ClearPoolJobs;
@@ -357,7 +357,7 @@ var
 var
   errors: AnsiString;
 begin
-  xMaster := FNodeNotifyEvents.Node.Operations;
+  xMaster := FNodeNotifyEvents.Node.TransactionStorage;
   xMaster.Lock;
   try
     FMinerOperations.Lock;

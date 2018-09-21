@@ -38,14 +38,14 @@ type
   TCreateSubAccountTransaction = class(TTransaction)
   strict private type
   TCreateSubAccountData = record
-      account_signer: Cardinal;
-      account_number: Cardinal;
-      n_operation: Cardinal;
-      fee: UInt64;
-      payload: TRawBytes;
-      public_key: TECDSA_Public;
-      sign: TECDSA_SIG;
-      balance: UInt64;
+      SignerAccount: Cardinal;
+      TargetAccount: Cardinal;
+      NumberOfTransactions: Cardinal;
+      Fee: UInt64;
+      Payload: TRawBytes;
+      PublicKey: TECDSA_Public;
+      Signature: TECDSA_SIG;
+      Balance: UInt64;
   end;
   strict private FData: TCreateSubAccountData;
   strict protected
@@ -75,7 +75,7 @@ implementation
 
 procedure TCreateSubAccountTransaction.AffectedAccounts(list: TList);
 begin
-  list.Add(TObject(FData.account_signer))
+  list.Add(TObject(FData.SignerAccount))
 end;
 
 function TCreateSubAccountTransaction.ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean;
@@ -86,50 +86,50 @@ begin
 
   Result := False;
 
-  if (FData.account_signer >= AccountTransaction.FreezedAccountStorage.AccountsCount)
+  if (FData.SignerAccount >= AccountTransaction.FreezedAccountStorage.AccountsCount)
   then begin
     errors := 'Invalid account number';
     exit;
   end;
 
-  if TAccount.IsAccountBlockedByProtocol(FData.account_signer, AccountTransaction.FreezedAccountStorage.BlocksCount)
+  if TAccount.IsAccountBlockedByProtocol(FData.SignerAccount, AccountTransaction.FreezedAccountStorage.BlocksCount)
   then begin
     errors := 'account is blocked for protocol';
     exit;
   end;
 
-  if (FData.fee < 0) or (FData.fee > CT_MaxTransactionFee)
+  if (FData.Fee < 0) or (FData.Fee > CT_MaxTransactionFee)
   then begin
-    errors := 'Invalid fee: ' + Inttostr(FData.fee);
+    errors := 'Invalid fee: ' + Inttostr(FData.Fee);
     exit;
   end;
 
-  xTargetAccount := AccountTransaction.Account(FData.account_signer);
+  xTargetAccount := AccountTransaction.Account(FData.SignerAccount);
 
-  if (FData.public_key.EC_OpenSSL_NID <> CT_TECDSA_Public_Nul.EC_OpenSSL_NID) and
-    (not TAccountKey.EqualAccountKeys(FData.public_key, xTargetAccount.accountInfo.AccountKey)) then
+  if (FData.PublicKey.EC_OpenSSL_NID <> CT_TECDSA_Public_Nul.EC_OpenSSL_NID) and
+    (not TAccountKey.EqualAccountKeys(FData.PublicKey, xTargetAccount.accountInfo.AccountKey)) then
   begin
     errors := Format('Invalid public key for account %d. Distinct from SafeBox public key! %s <> %s',
-      [FData.account_signer, TCrypto.ToHexaString(FData.public_key.ToRawString),
+      [FData.SignerAccount, TCrypto.ToHexaString(FData.PublicKey.ToRawString),
       TCrypto.ToHexaString(xTargetAccount.accountInfo.AccountKey.ToRawString)]);
     exit;
   end;
 
-  if ((xTargetAccount.numberOfTransactions + 1) <> FData.n_operation)
+  if ((xTargetAccount.numberOfTransactions + 1) <> FData.NumberOfTransactions)
   then begin
     errors := 'Invalid n_operation';
     exit;
   end;
 
-  if (xTargetAccount.balance < FData.fee)
+  if (xTargetAccount.balance < FData.Fee)
   then begin
     errors := 'Insuficient founds';
     exit;
   end;
 
-  if (length(FData.payload) > CT_MaxPayloadSize)
+  if (length(FData.Payload) > CT_MaxPayloadSize)
   then begin
-    errors := 'Invalid Payload size:' + Inttostr(length(FData.payload)) + ' (Max: ' + Inttostr(CT_MaxPayloadSize) + ')';
+    errors := 'Invalid Payload size:' + Inttostr(length(FData.Payload)) + ' (Max: ' + Inttostr(CT_MaxPayloadSize) + ')';
     if (AccountTransaction.FreezedAccountStorage.CurrentProtocol >= CT_PROTOCOL_2)
     then exit;
   end;
@@ -146,7 +146,7 @@ begin
     exit;
   end;
 
-  if not TCrypto.ECDSAVerify(xTargetAccount.accountInfo.AccountKey, GetHashForSignature(FData), FData.sign)
+  if not TCrypto.ECDSAVerify(xTargetAccount.accountInfo.AccountKey, GetHashForSignature(FData), FData.Signature)
   then begin
     errors := 'Invalid sign';
     FHasValidSignature := False;
@@ -155,8 +155,8 @@ begin
   else FHasValidSignature := true;
 
   xAccount :=  AccountTransaction.GetInternalAccount(xTargetAccount.AccountNumber);
-  xAccount^.numberOfTransactions := FData.n_operation;
-  xAccount^.balance := xAccount^.balance - FData.fee;
+  xAccount^.numberOfTransactions := FData.NumberOfTransactions;
+  xAccount^.balance := xAccount^.balance - FData.Fee;
   {$IFDEF EXTENDEDACCOUNT}
   SetLength(xAccount^.SubAccounts, Length(xAccount^.SubAccounts)+1);
   xAccount^.SubAccounts[High(xAccount^.SubAccounts)].AccountKey := xTargetAccount.AccountInfo.AccountKey;
@@ -173,14 +173,14 @@ var
   s: AnsiString;
 begin
   inherited Create;
-  FData.account_signer := AAccountNumber;
-  FData.n_operation := ANTransactions;
-  FData.fee := Afee;
-  FData.payload := '';
-  FData.public_key := APublicKey;
-  FData.balance := ABalance;
+  FData.SignerAccount := AAccountNumber;
+  FData.NumberOfTransactions := ANTransactions;
+  FData.Fee := Afee;
+  FData.Payload := '';
+  FData.PublicKey := APublicKey;
+  FData.Balance := ABalance;
   s := GetHashForSignature(FData);
-  FData.sign := TCrypto.ECDSASign(Akey, s);
+  FData.Signature := TCrypto.ECDSASign(Akey, s);
 end;
 
 function TCreateSubAccountTransaction.GetAmount: Int64;
@@ -195,17 +195,17 @@ end;
 
 function TCreateSubAccountTransaction.GetDestinationAccount: Int64;
 begin
-  Result := FData.account_signer;
+  Result := FData.SignerAccount;
 end;
 
 function TCreateSubAccountTransaction.GetFee: UInt64;
 begin
-  Result := FData.fee;
+  Result := FData.Fee;
 end;
 
 function TCreateSubAccountTransaction.GetNumberOfTransactions: Cardinal;
 begin
-  Result := FData.n_operation;
+  Result := FData.NumberOfTransactions;
 end;
 
 class function TCreateSubAccountTransaction.GetHashForSignature(
@@ -217,21 +217,21 @@ begin
   Stream := TMemoryStream.Create;
 
   try
-    Stream.Write(ATransaction.account_signer, SizeOf(ATransaction.account_signer));
+    Stream.Write(ATransaction.SignerAccount, SizeOf(ATransaction.SignerAccount));
 //    Stream.Write(ATransaction.account_number, SizeOf(ATransaction.account_number));
-    Stream.Write(ATransaction.n_operation, Sizeof(ATransaction.n_operation));
-    Stream.Write(ATransaction.fee, Sizeof(ATransaction.fee));
+    Stream.Write(ATransaction.NumberOfTransactions, Sizeof(ATransaction.NumberOfTransactions));
+    Stream.Write(ATransaction.Fee, Sizeof(ATransaction.Fee));
 
-    if TStreamOp.WriteAnsiString(Stream, ATransaction.payload) < 0
+    if TStreamOp.WriteAnsiString(Stream, ATransaction.Payload) < 0
     then exit;
 
-    if TStreamOp.WriteAccountKey(Stream, ATransaction.public_key) < 0
+    if TStreamOp.WriteAccountKey(Stream, ATransaction.PublicKey) < 0
     then exit;
 
-    if TStreamOp.WriteAnsiString(Stream, ATransaction.sign.r) < 0
+    if TStreamOp.WriteAnsiString(Stream, ATransaction.Signature.r) < 0
     then exit;
 
-    if TStreamOp.WriteAnsiString(Stream, ATransaction.sign.s) < 0
+    if TStreamOp.WriteAnsiString(Stream, ATransaction.Signature.s) < 0
     then exit;
 
     Stream.Position := 0;
@@ -251,12 +251,12 @@ end;
 
 function TCreateSubAccountTransaction.GetPayload: TRawBytes;
 begin
-  Result := FData.payload;
+  Result := FData.Payload;
 end;
 
 function TCreateSubAccountTransaction.GetSignerAccount: Cardinal;
 begin
-  Result := FData.account_signer;
+  Result := FData.SignerAccount;
 end;
 
 function TCreateSubAccountTransaction.GetTransactionData(Block,
@@ -271,7 +271,7 @@ begin
   TransactionData.transactionSubtype := CT_Op_CreateSubAccount;
   TransactionData.DestAccount := GetDestinationAccount;
   s := '';
-  TransactionData.OperationTxt := Format('Create sub account (%d)', [FData.account_number]);
+  TransactionData.TransactionAsString := Format('Create sub account (%d)', [FData.TargetAccount]);
   TransactionData.transactionSubtype := CT_OpSubtype_CreateSubAccount;
   TransactionData.OriginalPayload := GetPayload;
   if TCrypto.IsHumanReadable(TransactionData.OriginalPayload) then
@@ -289,15 +289,15 @@ end;
 procedure TCreateSubAccountTransaction.InitializeData;
 begin
   inherited InitializeData;
-  FData.account_signer := 0;
-  FData.account_number := 0;
-  FData.n_operation := 0;
-  FData.fee := 0;
-  FData.payload := '';
-  FData.public_key := CT_TECDSA_Public_Nul;
-  FData.sign.r := '';
-  FData.sign.s := '';
-  FData.balance := 0;
+  FData.SignerAccount := 0;
+  FData.TargetAccount := 0;
+  FData.NumberOfTransactions := 0;
+  FData.Fee := 0;
+  FData.Payload := '';
+  FData.PublicKey := CT_TECDSA_Public_Nul;
+  FData.Signature.r := '';
+  FData.Signature.s := '';
+  FData.Balance := 0;
 end;
 
 function TCreateSubAccountTransaction.LoadFromStream(Stream: TStream;
@@ -305,24 +305,24 @@ function TCreateSubAccountTransaction.LoadFromStream(Stream: TStream;
 begin
   Result := false;
 
-  Stream.Read(FData.account_signer, SizeOf(FData.account_signer));
-  Stream.Read(FData.account_number, SizeOf(FData.account_number));
-  Stream.Read(FData.n_operation, Sizeof(FData.n_operation));
-  Stream.Read(FData.fee, Sizeof(FData.fee));
+  Stream.Read(FData.SignerAccount, SizeOf(FData.SignerAccount));
+  Stream.Read(FData.TargetAccount, SizeOf(FData.TargetAccount));
+  Stream.Read(FData.NumberOfTransactions, Sizeof(FData.NumberOfTransactions));
+  Stream.Read(FData.Fee, Sizeof(FData.Fee));
 
-  if TStreamOp.ReadAnsiString(Stream, FData.payload) < 0
+  if TStreamOp.ReadAnsiString(Stream, FData.Payload) < 0
   then exit;
 
-  if TStreamOp.ReadAccountKey(Stream, FData.public_key) < 0
+  if TStreamOp.ReadAccountKey(Stream, FData.PublicKey) < 0
   then exit;
 
-  if TStreamOp.ReadAnsiString(Stream, FData.sign.r) < 0
+  if TStreamOp.ReadAnsiString(Stream, FData.Signature.r) < 0
   then exit;
 
-  if TStreamOp.ReadAnsiString(Stream, FData.sign.s) < 0
+  if TStreamOp.ReadAnsiString(Stream, FData.Signature.s) < 0
   then exit;
 
-  Stream.Read(FData.balance, SizeOf(FData.balance));
+  Stream.Read(FData.Balance, SizeOf(FData.Balance));
 
   Result := true;
 end;
@@ -331,31 +331,31 @@ function TCreateSubAccountTransaction.SaveToStream(Stream: TStream; SaveExtended
 begin
   Result := false;
 
-  Stream.Write(FData.account_signer, SizeOf(FData.account_signer));
-  Stream.Write(FData.account_number, SizeOf(FData.account_number));
-  Stream.Write(FData.n_operation, Sizeof(FData.n_operation));
-  Stream.Write(FData.fee, Sizeof(FData.fee));
+  Stream.Write(FData.SignerAccount, SizeOf(FData.SignerAccount));
+  Stream.Write(FData.TargetAccount, SizeOf(FData.TargetAccount));
+  Stream.Write(FData.NumberOfTransactions, Sizeof(FData.NumberOfTransactions));
+  Stream.Write(FData.Fee, Sizeof(FData.Fee));
 
-  if TStreamOp.WriteAnsiString(Stream, FData.payload) < 0
+  if TStreamOp.WriteAnsiString(Stream, FData.Payload) < 0
   then exit;
 
-  if TStreamOp.WriteAccountKey(Stream, FData.public_key) < 0
+  if TStreamOp.WriteAccountKey(Stream, FData.PublicKey) < 0
   then exit;
 
-  if TStreamOp.WriteAnsiString(Stream, FData.sign.r) < 0
+  if TStreamOp.WriteAnsiString(Stream, FData.Signature.r) < 0
   then exit;
 
-  if TStreamOp.WriteAnsiString(Stream, FData.sign.s) < 0
+  if TStreamOp.WriteAnsiString(Stream, FData.Signature.s) < 0
   then exit;
 
-  Stream.Write(FData.balance, SizeOf(FData.balance));
+  Stream.Write(FData.Balance, SizeOf(FData.Balance));
 
   Result := true;
 end;
 
 function TCreateSubAccountTransaction.ToString: string;
 begin
-  Result := Format('Create sub account %d for account %s',[ FData.account_number, TAccount.AccountNumberToAccountTxtNumber(FData.account_signer)]);
+  Result := Format('Create sub account %d for account %s',[ FData.TargetAccount, TAccount.AccountNumberToAccountTxtNumber(FData.SignerAccount)]);
 end;
 
 initialization
