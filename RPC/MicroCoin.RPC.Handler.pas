@@ -503,7 +503,7 @@ var
             begin
               xTransactionData.NOpInsideBlock := i;
               xTransactionData.Block := FNode.TransactionStorage.BlockHeader.Block;
-              xTransactionData.balance := FNode.TransactionStorage.AccountTransaction.Account(accountNumber).balance;
+              xTransactionData.balance := FNode.TransactionStorage.AccountTransaction.Account(accountNumber).Balance;
               if (xCounter >= startReg) and (xCounter < maxReg) then
               begin
                 xTransactionList.Add(xTransactionData);
@@ -666,7 +666,7 @@ var
       sacc := FNode.TransactionStorage.AccountTransaction.Account(Sender);
       tacc := FNode.TransactionStorage.AccountTransaction.Account(target);
 
-      opt := CreateOperationTransaction(Sender, target, sacc.numberOfTransactions, Amount, fee, sacc.accountInfo.AccountKey,
+      opt := CreateOperationTransaction(Sender, target, sacc.NumberOfTransactions, Amount, fee, sacc.accountInfo.AccountKey,
         tacc.accountInfo.AccountKey, RawPayload, Payload_method, EncodePwd);
       if opt = nil then
         exit;
@@ -819,7 +819,7 @@ var
       end;
       acc_signer := FNode.TransactionStorage.AccountTransaction.Account(account_signer);
 
-      opck := CreateOperationChangeKey(account_signer, acc_signer.numberOfTransactions, account_target,
+      opck := CreateOperationChangeKey(account_signer, acc_signer.NumberOfTransactions, account_target,
         acc_signer.accountInfo.AccountKey, new_pub_key, fee, RawPayload, Payload_method, EncodePwd);
       if not Assigned(opck) then
         exit;
@@ -1074,7 +1074,7 @@ var
           begin
             if Trim(ctxt) <> '' then
             begin
-              if not TAccount.AccountTxtNumberToAccountNumber(Trim(ctxt), an) then
+              if not TAccount.ParseAccountNumber(Trim(ctxt), an) then
               begin
                 errors := 'Invalid account number at pos ' + Inttostr(istart) + ': ' + ctxt;
                 exit;
@@ -1094,7 +1094,7 @@ var
     //
     if (Trim(ctxt) <> '') then
     begin
-      if not TAccount.AccountTxtNumberToAccountNumber(Trim(ctxt), an) then
+      if not TAccount.ParseAccountNumber(Trim(ctxt), an) then
       begin
         errors := 'Invalid account number at pos ' + Inttostr(istart) + ': ' + ctxt;
         exit;
@@ -1145,7 +1145,7 @@ var
               exit;
             end;
             acc := FNode.TransactionStorage.AccountTransaction.Account(accountsnumber.Get(ian));
-            opck := CreateOperationChangeKey(acc.AccountNumber, acc.numberOfTransactions, acc.AccountNumber, acc.accountInfo.AccountKey,
+            opck := CreateOperationChangeKey(acc.AccountNumber, acc.NumberOfTransactions, acc.AccountNumber, acc.accountInfo.AccountKey,
               new_pub_key, fee, RawPayload, Payload_method, EncodePwd);
             if not Assigned(opck) then
               exit;
@@ -1296,30 +1296,30 @@ var
   begin
     jsonobj.GetAsVariant('account').Value := Account.AccountNumber;
     jsonobj.GetAsVariant('enc_pubkey').Value := TCrypto.ToHexaString(Account.accountInfo.AccountKey.ToRawString);
-    jsonobj.GetAsVariant('balance').Value := ToJSONCurrency(Account.balance);
-    jsonobj.GetAsVariant('n_operation').Value := Account.numberOfTransactions;
-    jsonobj.GetAsVariant('updated_b').Value := Account.updated_block;
-    case Account.accountInfo.state of
+    jsonobj.GetAsVariant('balance').Value := ToJSONCurrency(Account.Balance);
+    jsonobj.GetAsVariant('n_operation').Value := Account.NumberOfTransactions;
+    jsonobj.GetAsVariant('updated_b').Value := Account.UpdatedBlock;
+    case Account.accountInfo.State of
       as_Normal:
         jsonobj.GetAsVariant('state').Value := 'normal';
       as_ForSale:
         begin
           jsonobj.GetAsVariant('state').Value := 'listed';
-          jsonobj.GetAsVariant('locked_until_block').Value := Account.accountInfo.locked_until_block;
-          jsonobj.GetAsVariant('price').Value := Account.accountInfo.price;
-          jsonobj.GetAsVariant('seller_account').Value := Account.accountInfo.account_to_pay;
-          jsonobj.GetAsVariant('private_sale').Value := (Account.accountInfo.new_publicKey.EC_OpenSSL_NID <> 0);
-          if not(Account.accountInfo.new_publicKey.EC_OpenSSL_NID <> 0) then
+          jsonobj.GetAsVariant('locked_until_block').Value := Account.accountInfo.LockedUntilBlock;
+          jsonobj.GetAsVariant('price').Value := Account.accountInfo.Price;
+          jsonobj.GetAsVariant('seller_account').Value := Account.accountInfo.AccountToPay;
+          jsonobj.GetAsVariant('private_sale').Value := (Account.accountInfo.NewPublicKey.EC_OpenSSL_NID <> 0);
+          if not(Account.accountInfo.NewPublicKey.EC_OpenSSL_NID <> 0) then
           begin
             jsonobj.GetAsVariant('new_enc_pubkey').Value :=
-              TCrypto.ToHexaString(Account.accountInfo.new_publicKey.ToRawString);
+              TCrypto.ToHexaString(Account.accountInfo.NewPublicKey.ToRawString);
           end;
         end
     else
       raise Exception.Create('ERROR DEV 20170425-1');
     end;
-    jsonobj.GetAsVariant('name').Value := Account.name;
-    jsonobj.GetAsVariant('type').Value := Account.account_type;
+    jsonobj.GetAsVariant('name').Value := Account.Name;
+    jsonobj.GetAsVariant('type').Value := Account.AccountType;
   end;
 
   procedure FillPublicKeyObject(const PubKey: TAccountKey; jsonobj: TPCJSONObject);
@@ -2023,7 +2023,7 @@ var
           exit;
         end;
         if not SignListAccountForSaleEx(params, OperationsHashTree, account_signer.accountInfo.AccountKey,
-          account_signer.numberOfTransactions) then
+          account_signer.NumberOfTransactions) then
           exit;
         opt := OperationsHashTree.GetTransaction(0);
         if not FNode.AddTransaction(nil, opt, errors) then
@@ -2094,7 +2094,7 @@ var
           exit;
         end;
         if not SignDelistAccountForSaleEx(params, OperationsHashTree, account_signer.accountInfo.AccountKey,
-          account_signer.numberOfTransactions) then
+          account_signer.NumberOfTransactions) then
           exit;
         opt := OperationsHashTree.GetTransaction(0);
         if not FNode.AddTransaction(nil, opt, errors) then
@@ -2144,7 +2144,7 @@ var
         end;
         buyer_account := FNode.TransactionStorage.AccountTransaction.Account(c_account);
         if not SignBuyAccountEx(params, OperationsHashTree, buyer_account.accountInfo.AccountKey,
-          buyer_account.numberOfTransactions) then
+          buyer_account.NumberOfTransactions) then
           exit;
         opt := OperationsHashTree.GetTransaction(0);
         if not FNode.AddTransaction(nil, opt, errors) then
@@ -2215,7 +2215,7 @@ var
           exit;
         end;
         if not SignChangeAccountInfoEx(params, OperationsHashTree, account_signer.accountInfo.AccountKey,
-          account_signer.numberOfTransactions) then
+          account_signer.NumberOfTransactions) then
           exit;
         opt := OperationsHashTree.GetTransaction(0);
         if not FNode.AddTransaction(nil, opt, errors) then
@@ -2286,7 +2286,7 @@ var
       if accountNumber >= 0 then
       begin
         Account := FNode.TransactionStorage.AccountTransaction.Account(accountNumber);
-        if (accountType = -1) or (integer(Account.account_type) = accountType) then
+        if (accountType = -1) or (integer(Account.AccountType) = accountType) then
           FillAccountObject(Account, output.GetAsObject(output.Count));
       end;
     end
@@ -2295,7 +2295,7 @@ var
       for i := start to FNode.BlockManager.AccountsCount - 1 do
       begin
         Account := FNode.TransactionStorage.AccountTransaction.Account(i);
-        if Account.accountInfo.state = as_ForSale then
+        if Account.accountInfo.State = as_ForSale then
         begin
           // Found a match
           FillAccountObject(Account, output.GetAsObject(output.Count));
@@ -2325,7 +2325,7 @@ var
       for i := start to FNode.BlockManager.AccountsCount - 1 do
       begin
         Account := FNode.TransactionStorage.AccountTransaction.Account(i);
-        if (accountType = -1) or (integer(Account.account_type) = accountType) then
+        if (accountType = -1) or (integer(Account.AccountType) = accountType) then
         begin
           // Found a match
           FillAccountObject(Account, output.GetAsObject(output.Count));
@@ -2597,7 +2597,7 @@ begin
         exit;
       end;
       OPR.NOpInsideBlock := i;
-      OPR.balance := FNode.TransactionStorage.AccountTransaction.Account(FNode.TransactionStorage.Transaction[i].SignerAccount).balance;
+      OPR.balance := FNode.TransactionStorage.AccountTransaction.Account(FNode.TransactionStorage.Transaction[i].SignerAccount).Balance;
       FillOperationResumeToJSONObject(OPR, GetResultArray.GetAsObject(FNode.TransactionStorage.Count - 1 - i));
     end;
     Result := true;

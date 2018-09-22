@@ -386,7 +386,7 @@ begin
             (FTransactionStorage.TransactionHashTree.TransactionCountsWithoutFeeBySameSigner(xTransaction.SignerAccount) >=
             CT_MaxAccountOperationsPerBlockWithoutFee) then
           begin
-            xError := Format(rsAccountSZero, [TAccount.AccountNumberToAccountTxtNumber(xTransaction.SignerAccount),
+            xError := Format(rsAccountSZero, [TAccount.AccountNumberToString(xTransaction.SignerAccount),
               CT_MaxAccountOperationsPerBlockWithoutFee]);
             if (errors <> '') then
               errors := errors + ' ';
@@ -417,7 +417,7 @@ begin
               begin
                 xTransaction.GetTransactionData(0, xTransaction.SignerAccount, xTransactionData);
                 xTransactionData.NOpInsideBlock := FTransactionStorage.Count - 1;
-                xTransactionData.balance := FTransactionStorage.AccountTransaction.Account(xTransaction.SignerAccount).balance;
+                xTransactionData.balance := FTransactionStorage.AccountTransaction.Account(xTransaction.SignerAccount).Balance;
                 OperationsResult.Add(xTransactionData);
               end;
             end
@@ -897,8 +897,8 @@ begin
   if AStartTransaction > AEndTransaction then
     exit;
   acc := BlockManager.AccountStorage.Account(AAccountNumber);
-  if (acc.updated_block > 0) or (acc.AccountNumber = 0) then
-    DoGetFromBlock(acc.updated_block, acc.balance, AMaxDepth, 0);
+  if (acc.UpdatedBlock > 0) or (acc.AccountNumber = 0) then
+    DoGetFromBlock(acc.UpdatedBlock, acc.Balance, AMaxDepth, 0);
 end;
 
 function TNode.FindTransaction(const ABlock: TBlock; const AHash: TRawBytes; var RBlock: Cardinal;
@@ -945,8 +945,8 @@ begin
       FTransactionStorage.Unlock;
     end;
     // block=0 and not found... start searching at block updated by account updated_block
-    RBlock := BlockManager.AccountStorage.Account(Account).updated_block;
-    if BlockManager.AccountStorage.Account(Account).numberOfTransactions < n_operation then
+    RBlock := BlockManager.AccountStorage.Account(Account).UpdatedBlock;
+    if BlockManager.AccountStorage.Account(Account).NumberOfTransactions < n_operation then
       exit; // n_operation is greater than found in safebox
   end;
   if (RBlock = 0) or (RBlock >= BlockManager.BlocksCount) then

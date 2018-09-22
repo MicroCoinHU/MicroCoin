@@ -209,7 +209,7 @@ var
   accNumber : Cardinal;
 begin
   inherited;
-  if TAccount.AccountTxtNumberToAccountNumber(Text, accNumber)
+  if TAccount.ParseAccountNumber(Text, accNumber)
   then begin
     FAccount := TNode.Node.TransactionStorage.BlockManager.AccountStorage.Account(accNumber);
   end;
@@ -233,7 +233,7 @@ end;
 procedure TAccountEdit.SetAccount(const Value: TAccount);
 begin
   FAccount := Value;
-  Text := TAccount.AccountNumberToAccountTxtNumber( Value.AccountNumber)
+  Text := TAccount.AccountNumberToString( Value.AccountNumber)
 end;
 
 { TEncryptedMemo }

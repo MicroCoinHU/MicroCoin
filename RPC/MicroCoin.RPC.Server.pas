@@ -156,8 +156,8 @@ begin
     xTransaction := TNodeNotifyEvents(Sender).Node.TransactionStorage.TransactionHashTree.GetTransaction(i);
     xTransaction.GetTransactionData(0, xTransaction.SignerAccount, xTransactionData);
     an := xTransactionData.DestAccount;
-    xFromAccount := TAccount.AccountNumberToAccountTxtNumber(xTransactionData.AffectedAccount);
-    xToAccount := TAccount.AccountNumberToAccountTxtNumber(xTransactionData.DestAccount);
+    xFromAccount := TAccount.AccountNumberToString(xTransactionData.AffectedAccount);
+    xToAccount := TAccount.AccountNumberToString(xTransactionData.DestAccount);
     xAmount := TCurrencyUtils.CurrencyToString(xTransactionData.Amount * -1);
     xFee := TCurrencyUtils.CurrencyToString(xTransactionData.fee);
     xBalance := TCurrencyUtils.CurrencyToString(xTransactionData.balance);

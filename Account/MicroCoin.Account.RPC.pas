@@ -128,30 +128,30 @@ procedure TRPCAccountPlugin.FillAccountObject(const AAccount: TAccount; AJsonObj
 begin
   AJsonObject.GetAsVariant('account').Value := AAccount.AccountNumber;
   AJsonObject.GetAsVariant('enc_pubkey').Value := TCrypto.ToHexaString(AAccount.accountInfo.AccountKey.ToRawString);
-  AJsonObject.GetAsVariant('balance').Value := TCurrencyUtils.ToJsonValue(AAccount.balance);
-  AJsonObject.GetAsVariant('n_operation').Value := AAccount.numberOfTransactions;
-  AJsonObject.GetAsVariant('updated_b').Value := AAccount.updated_block;
-  case AAccount.accountInfo.state of
+  AJsonObject.GetAsVariant('balance').Value := TCurrencyUtils.ToJsonValue(AAccount.Balance);
+  AJsonObject.GetAsVariant('n_operation').Value := AAccount.NumberOfTransactions;
+  AJsonObject.GetAsVariant('updated_b').Value := AAccount.UpdatedBlock;
+  case AAccount.accountInfo.State of
     as_Normal:
       AJsonObject.GetAsVariant('state').Value := 'normal';
     as_ForSale:
       begin
         AJsonObject.GetAsVariant('state').Value := 'listed';
-        AJsonObject.GetAsVariant('locked_until_block').Value := AAccount.accountInfo.locked_until_block;
-        AJsonObject.GetAsVariant('price').Value := AAccount.accountInfo.price;
-        AJsonObject.GetAsVariant('seller_account').Value := AAccount.accountInfo.account_to_pay;
-        AJsonObject.GetAsVariant('private_sale').Value := (AAccount.accountInfo.new_publicKey.EC_OpenSSL_NID <> 0);
-        if not(AAccount.accountInfo.new_publicKey.EC_OpenSSL_NID <> 0) then
+        AJsonObject.GetAsVariant('locked_until_block').Value := AAccount.accountInfo.LockedUntilBlock;
+        AJsonObject.GetAsVariant('price').Value := AAccount.accountInfo.Price;
+        AJsonObject.GetAsVariant('seller_account').Value := AAccount.accountInfo.AccountToPay;
+        AJsonObject.GetAsVariant('private_sale').Value := (AAccount.accountInfo.NewPublicKey.EC_OpenSSL_NID <> 0);
+        if not(AAccount.accountInfo.NewPublicKey.EC_OpenSSL_NID <> 0) then
         begin
           AJsonObject.GetAsVariant('new_enc_pubkey').Value :=
-            TCrypto.ToHexaString(AAccount.accountInfo.new_publicKey.ToRawString);
+            TCrypto.ToHexaString(AAccount.accountInfo.NewPublicKey.ToRawString);
         end;
       end
   else
     raise Exception.Create('ERROR DEV 20170425-1');
   end;
-  AJsonObject.GetAsVariant('name').Value := AAccount.name;
-  AJsonObject.GetAsVariant('type').Value := AAccount.account_type;
+  AJsonObject.GetAsVariant('name').Value := AAccount.Name;
+  AJsonObject.GetAsVariant('type').Value := AAccount.AccountType;
 end;
 
 function TRPCAccountPlugin.FindAccounts(AParams: TPCJSONObject): TRPCResult;
@@ -207,7 +207,7 @@ begin
     if accountNumber >= 0 then
     begin
       Account := TNode.Node.TransactionStorage.AccountTransaction.Account(accountNumber);
-      if (accountType = -1) or (integer(Account.account_type) = accountType) then
+      if (accountType = -1) or (integer(Account.AccountType) = accountType) then
         FillAccountObject(Account, output.GetAsObject(output.Count));
     end;
   end
@@ -216,7 +216,7 @@ begin
     for i := start to TNode.Node.BlockManager.AccountsCount - 1 do
     begin
       Account := TNode.Node.TransactionStorage.AccountTransaction.Account(i);
-      if Account.accountInfo.state = as_ForSale then
+      if Account.accountInfo.State = as_ForSale then
       begin
         // Found a match
         FillAccountObject(Account, output.GetAsObject(output.Count));
@@ -246,7 +246,7 @@ begin
     for i := start to TNode.Node.BlockManager.AccountsCount - 1 do
     begin
       Account := TNode.Node.TransactionStorage.AccountTransaction.Account(i);
-      if (accountType = -1) or (integer(Account.account_type) = accountType) then
+      if (accountType = -1) or (integer(Account.AccountType) = accountType) then
       begin
         // Found a match
         FillAccountObject(Account, output.GetAsObject(output.Count));
@@ -415,28 +415,28 @@ begin
       exit;
     end;
     ocl := TRPCServer.Instance.WalletKeys.AccountsKeyList.AccountList[i];
-    Account.balance := 0;
+    Account.Balance := 0;
     for j := 0 to ocl.Count - 1 do
     begin
-      inc(Account.balance, TNode.Node.TransactionStorage.AccountTransaction.Account(ocl.Get(j)).balance);
+      inc(Account.Balance, TNode.Node.TransactionStorage.AccountTransaction.Account(ocl.Get(j)).Balance);
     end;
-    Result.Response.GetAsVariant('result').Value := TCurrencyUtils.ToJsonValue(Account.balance);
+    Result.Response.GetAsVariant('result').Value := TCurrencyUtils.ToJsonValue(Account.Balance);
     Result.Success := true;
   end
   else
   begin
     Result.ErrorMessage := '';
     c := 0;
-    Account.balance := 0;
+    Account.Balance := 0;
     for i := 0 to TRPCServer.Instance.WalletKeys.AccountsKeyList.Count - 1 do
     begin
       ocl := TRPCServer.Instance.WalletKeys.AccountsKeyList.AccountList[i];
       for j := 0 to ocl.Count - 1 do
       begin
-        inc(Account.balance, TNode.Node.TransactionStorage.AccountTransaction.Account(ocl.Get(j)).balance);
+        inc(Account.Balance, TNode.Node.TransactionStorage.AccountTransaction.Account(ocl.Get(j)).Balance);
       end;
     end;
-    Result.Response.GetAsVariant('result').Value := TCurrencyUtils.ToJsonValue(Account.balance);
+    Result.Response.GetAsVariant('result').Value := TCurrencyUtils.ToJsonValue(Account.Balance);
     Result.Success := true;
   end;
 end;

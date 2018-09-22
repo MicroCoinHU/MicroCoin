@@ -195,12 +195,12 @@ begin
       exit;
     end;
   end;
-  if ((account_signer.numberOfTransactions + 1) <> FData.NumberOfTransactions) then
+  if ((account_signer.NumberOfTransactions + 1) <> FData.NumberOfTransactions) then
   begin
     errors := 'Invalid n_operation';
     exit;
   end;
-  if (account_signer.balance < FData.Fee) then
+  if (account_signer.Balance < FData.Fee) then
   begin
     errors := 'Insuficient founds';
     exit;
@@ -247,26 +247,26 @@ begin
   end
   else
     FHasValidSignature := true;
-  FPrevious_Signer_updated_block := account_signer.updated_block;
-  FPrevious_Destination_updated_block := account_target.updated_block;
+  FPrevious_Signer_updated_block := account_signer.UpdatedBlock;
+  FPrevious_Destination_updated_block := account_target.UpdatedBlock;
   if IsDelist then
   begin
-    account_target.accountInfo.state := as_Normal;
-    account_target.accountInfo.locked_until_block := CT_AccountInfo_NUL.locked_until_block;
-    account_target.accountInfo.price := CT_AccountInfo_NUL.price;
-    account_target.accountInfo.account_to_pay := CT_AccountInfo_NUL.account_to_pay;
-    account_target.accountInfo.new_publicKey := CT_AccountInfo_NUL.new_publicKey;
+    account_target.accountInfo.State := as_Normal;
+    account_target.accountInfo.LockedUntilBlock := CT_AccountInfo_NUL.LockedUntilBlock;
+    account_target.accountInfo.Price := CT_AccountInfo_NUL.Price;
+    account_target.accountInfo.AccountToPay := CT_AccountInfo_NUL.AccountToPay;
+    account_target.accountInfo.NewPublicKey := CT_AccountInfo_NUL.NewPublicKey;
   end
   else
   begin
-    account_target.accountInfo.state := as_ForSale;
-    account_target.accountInfo.locked_until_block := FData.LockedUntilBlock;
-    account_target.accountInfo.price := FData.AccountPrice;
-    account_target.accountInfo.account_to_pay := FData.AccountToPay;
-    account_target.accountInfo.new_publicKey := FData.NewPublicKey;
+    account_target.accountInfo.State := as_ForSale;
+    account_target.accountInfo.LockedUntilBlock := FData.LockedUntilBlock;
+    account_target.accountInfo.Price := FData.AccountPrice;
+    account_target.accountInfo.AccountToPay := FData.AccountToPay;
+    account_target.accountInfo.NewPublicKey := FData.NewPublicKey;
   end;
   Result := AccountTransaction.UpdateAccountInfo(FData.SignerAccount, FData.NumberOfTransactions, FData.TargetAccount,
-    account_target.accountInfo, account_target.name, account_target.account_type, FData.Fee, errors);
+    account_target.accountInfo, account_target.Name, account_target.AccountType, FData.Fee, errors);
 end;
 
 class function TListAccountTransaction.DoSignTransaction(key: TECPrivateKey; var ATransaction: TListAccountTransactionData): Boolean;
@@ -463,7 +463,7 @@ begin
         if (FData.NewPublicKey.EC_OpenSSL_NID = CT_TECDSA_Public_Nul.EC_OpenSSL_NID) then
         begin
           Result := Format('List account %s for sale price %s locked until block:%d fee:%s (n_op:%d) payload size:%d',
-            [TAccount.AccountNumberToAccountTxtNumber(FData.TargetAccount),
+            [TAccount.AccountNumberToString(FData.TargetAccount),
             TCurrencyUtils.CurrencyToString(FData.AccountPrice), FData.LockedUntilBlock,
             TCurrencyUtils.CurrencyToString(FData.Fee), FData.NumberOfTransactions, length(FData.Payload)])
         end
@@ -471,7 +471,7 @@ begin
         begin
           Result := Format
             ('List account %s for private sale price %s reserved for %s locked until block:%d fee:%s (n_op:%d) payload size:%d',
-            [TAccount.AccountNumberToAccountTxtNumber(FData.TargetAccount),
+            [TAccount.AccountNumberToString(FData.TargetAccount),
             TCurrencyUtils.CurrencyToString(FData.AccountPrice),
             TAccountKey.GetECInfoTxt(FData.NewPublicKey.EC_OpenSSL_NID), FData.LockedUntilBlock,
             TCurrencyUtils.CurrencyToString(FData.Fee), FData.NumberOfTransactions, length(FData.Payload)])
@@ -480,7 +480,7 @@ begin
     lat_DelistAccount:
       begin
         Result := Format('Delist account %s for sale fee:%s (n_op:%d) payload size:%d',
-          [TAccount.AccountNumberToAccountTxtNumber(FData.TargetAccount), TCurrencyUtils.CurrencyToString(FData.Fee),
+          [TAccount.AccountNumberToString(FData.TargetAccount), TCurrencyUtils.CurrencyToString(FData.Fee),
           FData.NumberOfTransactions, length(FData.Payload)])
       end;
   else
@@ -531,16 +531,16 @@ begin
   if IsPrivateSale then
   begin
     TransactionData.transactionSubtype := CT_OpSubtype_ListAccountForPrivateSale;
-    TransactionData.TransactionAsString := 'List account ' + TAccount.AccountNumberToAccountTxtNumber(Data.TargetAccount) +
+    TransactionData.TransactionAsString := 'List account ' + TAccount.AccountNumberToString(Data.TargetAccount) +
       ' for private sale price ' + TCurrencyUtils.CurrencyToString(Data.AccountPrice) + ' MCC pay to ' +
-      TAccount.AccountNumberToAccountTxtNumber(Data.AccountToPay);
+      TAccount.AccountNumberToString(Data.AccountToPay);
   end
   else
   begin
     TransactionData.transactionSubtype := CT_OpSubtype_ListAccountForPublicSale;
-    TransactionData.TransactionAsString := 'List account ' + TAccount.AccountNumberToAccountTxtNumber(Data.TargetAccount) +
+    TransactionData.TransactionAsString := 'List account ' + TAccount.AccountNumberToString(Data.TargetAccount) +
       ' for sale price ' + TCurrencyUtils.CurrencyToString(Data.AccountPrice) + ' MCC pay to ' +
-      TAccount.AccountNumberToAccountTxtNumber(Data.AccountToPay);
+      TAccount.AccountNumberToString(Data.AccountToPay);
   end;
   TransactionData.newKey := Data.NewPublicKey;
   TransactionData.SellerAccount := GetSellerAccount;
@@ -581,7 +581,7 @@ function TDelistAccountTransaction.GetTransactionData(Block, Affected_account_nu
 begin
   TransactionData := TTransactionData.Empty;
   TransactionData.transactionSubtype := CT_OpSubtype_DelistAccount;
-  TransactionData.TransactionAsString := 'Delist account ' + TAccount.AccountNumberToAccountTxtNumber(Data.TargetAccount) +
+  TransactionData.TransactionAsString := 'Delist account ' + TAccount.AccountNumberToString(Data.TargetAccount) +
     ' for sale';
   Result := true;
   TransactionData.OriginalPayload := GetPayload;

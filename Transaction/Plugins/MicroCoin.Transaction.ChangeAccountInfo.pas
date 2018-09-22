@@ -280,12 +280,12 @@ begin
   end;
   account_signer := AccountTransaction.Account(FData.SignerAccount);
   account_target := AccountTransaction.Account(FData.TargetAccount);
-  if ((account_signer.numberOfTransactions + 1) <> FData.NumberOfTransactions) then
+  if ((account_signer.NumberOfTransactions + 1) <> FData.NumberOfTransactions) then
   begin
     errors := 'Invalid n_operation';
     exit;
   end;
-  if (account_signer.balance < FData.Fee) then
+  if (account_signer.Balance < FData.Fee) then
   begin
     errors := 'Insuficient founds';
     exit;
@@ -369,22 +369,22 @@ begin
   end
   else
     FHasValidSignature := true;
-  FPrevious_Signer_updated_block := account_signer.updated_block;
-  FPrevious_Destination_updated_block := account_target.updated_block;
+  FPrevious_Signer_updated_block := account_signer.UpdatedBlock;
+  FPrevious_Destination_updated_block := account_target.UpdatedBlock;
   if (public_key in FData.ChangeType) then
   begin
     account_target.accountInfo.AccountKey := FData.NewAccountKey;
   end;
   if (account_name in FData.ChangeType) then
   begin
-    account_target.name := FData.NewName;
+    account_target.Name := FData.NewName;
   end;
   if (account_type in FData.ChangeType) then
   begin
-    account_target.account_type := FData.NewType;
+    account_target.AccountType := FData.NewType;
   end;
   Result := AccountTransaction.UpdateAccountInfo(FData.SignerAccount, FData.NumberOfTransactions, FData.TargetAccount,
-    account_target.accountInfo, account_target.name, account_target.account_type, FData.Fee, errors);
+    account_target.accountInfo, account_target.Name, account_target.AccountType, FData.Fee, errors);
 end;
 
 function TChangeAccountInfoTransaction.GetAmount: Int64;
@@ -432,7 +432,7 @@ begin
       s := s + ',';
     s := s + 'type';
   end;
-  TransactionData.TransactionAsString := 'Changed ' + s + ' of account ' + TAccount.AccountNumberToAccountTxtNumber
+  TransactionData.TransactionAsString := 'Changed ' + s + ' of account ' + TAccount.AccountNumberToString
     (GetDestinationAccount);
   TransactionData.transactionSubtype := CT_OpSubtype_ChangeAccountInfo;
   Result := true;
@@ -523,7 +523,7 @@ begin
     s := s + 'new type to ' + Inttostr(FData.NewType);
   end;
   Result := Format('Change account %s info: %s fee:%s (n_op:%d) payload size:%d',
-    [TAccount.AccountNumberToAccountTxtNumber(FData.TargetAccount), s, TCurrencyUtils.CurrencyToString(FData.Fee),
+    [TAccount.AccountNumberToString(FData.TargetAccount), s, TCurrencyUtils.CurrencyToString(FData.Fee),
     FData.NumberOfTransactions, length(FData.Payload)]);
 end;
 

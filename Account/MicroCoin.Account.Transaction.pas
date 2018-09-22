@@ -132,12 +132,12 @@ begin
   PaccBuyer := GetInternalAccount(ABuyer);
   PaccAccountToBuy := GetInternalAccount(AAccountToBuy);
   PaccSeller := GetInternalAccount(ASeller);
-  if (PaccBuyer^.numberOfTransactions + 1 <> ANumberOfTransactions) then
+  if (PaccBuyer^.NumberOfTransactions + 1 <> ANumberOfTransactions) then
   begin
     RErrors := 'Incorrect n_operation';
     exit;
   end;
-  if (PaccBuyer^.balance < (AAmount + AFee)) then
+  if (PaccBuyer^.Balance < (AAmount + AFee)) then
   begin
     RErrors := 'Insuficient founds';
     exit;
@@ -149,7 +149,7 @@ begin
   end;
   if (PaccBuyer^.AccountInfo.IsLocked(FFreezedAccounts.BlocksCount)) then
   begin
-    RErrors := 'Buyer account is locked until block ' + inttostr(PaccBuyer^.AccountInfo.locked_until_block);
+    RErrors := 'Buyer account is locked until block ' + inttostr(PaccBuyer^.AccountInfo.LockedUntilBlock);
     exit;
   end;
   if not(PaccAccountToBuy^.AccountInfo.IsAccountForSale) then
@@ -157,8 +157,8 @@ begin
     RErrors := 'Account is not for sale';
     exit;
   end;
-  if (PaccAccountToBuy^.AccountInfo.new_publicKey.EC_OpenSSL_NID <> CT_TECDSA_Public_Nul.EC_OpenSSL_NID) and
-    (not TAccountKey.EqualAccountKeys(PaccAccountToBuy^.AccountInfo.new_publicKey, ANewKey)) then
+  if (PaccAccountToBuy^.AccountInfo.NewPublicKey.EC_OpenSSL_NID <> CT_TECDSA_Public_Nul.EC_OpenSSL_NID) and
+    (not TAccountKey.EqualAccountKeys(PaccAccountToBuy^.AccountInfo.NewPublicKey, ANewKey)) then
   begin
     RErrors := 'New public key is not equal to allowed new public key for account';
     exit;
@@ -166,41 +166,41 @@ begin
   // Buy an account applies when account_to_buy.amount + operation amount >= price
   // Then, account_to_buy.amount will be (account_to_buy.amount + amount - price)
   // and buyer.amount will be buyer.amount + price
-  if (PaccAccountToBuy^.AccountInfo.price > (PaccAccountToBuy^.balance + AAmount)) then
+  if (PaccAccountToBuy^.AccountInfo.Price > (PaccAccountToBuy^.Balance + AAmount)) then
   begin
-    RErrors := 'Account price ' + TCurrencyUtils.CurrencyToString(PaccAccountToBuy^.AccountInfo.price) + ' < balance ' +
-      TCurrencyUtils.CurrencyToString(PaccAccountToBuy^.balance) + ' + amount ' + TCurrencyUtils.CurrencyToString(AAmount);
+    RErrors := 'Account price ' + TCurrencyUtils.CurrencyToString(PaccAccountToBuy^.AccountInfo.Price) + ' < balance ' +
+      TCurrencyUtils.CurrencyToString(PaccAccountToBuy^.Balance) + ' + amount ' + TCurrencyUtils.CurrencyToString(AAmount);
     exit;
   end;
 
-  if PaccBuyer^.updated_block <> FFreezedAccounts.BlocksCount then
+  if PaccBuyer^.UpdatedBlock <> FFreezedAccounts.BlocksCount then
   begin
-    PaccBuyer^.previous_updated_block := PaccBuyer^.updated_block;
-    PaccBuyer^.updated_block := FFreezedAccounts.BlocksCount;
+    PaccBuyer^.PreviusUpdatedBlock := PaccBuyer^.UpdatedBlock;
+    PaccBuyer^.UpdatedBlock := FFreezedAccounts.BlocksCount;
   end;
 
-  if PaccAccountToBuy^.updated_block <> FFreezedAccounts.BlocksCount then
+  if PaccAccountToBuy^.UpdatedBlock <> FFreezedAccounts.BlocksCount then
   begin
-    PaccAccountToBuy^.previous_updated_block := PaccAccountToBuy^.updated_block;
-    PaccAccountToBuy^.updated_block := FFreezedAccounts.BlocksCount;
+    PaccAccountToBuy^.PreviusUpdatedBlock := PaccAccountToBuy^.UpdatedBlock;
+    PaccAccountToBuy^.UpdatedBlock := FFreezedAccounts.BlocksCount;
   end;
 
-  if PaccSeller^.updated_block <> FFreezedAccounts.BlocksCount then
+  if PaccSeller^.UpdatedBlock <> FFreezedAccounts.BlocksCount then
   begin
-    PaccSeller^.previous_updated_block := PaccSeller^.updated_block;
-    PaccSeller^.updated_block := FFreezedAccounts.BlocksCount;
+    PaccSeller^.PreviusUpdatedBlock := PaccSeller^.UpdatedBlock;
+    PaccSeller^.UpdatedBlock := FFreezedAccounts.BlocksCount;
   end;
 
   // Inc buyer n_operation
-  PaccBuyer^.numberOfTransactions := ANumberOfTransactions;
+  PaccBuyer^.NumberOfTransactions := ANumberOfTransactions;
   // Set new balance values
-  PaccBuyer^.balance := PaccBuyer^.balance - (AAmount + AFee);
-  PaccAccountToBuy^.balance := PaccAccountToBuy^.balance + AAmount - PaccAccountToBuy^.AccountInfo.price;
-  PaccSeller^.balance := PaccSeller^.balance + PaccAccountToBuy^.AccountInfo.price;
+  PaccBuyer^.Balance := PaccBuyer^.Balance - (AAmount + AFee);
+  PaccAccountToBuy^.Balance := PaccAccountToBuy^.Balance + AAmount - PaccAccountToBuy^.AccountInfo.Price;
+  PaccSeller^.Balance := PaccSeller^.Balance + PaccAccountToBuy^.AccountInfo.Price;
 
   // After buy, account will be unlocked and set to normal state and new account public key changed
   PaccAccountToBuy^.AccountInfo := CT_AccountInfo_NUL;
-  PaccAccountToBuy^.AccountInfo.state := as_Normal;
+  PaccAccountToBuy^.AccountInfo.State := as_Normal;
   PaccAccountToBuy^.AccountInfo.AccountKey := ANewKey;
 
   Dec(FTotalBalance, AFee);
@@ -241,8 +241,8 @@ begin
     for i := 0 to FOrderedList.Count - 1 do
     begin
       Pa := FOrderedList.GetPointer(i);
-      FreezedAccounts.SetAccount(Pa^.AccountNumber, Pa^.AccountInfo, Pa^.name, Pa^.account_type, Pa^.balance,
-        Pa^.numberOfTransactions{$IFDEF EXTENDEDACCOUNT}, Pa^.SubAccounts, Pa^.ExtraData{$ENDIF});
+      FreezedAccounts.SetAccount(Pa^.AccountNumber, Pa^.AccountInfo, Pa^.Name, Pa^.AccountType, Pa^.Balance,
+        Pa^.NumberOfTransactions{$IFDEF EXTENDEDACCOUNT}, Pa^.SubAccounts, Pa^.ExtraData{$ENDIF});
     end;
     //
     if (FFreezedAccounts.TotalBalance <> FTotalBalance) then
@@ -256,11 +256,11 @@ begin
         [FFreezedAccounts.TotalFee, FTotalFee]));
     end;
     b := FFreezedAccounts.AddNew(FBlockLock);
-    if (b.accounts[0].balance <> (FBlockLock.reward + FTotalFee)) then
+    if (b.accounts[0].Balance <> (FBlockLock.reward + FTotalFee)) then
     begin
       TLog.NewLog(ltError, Classname,
         Format('Invalid integrity reward! Account:%d Balance:%d  Reward:%d Fee:%d (Reward+Fee:%d)',
-        [b.accounts[0].AccountNumber, b.accounts[0].balance, FBlockLock.reward, FTotalFee,
+        [b.accounts[0].AccountNumber, b.accounts[0].Balance, FBlockLock.reward, FTotalFee,
         FBlockLock.reward + FTotalFee]));
     end;
     CleanTransaction;
@@ -384,17 +384,17 @@ begin
   end;
   PaccSender := GetInternalAccount(ASender);
   PaccTarget := GetInternalAccount(ATarget);
-  if (PaccSender^.numberOfTransactions + 1 <> ANumberOfTransactions) then
+  if (PaccSender^.NumberOfTransactions + 1 <> ANumberOfTransactions) then
   begin
     RErrors := 'Incorrect n_operation';
     exit;
   end;
-  if (PaccSender^.balance < (AAmount + AFee)) then
+  if (PaccSender^.Balance < (AAmount + AFee)) then
   begin
     RErrors := 'Insuficient founds';
     exit;
   end;
-  if ((PaccTarget^.balance + AAmount) > CT_MaxWalletAmount) then
+  if ((PaccTarget^.Balance + AAmount) > CT_MaxWalletAmount) then
   begin
     RErrors := 'Max account balance';
     exit;
@@ -406,25 +406,25 @@ begin
   end;
   if (PaccSender^.AccountInfo.IsLocked(FFreezedAccounts.BlocksCount)) then
   begin
-    RErrors := 'Sender account is locked until block ' + inttostr(PaccSender^.AccountInfo.locked_until_block);
+    RErrors := 'Sender account is locked until block ' + inttostr(PaccSender^.AccountInfo.LockedUntilBlock);
     exit;
   end;
 
-  if PaccSender^.updated_block <> FFreezedAccounts.BlocksCount then
+  if PaccSender^.UpdatedBlock <> FFreezedAccounts.BlocksCount then
   begin
-    PaccSender^.previous_updated_block := PaccSender^.updated_block;
-    PaccSender^.updated_block := FFreezedAccounts.BlocksCount;
+    PaccSender^.PreviusUpdatedBlock := PaccSender^.UpdatedBlock;
+    PaccSender^.UpdatedBlock := FFreezedAccounts.BlocksCount;
   end;
 
-  if PaccTarget^.updated_block <> FFreezedAccounts.BlocksCount then
+  if PaccTarget^.UpdatedBlock <> FFreezedAccounts.BlocksCount then
   begin
-    PaccTarget^.previous_updated_block := PaccTarget.updated_block;
-    PaccTarget^.updated_block := FFreezedAccounts.BlocksCount;
+    PaccTarget^.PreviusUpdatedBlock := PaccTarget.UpdatedBlock;
+    PaccTarget^.UpdatedBlock := FFreezedAccounts.BlocksCount;
   end;
 
-  PaccSender^.numberOfTransactions := ANumberOfTransactions;
-  PaccSender^.balance := PaccSender^.balance - (AAmount + AFee);
-  PaccTarget^.balance := PaccTarget^.balance + (AAmount);
+  PaccSender^.NumberOfTransactions := ANumberOfTransactions;
+  PaccSender^.Balance := PaccSender^.Balance - (AAmount + AFee);
+  PaccTarget^.Balance := PaccTarget^.Balance + (AAmount);
 
   Dec(FTotalBalance, AFee);
   inc(FTotalFee, AFee);
@@ -453,37 +453,37 @@ begin
   end;
   P_signer := GetInternalAccount(ASignerAccount);
   P_target := GetInternalAccount(ATargetAccount);
-  if (P_signer^.numberOfTransactions + 1 <> ASignerAccountNumberOfTransactions) then
+  if (P_signer^.NumberOfTransactions + 1 <> ASignerAccountNumberOfTransactions) then
   begin
     RErrors := 'Incorrect n_operation';
     exit;
   end;
-  if (P_signer^.balance < AFee) then
+  if (P_signer^.Balance < AFee) then
   begin
     RErrors := 'Insuficient founds';
     exit;
   end;
   if (P_signer^.AccountInfo.IsLocked(FFreezedAccounts.BlocksCount)) then
   begin
-    RErrors := 'Signer account is locked until block ' + inttostr(P_signer^.AccountInfo.locked_until_block);
+    RErrors := 'Signer account is locked until block ' + inttostr(P_signer^.AccountInfo.LockedUntilBlock);
     exit;
   end;
   if (P_target^.AccountInfo.IsLocked(FFreezedAccounts.BlocksCount)) then
   begin
-    RErrors := 'Target account is locked until block ' + inttostr(P_target^.AccountInfo.locked_until_block);
+    RErrors := 'Target account is locked until block ' + inttostr(P_target^.AccountInfo.LockedUntilBlock);
     exit;
   end;
-  if P_signer^.updated_block <> FFreezedAccounts.BlocksCount then
+  if P_signer^.UpdatedBlock <> FFreezedAccounts.BlocksCount then
   begin
-    P_signer^.previous_updated_block := P_signer^.updated_block;
-    P_signer^.updated_block := FFreezedAccounts.BlocksCount;
+    P_signer^.PreviusUpdatedBlock := P_signer^.UpdatedBlock;
+    P_signer^.UpdatedBlock := FFreezedAccounts.BlocksCount;
   end;
   if (ASignerAccount <> ATargetAccount) then
   begin
-    if P_target^.updated_block <> FFreezedAccounts.BlocksCount then
+    if P_target^.UpdatedBlock <> FFreezedAccounts.BlocksCount then
     begin
-      P_target^.previous_updated_block := P_target^.updated_block;
-      P_target^.updated_block := FFreezedAccounts.BlocksCount;
+      P_target^.PreviusUpdatedBlock := P_target^.UpdatedBlock;
+      P_target^.UpdatedBlock := FFreezedAccounts.BlocksCount;
     end;
   end;
   if not TAccountKey.EqualAccountKeys(P_signer^.AccountInfo.AccountKey, P_target^.AccountInfo.AccountKey) then
@@ -491,7 +491,7 @@ begin
     RErrors := 'Signer and target have diff key';
     exit;
   end;
-  if (ANewName <> P_target^.name) then
+  if (ANewName <> P_target^.Name) then
   begin
     // NEW NAME CHANGE CHECK:
     if (ANewName <> '') then
@@ -521,10 +521,10 @@ begin
       end;
     end;
     // Ok, include
-    if (P_target^.name <> '') then
+    if (P_target^.Name <> '') then
     begin
       // In use in the safebox, mark as deleted
-      FAccountNames_Deleted.Add(P_target^.name, ATargetAccount);
+      FAccountNames_Deleted.Add(P_target^.Name, ATargetAccount);
     end;
     if (ANewName <> '') then
     begin
@@ -532,11 +532,11 @@ begin
     end;
   end;
 
-  P_signer^.numberOfTransactions := ASignerAccountNumberOfTransactions;
+  P_signer^.NumberOfTransactions := ASignerAccountNumberOfTransactions;
   P_target^.AccountInfo := AAccountInfo;
-  P_target^.name := ANewName;
-  P_target^.account_type := ANewType;
-  Dec(P_signer^.balance, AFee); // Signer is who pays the fee
+  P_target^.Name := ANewName;
+  P_target^.AccountType := ANewType;
+  Dec(P_signer^.Balance, AFee); // Signer is who pays the fee
   Dec(FTotalBalance, AFee);
   inc(FTotalFee, AFee);
   Result := true;

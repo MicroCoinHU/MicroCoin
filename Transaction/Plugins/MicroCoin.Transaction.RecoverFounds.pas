@@ -88,11 +88,11 @@ begin
     Exit;
   end;
   acc := AccountTransaction.Account(FData.Account);
-  if (acc.updated_block + CT_RecoverFoundsWaitInactiveCount >= AccountTransaction.FreezedAccountStorage.BlocksCount)
+  if (acc.UpdatedBlock + CT_RecoverFoundsWaitInactiveCount >= AccountTransaction.FreezedAccountStorage.BlocksCount)
   then
   begin
     errors := Format('Account is active to recover founds! Account %d Updated %d + %d >= BlockCount : %d',
-      [FData.Account, acc.updated_block, CT_RecoverFoundsWaitInactiveCount,
+      [FData.Account, acc.UpdatedBlock, CT_RecoverFoundsWaitInactiveCount,
       AccountTransaction.FreezedAccountStorage.BlocksCount]);
     Exit;
   end;
@@ -105,7 +105,7 @@ begin
       AccountTransaction.FreezedAccountStorage.BlocksCount]);
     Exit;
   end;
-  if ((acc.numberOfTransactions + 1) <> FData.NumberOfTransactions) then
+  if ((acc.NumberOfTransactions + 1) <> FData.NumberOfTransactions) then
   begin
     errors := 'Invalid n_operation';
     Exit;
@@ -115,12 +115,12 @@ begin
     errors := 'Invalid fee ' + Inttostr(FData.Fee);
     Exit;
   end;
-  if (acc.balance < FData.Fee) then
+  if (acc.Balance < FData.Fee) then
   begin
     errors := 'Insuficient founds';
     Exit;
   end;
-  FPrevious_Signer_updated_block := acc.updated_block;
+  FPrevious_Signer_updated_block := acc.UpdatedBlock;
   Result := AccountTransaction.TransferAmount(FData.Account, FData.Account, FData.NumberOfTransactions, 0, FData.Fee, errors);
 end;
 
@@ -224,7 +224,7 @@ end;
 function TRecoverFoundsTransaction.toString: string;
 begin
   Result := Format('Recover founds of account %s fee:%s (n_op:%d)',
-    [TAccount.AccountNumberToAccountTxtNumber(FData.Account), TCurrencyUtils.CurrencyToString(FData.Fee),
+    [TAccount.AccountNumberToString(FData.Account), TCurrencyUtils.CurrencyToString(FData.Fee),
     FData.NumberOfTransactions]);
 end;
 

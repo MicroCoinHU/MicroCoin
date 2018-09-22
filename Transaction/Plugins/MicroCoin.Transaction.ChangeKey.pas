@@ -157,12 +157,12 @@ begin
   end;
   account_signer := AAccountTransaction.Account(FData.SignerAccount);
   account_target := AAccountTransaction.Account(FData.TargetAccount);
-  if ((account_signer.numberOfTransactions + 1) <> FData.NumberOfTransactions) then
+  if ((account_signer.NumberOfTransactions + 1) <> FData.NumberOfTransactions) then
   begin
     RErrors := 'Invalid n_operation';
     Exit;
   end;
-  if (account_signer.balance < FData.Fee) then
+  if (account_signer.Balance < FData.Fee) then
   begin
     RErrors := 'Insuficient founds';
     Exit;
@@ -232,17 +232,17 @@ begin
   end
   else
     FHasValidSignature := true;
-  FPrevious_Signer_updated_block := account_signer.updated_block;
-  FPrevious_Destination_updated_block := account_target.updated_block;
+  FPrevious_Signer_updated_block := account_signer.UpdatedBlock;
+  FPrevious_Destination_updated_block := account_target.UpdatedBlock;
   account_target.accountInfo.AccountKey := FData.NewAccountKey;
   // Set to normal:
-  account_target.accountInfo.state := as_Normal;
-  account_target.accountInfo.locked_until_block := 0;
-  account_target.accountInfo.price := 0;
-  account_target.accountInfo.account_to_pay := 0;
-  account_target.accountInfo.new_publicKey := CT_TECDSA_Public_Nul;
+  account_target.accountInfo.State := as_Normal;
+  account_target.accountInfo.LockedUntilBlock := 0;
+  account_target.accountInfo.Price := 0;
+  account_target.accountInfo.AccountToPay := 0;
+  account_target.accountInfo.NewPublicKey := CT_TECDSA_Public_Nul;
   Result := AAccountTransaction.UpdateAccountInfo(FData.SignerAccount, FData.NumberOfTransactions, FData.TargetAccount,
-    account_target.accountInfo, account_target.name, account_target.account_type, FData.Fee, RErrors);
+    account_target.accountInfo, account_target.Name, account_target.AccountType, FData.Fee, RErrors);
 end;
 
 class function TChangeKeyTransaction.DoSignTransaction(AKey: TECPrivateKey; var ATransaction: ChangeKeyTransactionData): Boolean;
@@ -462,7 +462,7 @@ end;
 function TChangeKeyTransaction.toString: string;
 begin
   Result := Format('Change key of %s to new key: %s fee:%s (n_op:%d) payload size:%d',
-    [TAccount.AccountNumberToAccountTxtNumber(FData.TargetAccount),
+    [TAccount.AccountNumberToString(FData.TargetAccount),
     TAccountKey.GetECInfoTxt(FData.NewAccountKey.EC_OpenSSL_NID), TCurrencyUtils.CurrencyToString(FData.Fee),
     FData.NumberOfTransactions, length(FData.Payload)]);
 end;
@@ -479,7 +479,7 @@ begin
   TransactionData.transactionSubtype := CT_OpSubtype_ChangeKeySigned;
   TransactionData.newKey := Data.NewAccountKey;
   TransactionData.DestAccount := Data.TargetAccount;
-  TransactionData.TransactionAsString := 'Change ' + TAccount.AccountNumberToAccountTxtNumber(TransactionData.DestAccount) +
+  TransactionData.TransactionAsString := 'Change ' + TAccount.AccountNumberToString(TransactionData.DestAccount) +
     ' account key to ' + TAccountKey.GetECInfoTxt(TransactionData.newKey.EC_OpenSSL_NID);
   Result := true;
   TransactionData.OriginalPayload := GetPayload;

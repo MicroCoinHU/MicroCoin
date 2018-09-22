@@ -115,13 +115,13 @@ begin
     exit;
   end;
 
-  if ((xTargetAccount.numberOfTransactions + 1) <> FData.NumberOfTransactions)
+  if ((xTargetAccount.NumberOfTransactions + 1) <> FData.NumberOfTransactions)
   then begin
     errors := 'Invalid n_operation';
     exit;
   end;
 
-  if (xTargetAccount.balance < FData.Fee)
+  if (xTargetAccount.Balance < FData.Fee)
   then begin
     errors := 'Insuficient founds';
     exit;
@@ -155,8 +155,8 @@ begin
   else FHasValidSignature := true;
 
   xAccount :=  AccountTransaction.GetInternalAccount(xTargetAccount.AccountNumber);
-  xAccount^.numberOfTransactions := FData.NumberOfTransactions;
-  xAccount^.balance := xAccount^.balance - FData.Fee;
+  xAccount^.NumberOfTransactions := FData.NumberOfTransactions;
+  xAccount^.Balance := xAccount^.Balance - FData.Fee;
   {$IFDEF EXTENDEDACCOUNT}
   SetLength(xAccount^.SubAccounts, Length(xAccount^.SubAccounts)+1);
   xAccount^.SubAccounts[High(xAccount^.SubAccounts)].AccountKey := xTargetAccount.AccountInfo.AccountKey;
@@ -355,7 +355,7 @@ end;
 
 function TCreateSubAccountTransaction.ToString: string;
 begin
-  Result := Format('Create sub account %d for account %s',[ FData.TargetAccount, TAccount.AccountNumberToAccountTxtNumber(FData.SignerAccount)]);
+  Result := Format('Create sub account %d for account %s',[ FData.TargetAccount, TAccount.AccountNumberToString(FData.SignerAccount)]);
 end;
 
 initialization

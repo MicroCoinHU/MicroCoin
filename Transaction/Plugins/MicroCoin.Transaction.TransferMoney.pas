@@ -142,21 +142,21 @@ begin
 
   sender := AccountTransaction.Account(FData.SenderAccount);
   target := AccountTransaction.Account(FData.TargetAccount);
-  if ((sender.numberOfTransactions + 1) <> FData.NumberOfTransactions) then
+  if ((sender.NumberOfTransactions + 1) <> FData.NumberOfTransactions) then
   begin
-    errors := Format('Invalid n_operation %d (expected %d)', [FData.NumberOfTransactions, sender.numberOfTransactions + 1]);
+    errors := Format('Invalid n_operation %d (expected %d)', [FData.NumberOfTransactions, sender.NumberOfTransactions + 1]);
     Exit;
   end;
   totalamount := FData.Amount + FData.Fee;
-  if (sender.balance < totalamount) then
+  if (sender.Balance < totalamount) then
   begin
-    errors := Format('Insuficient founds %d < (%d + %d = %d)', [sender.balance, FData.Amount, FData.Fee, totalamount]);
+    errors := Format('Insuficient founds %d < (%d + %d = %d)', [sender.Balance, FData.Amount, FData.Fee, totalamount]);
     Exit;
   end;
-  if (target.balance + FData.Amount > CT_MaxWalletAmount) then
+  if (target.Balance + FData.Amount > CT_MaxWalletAmount) then
   begin
     errors := Format('Target cannot accept this transaction due to max amount %d+%d=%d > %d',
-      [target.balance, FData.Amount, target.balance + FData.Amount, CT_MaxWalletAmount]);
+      [target.Balance, FData.Amount, target.Balance + FData.Amount, CT_MaxWalletAmount]);
     Exit;
   end;
   // Is locked? Protocol 2 check
@@ -185,8 +185,8 @@ begin
   else
     FHasValidSignature := true;
   //
-  FPrevious_Signer_updated_block := sender.updated_block;
-  FPrevious_Destination_updated_block := target.updated_block;
+  FPrevious_Signer_updated_block := sender.UpdatedBlock;
+  FPrevious_Destination_updated_block := target.UpdatedBlock;
   // Is buy account ?
   if (FData.TransactionStyle = buy_account) then
   begin
@@ -202,28 +202,28 @@ begin
       Exit;
     end;
     // Check that seller is the expected seller
-    if (target.accountInfo.account_to_pay <> seller.AccountNumber) then
+    if (target.accountInfo.AccountToPay <> seller.AccountNumber) then
     begin
       errors := Format('Seller account %d is not expected account %d',
-        [FData.SellerAccount, target.accountInfo.account_to_pay]);
+        [FData.SellerAccount, target.accountInfo.AccountToPay]);
       Exit;
     end;
-    if (target.balance + FData.Amount < target.accountInfo.price) then
+    if (target.Balance + FData.Amount < target.accountInfo.Price) then
     begin
       errors := Format('Account %d balance (%d) + amount (%d) < price (%d)',
-        [target.AccountNumber, target.balance, FData.Amount, target.accountInfo.price]);
+        [target.AccountNumber, target.Balance, FData.Amount, target.accountInfo.Price]);
       Exit;
     end;
-    if (FData.AccountPrice <> target.accountInfo.price) then
+    if (FData.AccountPrice <> target.accountInfo.Price) then
     begin
       errors := Format('Signed price (%d) is not the same of account price (%d)',
-        [FData.AccountPrice, target.accountInfo.price]);
+        [FData.AccountPrice, target.accountInfo.Price]);
       Exit;
     end;
     if not(FData.NewAccountKey.IsValidAccountKey(errors)) then
       Exit; // BUG 20171511
     _IsBuyTransaction := true;
-    FPrevious_Seller_updated_block := seller.updated_block;
+    FPrevious_Seller_updated_block := seller.UpdatedBlock;
   end
   else if
   // Is automatic buy account?
@@ -231,7 +231,7 @@ begin
   // New automatic buy ?
     ((AccountTransaction.FreezedAccountStorage.CurrentProtocol >= CT_PROTOCOL_2) and
     (FData.TransactionStyle = Transaction) and (target.accountInfo.IsAccountForSaleAcceptingTransactions) and
-    (target.balance + FData.Amount >= target.accountInfo.price)) then
+    (target.Balance + FData.Amount >= target.accountInfo.Price)) then
   begin
     if (AccountTransaction.FreezedAccountStorage.CurrentProtocol < CT_PROTOCOL_2) then
     begin
@@ -244,11 +244,11 @@ begin
     // Fill the purchase data
     FData.TransactionStyle := transaction_with_auto_buy_account;
     // Set this data!
-    FData.AccountPrice := target.accountInfo.price;
-    FData.SellerAccount := target.accountInfo.account_to_pay;
-    seller := AccountTransaction.Account(target.accountInfo.account_to_pay);
-    FPrevious_Seller_updated_block := seller.updated_block;
-    FData.NewAccountKey := target.accountInfo.new_publicKey;
+    FData.AccountPrice := target.accountInfo.Price;
+    FData.SellerAccount := target.accountInfo.AccountToPay;
+    seller := AccountTransaction.Account(target.accountInfo.AccountToPay);
+    FPrevious_Seller_updated_block := seller.UpdatedBlock;
+    FData.NewAccountKey := target.accountInfo.NewPublicKey;
   end
   else
   begin
@@ -262,7 +262,7 @@ begin
       Exit;
     end;
     Result := AccountTransaction.BuyAccount(sender.AccountNumber, target.AccountNumber, seller.AccountNumber, FData.NumberOfTransactions,
-      FData.Amount, target.accountInfo.price, FData.Fee, FData.NewAccountKey, errors);
+      FData.Amount, target.accountInfo.Price, FData.Fee, FData.NewAccountKey, errors);
   end
   else
   begin
@@ -354,9 +354,9 @@ begin
     if Data.SenderAccount = AAffectedAccountNumber then
     begin
       TransactionData.transactionSubtype := CT_OpSubtype_BuyTransactionBuyer;
-      TransactionData.TransactionAsString := 'Tx-Out (MCCA ' + TAccount.AccountNumberToAccountTxtNumber(Data.TargetAccount) +
+      TransactionData.TransactionAsString := 'Tx-Out (MCCA ' + TAccount.AccountNumberToString(Data.TargetAccount) +
         ' Purchase) ' + TCurrencyUtils.CurrencyToString(Data.Amount) + ' MCC from ' +
-        TAccount.AccountNumberToAccountTxtNumber(Data.SenderAccount) + ' to ' + TAccount.AccountNumberToAccountTxtNumber
+        TAccount.AccountNumberToString(Data.SenderAccount) + ' to ' + TAccount.AccountNumberToString
         (Data.TargetAccount);
       if (Data.SenderAccount = Data.SellerAccount) then
       begin
@@ -370,9 +370,9 @@ begin
     else if Data.TargetAccount = AAffectedAccountNumber then
     begin
       TransactionData.transactionSubtype := CT_OpSubtype_BuyTransactionTarget;
-      TransactionData.TransactionAsString := 'Tx-In (MCCA ' + TAccount.AccountNumberToAccountTxtNumber(Data.TargetAccount) +
+      TransactionData.TransactionAsString := 'Tx-In (MCCA ' + TAccount.AccountNumberToString(Data.TargetAccount) +
         ' Purchase) ' + TCurrencyUtils.CurrencyToString(Data.Amount) + ' MCC from ' +
-        TAccount.AccountNumberToAccountTxtNumber(Data.SenderAccount) + ' to ' + TAccount.AccountNumberToAccountTxtNumber
+        TAccount.AccountNumberToString(Data.SenderAccount) + ' to ' + TAccount.AccountNumberToString
         (Data.TargetAccount);
       TransactionData.amount := Int64(Data.Amount) - Int64(Data.AccountPrice);
       TransactionData.fee := 0;
@@ -381,7 +381,7 @@ begin
     else if Data.SellerAccount = AAffectedAccountNumber then
     begin
       TransactionData.transactionSubtype := CT_OpSubtype_BuyTransactionSeller;
-      TransactionData.TransactionAsString := 'Tx-In Sold account ' + TAccount.AccountNumberToAccountTxtNumber(Data.TargetAccount) +
+      TransactionData.TransactionAsString := 'Tx-In Sold account ' + TAccount.AccountNumberToString(Data.TargetAccount) +
         ' price ' + TCurrencyUtils.CurrencyToString(Data.AccountPrice) + ' MCC';
       TransactionData.amount := Data.AccountPrice;
       TransactionData.fee := 0;
@@ -396,7 +396,7 @@ begin
     begin
       TransactionData.transactionSubtype := CT_OpSubtype_TransactionSender;
       TransactionData.TransactionAsString := 'Tx-Out ' + TCurrencyUtils.CurrencyToString(Data.Amount) + ' MCC from ' +
-        TAccount.AccountNumberToAccountTxtNumber(Data.SenderAccount) + ' to ' + TAccount.AccountNumberToAccountTxtNumber
+        TAccount.AccountNumberToString(Data.SenderAccount) + ' to ' + TAccount.AccountNumberToString
         (Data.TargetAccount);
       TransactionData.amount := Int64(Data.Amount) * (-1);
       Result := true;
@@ -405,7 +405,7 @@ begin
     begin
       TransactionData.transactionSubtype := CT_OpSubtype_TransactionReceiver;
       TransactionData.TransactionAsString := 'Tx-In ' + TCurrencyUtils.CurrencyToString(Data.Amount) + ' MCC from ' +
-        TAccount.AccountNumberToAccountTxtNumber(Data.SenderAccount) + ' to ' + TAccount.AccountNumberToAccountTxtNumber
+        TAccount.AccountNumberToString(Data.SenderAccount) + ' to ' + TAccount.AccountNumberToString
         (Data.TargetAccount);
       TransactionData.amount := Data.Amount;
       TransactionData.fee := 0;
@@ -622,17 +622,17 @@ begin
   case FData.TransactionStyle of
     Transaction:
       Result := Format('Transaction from %s to %s. Amount: %s Fee: %s',
-        [TAccount.AccountNumberToAccountTxtNumber(FData.SenderAccount), TAccount.AccountNumberToAccountTxtNumber(FData.TargetAccount),
+        [TAccount.AccountNumberToString(FData.SenderAccount), TAccount.AccountNumberToString(FData.TargetAccount),
         TCurrencyUtils.CurrencyToString(FData.Amount), TCurrencyUtils.CurrencyToString(FData.Fee)]);
     transaction_with_auto_buy_account:
       Result := Format('Transaction/Buy account %s by %s paying %s to %s amount:%s fee:%s',
-        [TAccount.AccountNumberToAccountTxtNumber(FData.TargetAccount), TAccount.AccountNumberToAccountTxtNumber(FData.SenderAccount),
-        TCurrencyUtils.CurrencyToString(FData.AccountPrice), TAccount.AccountNumberToAccountTxtNumber(FData.SellerAccount),
+        [TAccount.AccountNumberToString(FData.TargetAccount), TAccount.AccountNumberToString(FData.SenderAccount),
+        TCurrencyUtils.CurrencyToString(FData.AccountPrice), TAccount.AccountNumberToString(FData.SellerAccount),
         TCurrencyUtils.CurrencyToString(FData.Amount), TCurrencyUtils.CurrencyToString(FData.Fee)]);
     buy_account:
       Result := Format('Buy account %s by %s paying %s to %s amount:%s fee:%s',
-        [TAccount.AccountNumberToAccountTxtNumber(FData.TargetAccount), TAccount.AccountNumberToAccountTxtNumber(FData.SenderAccount),
-        TCurrencyUtils.CurrencyToString(FData.AccountPrice), TAccount.AccountNumberToAccountTxtNumber(FData.SellerAccount),
+        [TAccount.AccountNumberToString(FData.TargetAccount), TAccount.AccountNumberToString(FData.SenderAccount),
+        TCurrencyUtils.CurrencyToString(FData.AccountPrice), TAccount.AccountNumberToString(FData.SellerAccount),
         TCurrencyUtils.CurrencyToString(FData.Amount), TCurrencyUtils.CurrencyToString(FData.Fee)]);
   else
     raise Exception.Create('ERROR DEV 20170424-2');
@@ -683,7 +683,7 @@ begin
   if Data.SenderAccount = Affected_account_number then
   begin
     TransactionData.transactionSubtype := CT_OpSubtype_BuyAccountBuyer;
-    TransactionData.TransactionAsString := 'Buy account ' + TAccount.AccountNumberToAccountTxtNumber(Data.TargetAccount) + ' for ' +
+    TransactionData.TransactionAsString := 'Buy account ' + TAccount.AccountNumberToString(Data.TargetAccount) + ' for ' +
       TCurrencyUtils.CurrencyToString(Data.AccountPrice) + ' MCC';
     TransactionData.amount := Int64(Data.Amount) * (-1);
     Result := true;
@@ -691,8 +691,8 @@ begin
   else if Data.TargetAccount = Affected_account_number then
   begin
     TransactionData.transactionSubtype := CT_OpSubtype_BuyAccountTarget;
-    TransactionData.TransactionAsString := 'Purchased account ' + TAccount.AccountNumberToAccountTxtNumber(Data.TargetAccount) +
-      ' by ' + TAccount.AccountNumberToAccountTxtNumber(Data.SenderAccount) + ' for ' +
+    TransactionData.TransactionAsString := 'Purchased account ' + TAccount.AccountNumberToString(Data.TargetAccount) +
+      ' by ' + TAccount.AccountNumberToString(Data.SenderAccount) + ' for ' +
       TCurrencyUtils.CurrencyToString(Data.AccountPrice) + ' MCC';
     TransactionData.amount := Int64(Data.Amount) - Int64(Data.AccountPrice);
     TransactionData.fee := 0;
@@ -701,8 +701,8 @@ begin
   else if Data.SellerAccount = Affected_account_number then
   begin
     TransactionData.transactionSubtype := CT_OpSubtype_BuyAccountSeller;
-    TransactionData.TransactionAsString := 'Sold account ' + TAccount.AccountNumberToAccountTxtNumber(Data.TargetAccount) + ' by ' +
-      TAccount.AccountNumberToAccountTxtNumber(Data.SenderAccount) + ' for ' +
+    TransactionData.TransactionAsString := 'Sold account ' + TAccount.AccountNumberToString(Data.TargetAccount) + ' by ' +
+      TAccount.AccountNumberToString(Data.SenderAccount) + ' for ' +
       TCurrencyUtils.CurrencyToString(Data.AccountPrice) + ' MCC';
     TransactionData.amount := Data.AccountPrice;
     TransactionData.fee := 0;
