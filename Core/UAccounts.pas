@@ -443,7 +443,6 @@ end;
 
 class procedure TMicroCoinProtocol.CalcProofOfWork_Part3(const operationBlock: TOperationBlock; var Part3: TRawBytes);
 var ms : TMemoryStream;
-  s:ansistring;
 begin
   ms := TMemoryStream.Create;
   try
@@ -454,8 +453,6 @@ begin
     SetLength(Part3,ms.Size);
     ms.Position := 0;
     ms.ReadBuffer(Part3[1],ms.Size);
-    s := TCrypto.ToHexaString(operationBlock.operations_hash);
-    s := '';
   finally
     ms.Free;
   end;

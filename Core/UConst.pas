@@ -47,7 +47,7 @@ Const
   CT_NewLineRewardDecrease: Cardinal = 420480; // Avg 4 year
 
   CT_WaitNewBlocksBeforeTransaction = 10;
-  CT_WaitNewBlocksBeforeTransactionV2 = 100;
+  CT_WaitNewBlocksBeforeTransactionV2 = 10;
   CT_V2BlockNumber = 60000;
 
   CT_RecoverFoundsWaitInactiveCount = 420480;  // After 4 years... if an account has no operations, money will be a reward for a miner!

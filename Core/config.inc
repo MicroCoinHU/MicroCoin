@@ -18,9 +18,9 @@
 
 }
 
-  {$DEFINE OPTIONS_BY_DEFAULT}
+  {.$DEFINE OPTIONS_BY_DEFAULT}
   {.$DEFINE DelphiSockets_OpenSSLv10}
-  {.$DEFINE Synapse_OpenSSLv10}
+  {$DEFINE Synapse_OpenSSLv10}
   {.$DEFINE Synapse_OpenSSLv11}
 
   {.$DEFINE PRODUCTION}
