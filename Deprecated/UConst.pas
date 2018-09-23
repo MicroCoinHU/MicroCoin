@@ -76,7 +76,7 @@ Const
 
   CT_MaxClientsConnected = 100;
 
-  CT_BankToDiskEveryNBlocks = {$IFDEF PRODUCTION}100{$ELSE}10{$ENDIF};
+  cSaveAccountStageOnBlocks = {$IFDEF PRODUCTION}100{$ELSE}10{$ENDIF};
 
   CT_NID_secp256k1 = 714;
   CT_NID_secp384r1 = 715;

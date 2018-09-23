@@ -337,7 +337,7 @@ begin
 {$IFDEF TESTNET}
                 Storage.SaveAccountStorage;
 {$ELSE}
-                if (BlocksCount mod (CT_BankToDiskEveryNBlocks * 10)) = 0 then
+                if (BlocksCount mod (cSaveAccountStageOnBlocks*10)) = 0 then
                 begin
                   Storage.SaveAccountStorage;
                 end;
@@ -450,8 +450,8 @@ begin
       CurrentProcess := 'Migrating to version 2 format'
     else if not FIsLoadingBlocks
          then CurrentProcess := Format('Loading checkpoint blocks %d/%d',[BlocksCount, Storage.LastBlock])
-         else CurrentProcess := Format('Loading blockchain %d%%',
-         [Round(100*(BlocksCount mod 100) / Max(1, (Storage.LastBlock) mod 100)) ])
+         else CurrentProcess := 'Loading blocks'; // Format('Loading blockchain %d%%',
+//         [Round(100*(BlocksCount mod 100) / Max(1, (Storage.LastBlock) mod 100)) ])
   end
   else
     Result := true;

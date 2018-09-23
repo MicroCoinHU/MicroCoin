@@ -42,9 +42,10 @@ type
     function GetFirstBlockNumber: Int64; virtual; abstract;
     function GetLastBlockNumber: Int64; virtual; abstract;
     function DoInitialize: Boolean; virtual; abstract;
-    function DoCreateSafeBoxStream(blockCount: Cardinal): TStream; virtual; abstract;
+    function DoCreateAccountStorageStream(blockCount: Cardinal): TStream; virtual; abstract;
     procedure DoEraseStorage; virtual; abstract;
   public
+    constructor Create; virtual;
     function BlockExists(Block: Cardinal): Boolean; virtual; abstract;
     function LoadBlockChainBlock(Operations: TBlock; Block: Cardinal): Boolean;
     function SaveBlockChainBlock(Operations: TBlock): Boolean;
@@ -52,18 +53,17 @@ type
     procedure DeleteBlockChainBlocks(StartingDeleteBlock: Cardinal);
     function SaveAccountStorage: Boolean;
     function RestoreAccountStorage(max_block: Int64): Boolean;
-    constructor Create; virtual;
-    property Orphan: TOrphan read FOrphan write SetOrphan;
-    property readonly: Boolean read FReadOnly write SetReadOnly;
-    property BlockManager: TBlockManagerBase read FBlockManager write SetBlockManager;
     procedure CopyConfiguration(const CopyFrom: TStorage); virtual;
-    property FirstBlock: Int64 read GetFirstBlockNumber;
-    property LastBlock: Int64 read GetLastBlockNumber;
-    function Initialize: Boolean;
-    function CreateSafeBoxStream(blockCount: Cardinal): TStream;
+    function CreateAccountStorageStream(ABlockCount: Cardinal): TStream;
     function HasUpgradedToVersion2: Boolean; virtual; abstract;
     procedure CleanupVersion1Data; virtual; abstract;
     procedure EraseStorage;
+    property Orphan: TOrphan read FOrphan write SetOrphan;
+    property &readonly: Boolean read FReadOnly write SetReadOnly;
+    property BlockManager: TBlockManagerBase read FBlockManager write SetBlockManager;
+    property FirstBlock: Int64 read GetFirstBlockNumber;
+    property LastBlock: Int64 read GetLastBlockNumber;
+    function Initialize: Boolean;
   end;
 
 implementation
@@ -92,9 +92,9 @@ begin
   Result := DoInitialize;
 end;
 
-function TStorage.CreateSafeBoxStream(blockCount: Cardinal): TStream;
+function TStorage.CreateAccountStorageStream(ABlockCount: Cardinal): TStream;
 begin
-  Result := DoCreateSafeBoxStream(blockCount);
+  Result := DoCreateAccountStorageStream(ABlockCount);
 end;
 
 procedure TStorage.EraseStorage;

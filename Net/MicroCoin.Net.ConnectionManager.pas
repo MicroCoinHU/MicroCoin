@@ -198,11 +198,11 @@ begin
   currunixtimestamp := UnivDateTimeToUnix(DateTime2UnivDateTime(now));
   // If not connected CT_LAST_CONNECTION_MAX_MINUTES minutes ago...
   if (NodeServerAddress.last_connection_by_server = 0) and (NodeServerAddress.last_connection > 0) and
-    ((NodeServerAddress.last_connection + (CT_LAST_CONNECTION_MAX_MINUTES)) < (currunixtimestamp)) then
+    ((NodeServerAddress.last_connection + (cLAST_CONNECTION_MAX_MINUTES)) < (currunixtimestamp)) then
     exit;
   // If not connected CT_LAST_CONNECTION_BY_SERVER_MAX_MINUTES minutes ago...
   if (NodeServerAddress.last_connection = 0) and (NodeServerAddress.last_connection_by_server > 0) and
-    ((NodeServerAddress.last_connection_by_server + (CT_LAST_CONNECTION_BY_SERVER_MAX_MINUTES)) < (currunixtimestamp))
+    ((NodeServerAddress.last_connection_by_server + (cLAST_CONNECTION_BY_SERVER_MAX_MINUTES)) < (currunixtimestamp))
   then
     exit;
   if (NodeServerAddress.last_connection_by_server > currunixtimestamp) or
@@ -257,7 +257,7 @@ begin
     begin
       P := l[i];
       // Is an old blacklisted IP? (More than 1 hour)
-      if (P^.is_blacklisted) and ((P^.last_connection + (CT_LAST_CONNECTION_MAX_MINUTES)) <
+      if (P^.is_blacklisted) and ((P^.last_connection + (cLAST_CONNECTION_MAX_MINUTES)) <
         (UnivDateTimeToUnix(DateTime2UnivDateTime(now)))) then
       begin
         l.Delete(i);
@@ -294,12 +294,12 @@ begin
       if (not(nsa.is_blacklisted)) // Not blacklisted
         and ((nsa.netConnection = nil) // No connection
         or // Connected but a lot of time without data...
-        ((Assigned(nsa.netConnection)) and ((nsa.last_connection + (CT_LAST_CONNECTION_MAX_MINUTES)) <
+        ((Assigned(nsa.netConnection)) and ((nsa.last_connection + (cLAST_CONNECTION_MAX_MINUTES)) <
         currunixtimestamp))) and ((nsa.total_failed_attemps_to_connect > 0) or (
         // I've not connected CT_LAST_CONNECTION_MAX_MINUTES minutes before
-        ((nsa.last_connection + (CT_LAST_CONNECTION_MAX_MINUTES)) < (currunixtimestamp)) and
+        ((nsa.last_connection + (cLAST_CONNECTION_MAX_MINUTES)) < (currunixtimestamp)) and
         // Others have connected CT_LAST_CONNECTION_BY_SERVER_MAX_MINUTES minutes before
-        ((nsa.last_connection_by_server + (CT_LAST_CONNECTION_BY_SERVER_MAX_MINUTES)) < (currunixtimestamp)) and
+        ((nsa.last_connection_by_server + (cLAST_CONNECTION_BY_SERVER_MAX_MINUTES)) < (currunixtimestamp)) and
         ((nsa.last_connection > 0) or (nsa.last_connection_by_server > 0)))) then
       begin
         DeleteNetClient(l, i);
@@ -537,7 +537,7 @@ begin
   FNetDataNotifyEventsThread := TNetDataNotifyEventsThread.Create(Self);
   FNetClientsDestroyThread := TNetClientsDestroyThread.Create(Self);
   FNetworkAdjustedTime := TNetworkAdjustedTime.Create;
-  FMaxNodeServersAddressesBuffer := (CT_MAX_NODESERVERS_BUFFER div 2);
+  FMaxNodeServersAddressesBuffer := (cMAX_NODESERVERS_BUFFER div 2);
 end;
 
 procedure TConnectionManager.DeleteNetClient(list: TList; index: Integer);
@@ -800,7 +800,7 @@ var
   c: Cardinal;
   w: Word;
 begin
-  HeaderData := CT_NetHeaderData;
+  HeaderData := TNetHeaderData.Empty;
   Result := false;
   IsValidHeaderButNeedMoreData := false;
   lastp := buffer.Position;
@@ -812,23 +812,23 @@ begin
       exit;
     buffer.Read(w, 2);
     case w of
-      CT_MagicRequest:
-        HeaderData.header_type := ntp_request;
-      CT_MagicResponse:
-        HeaderData.header_type := ntp_response;
-      CT_MagicAutoSend:
-        HeaderData.header_type := ntp_autosend;
+      cMagicRequest:
+        HeaderData.HeaderType := ntp_request;
+      cMagicResponse:
+        HeaderData.HeaderType := ntp_response;
+      cMagicAutoSend:
+        HeaderData.HeaderType := ntp_autosend;
     else
-      HeaderData.header_type := ntp_unknown;
+      HeaderData.HeaderType := ntp_unknown;
       exit;
     end;
-    buffer.Read(HeaderData.operation, 2);
-    buffer.Read(HeaderData.error_code, 2);
-    buffer.Read(HeaderData.request_id, 4);
+    buffer.Read(HeaderData.Operation, 2);
+    buffer.Read(HeaderData.ErrorCode, 2);
+    buffer.Read(HeaderData.RequestId, 4);
     buffer.Read(HeaderData.Protocol.protocol_version, 2);
     buffer.Read(HeaderData.Protocol.protocol_available, 2);
     buffer.Read(c, 4);
-    HeaderData.buffer_data_length := c;
+    HeaderData.BufferDataLength := c;
     DataBuffer.Size := 0;
     if buffer.Size - buffer.Position < c then
     begin
@@ -842,27 +842,27 @@ begin
     DataBuffer.CopyFrom(buffer, c);
     DataBuffer.Position := 0;
     //
-    if HeaderData.header_type = ntp_response then
+    if HeaderData.HeaderType = ntp_response then
     begin
-      HeaderData.is_error := HeaderData.error_code <> 0;
-      if HeaderData.is_error then
+      HeaderData.IsError := HeaderData.ErrorCode <> 0;
+      if HeaderData.IsError then
       begin
-        TStreamOp.ReadAnsiString(DataBuffer, HeaderData.error_text);
+        TStreamOp.ReadAnsiString(DataBuffer, HeaderData.ErrorText);
       end;
     end
     else
     begin
-      HeaderData.is_error := HeaderData.error_code <> 0;
-      if HeaderData.is_error then
+      HeaderData.IsError := HeaderData.ErrorCode <> 0;
+      if HeaderData.IsError then
       begin
-        TStreamOp.ReadAnsiString(DataBuffer, HeaderData.error_text);
+        TStreamOp.ReadAnsiString(DataBuffer, HeaderData.ErrorText);
       end;
     end;
-    if (HeaderData.is_error) then
+    if (HeaderData.IsError) then
     begin
-      TLog.NewLog(ltError, Classname, 'Response with error (' + IntToHex(HeaderData.error_code, 4) + '): ' +
-        HeaderData.error_text + ' ...on ' + 'operation: ' + OperationToText(HeaderData.operation) + ' id: ' +
-        Inttostr(HeaderData.request_id));
+      TLog.NewLog(ltError, Classname, 'Response with error (' + IntToHex(HeaderData.ErrorCode, 4) + '): ' +
+        HeaderData.ErrorText + ' ...on ' + 'operation: ' + OperationToText(HeaderData.Operation) + ' id: ' +
+        Inttostr(HeaderData.RequestId));
     end;
     Result := true;
   finally
@@ -939,11 +939,11 @@ const
     try
       if OnlyOperationBlock then
       begin
-        xNumberOfTransactions := CT_NetOp_GetOperationsBlock;
+        xNumberOfTransactions := cNetOp_GetOperationsBlock;
       end
       else
       begin
-        xNumberOfTransactions := CT_NetOp_GetBlocks;
+        xNumberOfTransactions := cNetOp_GetBlocks;
       end;
       TLog.NewLog(ltdebug, CT_LogSender, Format('Sending %s from block %d to %d (Total: %d)',
         [TConnectionManager.OperationToText(xNumberOfTransactions), block_start, block_end, block_end - block_start + 1]));
@@ -953,7 +953,7 @@ const
       if Connection.DoSendAndWaitForResponse(xNumberOfTransactions, xRequestId, xSendData, xReceiveData, MaxWaitMilliseconds,
         xHeaderData) then
       begin
-        if xHeaderData.is_error then
+        if xHeaderData.IsError then
           exit;
         if xReceiveData.Read(xCount, 4) < 4 then
           exit; // Error in data
@@ -1238,8 +1238,8 @@ const
     end;
   end;
 
-  function DownloadSafeBoxChunk(safebox_blockscount: Cardinal; const sbh: TRawBytes; from_block, to_block: Cardinal;
-    receivedDataUnzipped: TStream; var safeBoxHeader: TAccountStorageHeader; var errors: AnsiString): Boolean;
+  function DownloadAccountStorageChunk(ABlockscount: Cardinal; const AHeader: TRawBytes; AFromBlock, AToblock: Cardinal;
+    AReceivedDataUnzipped: TStream; var AAccountStorageHeader: TAccountStorageHeader; var RErrors: AnsiString): Boolean;
   var
     SendData, ReceiveData: TStream;
     HeaderData: TNetHeaderData;
@@ -1250,48 +1250,48 @@ const
     SendData := TMemoryStream.Create;
     ReceiveData := TMemoryStream.Create;
     try
-      SendData.Write(safebox_blockscount, SizeOf(safebox_blockscount)); // 4 bytes for blockcount
-      TStreamOp.WriteAnsiString(SendData, sbh);
-      SendData.Write(from_block, SizeOf(from_block));
-      c := to_block;
-      if (c >= safebox_blockscount) then
-        c := safebox_blockscount - 1;
+      SendData.Write(ABlockscount, SizeOf(ABlockscount)); // 4 bytes for blockcount
+      TStreamOp.WriteAnsiString(SendData, AHeader);
+      SendData.Write(AFromBlock, SizeOf(AFromBlock));
+      c := AToblock;
+      if (c >= ABlockscount) then
+        c := ABlockscount - 1;
       SendData.Write(c, SizeOf(c));
-      if (from_block > c) or (c >= safebox_blockscount) then
+      if (AFromBlock > c) or (c >= ABlockscount) then
       begin
-        errors := 'ERROR DEV 20170727-1';
+        RErrors := 'ERROR DEV 20170727-1';
         exit;
       end;
       TLog.NewLog(ltdebug, CT_LogSender, Format('Call to GetSafeBox from blocks %d to %d of %d',
-        [from_block, c, safebox_blockscount]));
+        [AFromBlock, c, ABlockscount]));
       request_id := TConnectionManager.Instance.NewRequestId;
-      if Connection.DoSendAndWaitForResponse(CT_NetOp_GetSafeBox, request_id, SendData, ReceiveData, 30000, HeaderData)
+      if Connection.DoSendAndWaitForResponse(cNetOp_GetAccountStorage, request_id, SendData, ReceiveData, 30000, HeaderData)
       then
       begin
-        if HeaderData.is_error then
+        if HeaderData.IsError then
           exit;
-        receivedDataUnzipped.Size := 0;
-        if not TPCChunk.LoadSafeBoxFromChunk(ReceiveData, receivedDataUnzipped, safeBoxHeader, errors) then
+        AReceivedDataUnzipped.Size := 0;
+        if not TPCChunk.LoadAccountStorageFromChunk(ReceiveData, AReceivedDataUnzipped, AAccountStorageHeader, RErrors) then
         begin
-          Connection.DisconnectInvalidClient(false, 'Invalid received chunk: ' + errors);
+          Connection.DisconnectInvalidClient(false, 'Invalid received chunk: ' + RErrors);
           exit;
         end;
-        if (safeBoxHeader.AccountStorageHash <> sbh) or (safeBoxHeader.startBlock <> from_block) or
-          (safeBoxHeader.endBlock <> c) or (safeBoxHeader.BlocksCount <> safebox_blockscount) or
-          (safeBoxHeader.Protocol < CT_PROTOCOL_2) or (safeBoxHeader.Protocol > CT_BlockChain_Protocol_Available) then
+        if (AAccountStorageHeader.AccountStorageHash <> AHeader) or (AAccountStorageHeader.StartBlock <> AFromBlock) or
+          (AAccountStorageHeader.EndBlock <> c) or (AAccountStorageHeader.BlocksCount <> ABlockscount) or
+          (AAccountStorageHeader.Protocol < CT_PROTOCOL_2) or (AAccountStorageHeader.Protocol > CT_BlockChain_Protocol_Available) then
         begin
-          errors := Format
+          RErrors := Format
             ('Invalid received chunk based on call: Blockscount:%d %d - from:%d %d to %d %d - SafeboxHash:%s %s',
-            [safeBoxHeader.BlocksCount, safebox_blockscount, safeBoxHeader.startBlock, from_block,
-            safeBoxHeader.endBlock, c, TCrypto.ToHexaString(safeBoxHeader.AccountStorageHash),
-            TCrypto.ToHexaString(sbh)]);
-          Connection.DisconnectInvalidClient(false, 'Invalid received chunk: ' + errors);
+            [AAccountStorageHeader.BlocksCount, ABlockscount, AAccountStorageHeader.StartBlock, AFromBlock,
+            AAccountStorageHeader.EndBlock, c, TCrypto.ToHexaString(AAccountStorageHeader.AccountStorageHash),
+            TCrypto.ToHexaString(AHeader)]);
+          Connection.DisconnectInvalidClient(false, 'Invalid received chunk: ' + RErrors);
           exit;
         end;
         Result := true;
       end
       else
-        errors := 'No response on DownloadSafeBoxChunk';
+        RErrors := 'No response on DownloadSafeBoxChunk';
     finally
       ReceiveData.Free;
       SendData.Free;
@@ -1299,25 +1299,25 @@ const
   end;
 
 type
-  TSafeBoxChunkData = record
-    safeBoxHeader: TAccountStorageHeader;
-    chunkStream: TStream;
+  TAccountStorageChunkData = record
+    AccountStorageHeader: TAccountStorageHeader;
+    ChunkStream: TStream;
   end;
 
-  function DownloadSafeBox(IsMyBlockchainValid: Boolean): Boolean;
+  function DownloadAccountStorage(AIsMyBlockchainValid: Boolean): Boolean;
   var
     x_blockcount, xRequestId: Cardinal;
     xReceiveData, xReceiveChunk, xChunk1: TStream;
     xBlockHeader: TBlockHeader;
     xAccountStorageHeader: TAccountStorageHeader;
     xErrors: AnsiString;
-    xChunks: array of TSafeBoxChunkData;
+    xChunks: array of TAccountStorageChunkData;
     i: Integer;
   begin
     Result := false;
     // Will try to download penultimate saved safebox
-    x_blockcount := ((Connection.RemoteOperationBlock.Block div CT_BankToDiskEveryNBlocks) - 1) *
-      CT_BankToDiskEveryNBlocks;
+    x_blockcount := ((Connection.RemoteOperationBlock.Block div cSaveAccountStageOnBlocks) - 1) *
+      cSaveAccountStageOnBlocks;
     if not Do_GetOperationBlock(x_blockcount, 5000, xBlockHeader) then
     begin
       Connection.DisconnectInvalidClient(false, Format('Cannot obtain operation block %d for downloading safebox',
@@ -1332,7 +1332,7 @@ type
         for i := 0 to x_blockcount div 10000 do
         begin
           xReceiveChunk := TMemoryStream.Create;
-          if (not DownloadSafeBoxChunk(x_blockcount, xBlockHeader.initial_safe_box_hash, (i * 10000), ((i + 1) * 10000) - 1,
+          if (not DownloadAccountStorageChunk(x_blockcount, xBlockHeader.initial_safe_box_hash, (i * 10000), ((i + 1) * 10000) - 1,
             xReceiveChunk, xAccountStorageHeader, xErrors)) then
           begin
             xReceiveChunk.Free;
@@ -1340,19 +1340,19 @@ type
             exit;
           end;
           SetLength(xChunks, length(xChunks) + 1);
-          xChunks[high(xChunks)].safeBoxHeader := xAccountStorageHeader;
-          xChunks[high(xChunks)].chunkStream := xReceiveChunk;
+          xChunks[high(xChunks)].AccountStorageHeader := xAccountStorageHeader;
+          xChunks[high(xChunks)].ChunkStream := xReceiveChunk;
         end;
         // Will concat safeboxs:
         xChunk1 := TMemoryStream.Create;
         try
-          xChunk1.CopyFrom(xChunks[0].chunkStream, 0);
+          xChunk1.CopyFrom(xChunks[0].ChunkStream, 0);
           for i := 1 to high(xChunks) do
           begin
             xReceiveData.Size := 0;
             xChunk1.Position := 0;
-            xChunks[i].chunkStream.Position := 0;
-            if not TAccountStorage.ConcatStream(xChunk1, xChunks[i].chunkStream, xReceiveData, xErrors) then
+            xChunks[i].ChunkStream.Position := 0;
+            if not TAccountStorage.ConcatStream(xChunk1, xChunks[i].ChunkStream, xReceiveData, xErrors) then
             begin
               TLog.NewLog(ltError, CT_LogSender, xErrors);
               exit;
@@ -1366,7 +1366,7 @@ type
       finally
         for i := 0 to high(xChunks) do
         begin
-          xChunks[i].chunkStream.Free;
+          xChunks[i].ChunkStream.Free;
         end;
         SetLength(xChunks, 0);
       end;
@@ -1379,7 +1379,7 @@ type
           if TNode.Node.BlockManager.LoadAccountsFromStream(xReceiveData, true, xErrors) then
           begin
             TLog.NewLog(ltInfo, Classname, 'Received new safebox!');
-            if not IsMyBlockchainValid then
+            if not AIsMyBlockchainValid then
             begin
               TNode.Node.BlockManager.Storage.EraseStorage;
             end;
@@ -1460,7 +1460,7 @@ begin
         TLog.NewLog(ltInfo, CT_LogSender, 'No found base block to start process... Receiving ALL');
         if (Connection.RemoteOperationBlock.protocol_version >= CT_PROTOCOL_2) then
         begin
-          DownloadSafeBox(false);
+          DownloadAccountStorage(false);
         end
         else
         begin
@@ -1532,10 +1532,10 @@ begin
       nsa := PNodeServerAddress(l[i])^;
       if (not IsBlackListed(nsa.ip, 0)) and ( // I've connected 1h before
         ((nsa.last_connection > 0) and ((Assigned(nsa.netConnection)) or
-        ((nsa.last_connection + (CT_LAST_CONNECTION_MAX_MINUTES)) > (currunixtimestamp)))) or
+        ((nsa.last_connection + (cLAST_CONNECTION_MAX_MINUTES)) > (currunixtimestamp)))) or
         // Others have connected 3h before
         ((nsa.last_connection_by_server > 0) and
-        ((nsa.last_connection_by_server + (CT_LAST_CONNECTION_BY_SERVER_MAX_MINUTES)) > (currunixtimestamp))) or
+        ((nsa.last_connection_by_server + (cLAST_CONNECTION_BY_SERVER_MAX_MINUTES)) > (currunixtimestamp))) or
         // Peer cache
         ((nsa.last_connection = 0) and (nsa.last_connection_by_server = 0))) and (
         // Never tried to connect or successfully connected
@@ -1569,16 +1569,16 @@ end;
 
 class function TConnectionManager.HeaderDataToText(const HeaderData: TNetHeaderData): AnsiString;
 begin
-  Result := CT_NetTransferType[HeaderData.header_type] + ' Operation:' + TConnectionManager.OperationToText
-    (HeaderData.operation);
-  if HeaderData.is_error then
+  Result := CT_NetTransferType[HeaderData.HeaderType] + ' Operation:' + TConnectionManager.OperationToText
+    (HeaderData.Operation);
+  if HeaderData.IsError then
   begin
-    Result := Result + ' ERRCODE:' + Inttostr(HeaderData.error_code) + ' ERROR:' + HeaderData.error_text;
+    Result := Result + ' ERRCODE:' + Inttostr(HeaderData.ErrorCode) + ' ERROR:' + HeaderData.ErrorText;
   end
   else
   begin
-    Result := Result + ' ReqId:' + Inttostr(HeaderData.request_id) + ' BufferSize:' +
-      Inttostr(HeaderData.buffer_data_length);
+    Result := Result + ' ReqId:' + Inttostr(HeaderData.RequestId) + ' BufferSize:' +
+      Inttostr(HeaderData.BufferDataLength);
   end;
 end;
 
@@ -1615,10 +1615,10 @@ procedure TConnectionManager.SetMaxNodeServersAddressesBuffer(AValue: Integer);
 begin
   if FMaxNodeServersAddressesBuffer = AValue then
     exit;
-  if (AValue < CT_MIN_NODESERVERS_BUFFER) then
-    FMaxNodeServersAddressesBuffer := CT_MIN_NODESERVERS_BUFFER
-  else if (AValue > CT_MAX_NODESERVERS_BUFFER) then
-    FMaxNodeServersAddressesBuffer := CT_MAX_NODESERVERS_BUFFER
+  if (AValue < cMIN_NODESERVERS_BUFFER) then
+    FMaxNodeServersAddressesBuffer := cMIN_NODESERVERS_BUFFER
+  else if (AValue > cMAX_NODESERVERS_BUFFER) then
+    FMaxNodeServersAddressesBuffer := cMAX_NODESERVERS_BUFFER
   else
     FMaxNodeServersAddressesBuffer := AValue;
 end;
@@ -1740,21 +1740,21 @@ end;
 class function TConnectionManager.OperationToText(operation: Word): AnsiString;
 begin
   case operation of
-    CT_NetOp_Hello:
+    cNetOp_Hello:
       Result := 'HELLO';
-    CT_NetOp_Error:
+    cNetOp_Error:
       Result := 'ERROR';
-    CT_NetOp_GetBlocks:
+    cNetOp_GetBlocks:
       Result := 'GET BLOCKS';
-    CT_NetOp_Message:
+    cNetOp_Message:
       Result := 'MESSAGE';
-    CT_NetOp_GetOperationsBlock:
+    cNetOp_GetOperationsBlock:
       Result := 'GET OPERATIONS BLOCK';
-    CT_NetOp_NewBlock:
+    cNetOp_NewBlock:
       Result := 'NEW BLOCK';
-    CT_NetOp_AddOperations:
+    cNetOp_AddOperations:
       Result := 'ADD OPERATIONS';
-    CT_NetOp_GetSafeBox:
+    cNetOp_GetAccountStorage:
       Result := 'GET SAFEBOX';
   else
     Result := 'UNKNOWN OPERATION ' + IntToHex(operation, 4);

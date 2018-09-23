@@ -69,7 +69,7 @@ type
     procedure DoProcess_GetOperationsBlock_Request(HeaderData: TNetHeaderData; DataBuffer: TStream); override;
     procedure DoProcess_NewBlock(HeaderData: TNetHeaderData; DataBuffer: TStream); override;
     procedure DoProcess_AddOperations(HeaderData: TNetHeaderData; DataBuffer: TStream); override;
-    procedure DoProcess_GetSafeBox_Request(HeaderData: TNetHeaderData; DataBuffer: TStream); override;
+    procedure DoProcess_GetAccountStorage_Request(HeaderData: TNetHeaderData; DataBuffer: TStream); override;
   public
     constructor Create(AOwner : TComponent); override;
     destructor Destroy; override;
@@ -141,7 +141,7 @@ begin
   DoDisconnect := true;
   xTransactions := TTransactionHashTree.Create;
   try
-    if HeaderData.header_type <> ntp_autosend then
+    if HeaderData.HeaderType <> ntp_autosend then
     begin
       errors := 'Not autosend';
       exit;
@@ -212,7 +212,7 @@ var
 begin
   xDoDisconnect := true;
   try
-    if HeaderData.header_type <> ntp_request then
+    if HeaderData.HeaderType <> ntp_request then
     begin
       xErrors := 'Not request';
       exit;
@@ -254,7 +254,7 @@ begin
           end
           else
           begin
-            SendError(ntp_response, HeaderData.operation, HeaderData.request_id, CT_NetError_InternalServerError,
+            SendError(ntp_response, HeaderData.Operation, HeaderData.RequestId, cNetError_InternalServerError,
               'Operations of block:' + Inttostr(b) + ' not found');
             exit;
           end;
@@ -270,7 +270,7 @@ begin
           end;
         end;
         // db.SaveToFile('stream1');
-        Send(ntp_response, HeaderData.operation, 0, HeaderData.request_id, xMemoryStream);
+        Send(ntp_response, HeaderData.Operation, 0, HeaderData.RequestId, xMemoryStream);
       finally
         xBlock.Free;
       end;
@@ -297,12 +297,12 @@ var
 begin
   xDoDisconnect := true;
   try
-    if HeaderData.header_type <> ntp_response then
+    if HeaderData.HeaderType <> ntp_response then
     begin
       xErrors := 'Not response';
       exit;
     end;
-    if HeaderData.is_error then
+    if HeaderData.IsError then
     begin
       xDoDisconnect := false;
       exit; //
@@ -385,7 +385,7 @@ begin
   blocksstr := '';
   DoDisconnect := true;
   try
-    if HeaderData.header_type <> ntp_request then
+    if HeaderData.HeaderType <> ntp_request then
     begin
       errors := 'Not request';
       exit;
@@ -413,7 +413,7 @@ begin
       if b_end < b_start then
       begin
         errors := 'Block:' + Inttostr(b_end) + ' not found';
-        SendError(ntp_response, HeaderData.operation, HeaderData.request_id, CT_NetError_InternalServerError, errors);
+        SendError(ntp_response, HeaderData.Operation, HeaderData.RequestId, cNetError_InternalServerError, errors);
         exit;
       end;
     end;
@@ -436,7 +436,7 @@ begin
         else
         begin
           errors := 'ERROR DEV 20170522-1 block:' + Inttostr(b);
-          SendError(ntp_response, HeaderData.operation, HeaderData.request_id, CT_NetError_InternalServerError, errors);
+          SendError(ntp_response, HeaderData.Operation, HeaderData.RequestId, cNetError_InternalServerError, errors);
           exit;
         end;
       until (b > b_end);
@@ -444,7 +444,7 @@ begin
       try
         db.Write(total_b, 4);
         db.WriteBuffer(msops.Memory^, msops.Size);
-        Send(ntp_response, HeaderData.operation, 0, HeaderData.request_id, db);
+        Send(ntp_response, HeaderData.Operation, 0, HeaderData.RequestId, db);
       finally
         db.Free;
       end;
@@ -462,16 +462,16 @@ begin
   end;
 end;
 
-procedure TNetConnection.DoProcess_GetSafeBox_Request(HeaderData: TNetHeaderData; DataBuffer: TStream);
+procedure TNetConnection.DoProcess_GetAccountStorage_Request(HeaderData: TNetHeaderData; DataBuffer: TStream);
 var
-  _blockcount: Cardinal;
-  _safeboxHash: TRawBytes;
-  _from, _to: Cardinal;
-  sbStream: TStream;
-  responseStream: TStream;
+  xBlockCount: Cardinal;
+  xAccountStorageHash: TRawBytes;
+  xFrom, xTo: Cardinal;
+  xAccountStorageStream: TStream;
+  xResponseStream: TStream;
   antPos: Int64;
-  sbHeader: TAccountStorageHeader;
-  errors: AnsiString;
+  xAccountStorageHeader: TAccountStorageHeader;
+  xErrors: AnsiString;
 begin
   {
     This call is used to obtain a chunk of the safebox
@@ -485,43 +485,43 @@ begin
     - If not available (requesting for an old safebox) will retun not available
     If not valid will disconnect
   }
-  DataBuffer.Read(_blockcount, SizeOf(_blockcount));
-  TStreamOp.ReadAnsiString(DataBuffer, _safeboxHash);
-  DataBuffer.Read(_from, SizeOf(_from));
-  DataBuffer.Read(_to, SizeOf(_to));
+  DataBuffer.Read(xBlockCount, SizeOf(xBlockCount));
+  TStreamOp.ReadAnsiString(DataBuffer, xAccountStorageHash);
+  DataBuffer.Read(xFrom, SizeOf(xFrom));
+  DataBuffer.Read(xTo, SizeOf(xTo));
   //
-  sbStream := TNode.Node.BlockManager.Storage.CreateSafeBoxStream(_blockcount);
+  xAccountStorageStream := TNode.Node.BlockManager.Storage.CreateAccountStorageStream(xBlockCount);
   try
-    responseStream := TMemoryStream.Create;
+    xResponseStream := TMemoryStream.Create;
     try
-      if not Assigned(sbStream) then
+      if not Assigned(xAccountStorageStream) then
       begin
-        SendError(ntp_response, HeaderData.operation, CT_NetError_SafeboxNotFound, HeaderData.request_id,
-          Format('Safebox for block %d not found', [_blockcount]));
+        SendError(ntp_response, HeaderData.Operation, cNetError_AccountStorageNotFound, HeaderData.RequestId,
+          Format('Safebox for block %d not found', [xBlockCount]));
         exit;
       end;
-      antPos := sbStream.Position;
-      TAccountStorage.LoadHeaderFromStream(sbStream, sbHeader);
-      if sbHeader.AccountStorageHash <> _safeboxHash then
+      antPos := xAccountStorageStream.Position;
+      TAccountStorage.LoadHeaderFromStream(xAccountStorageStream, xAccountStorageHeader);
+      if xAccountStorageHeader.AccountStorageHash <> xAccountStorageHash then
       begin
         DisconnectInvalidClient(false, Format('Invalid safeboxhash on GetSafeBox request (Real:%s > Requested:%s)',
-          [TCrypto.ToHexaString(sbHeader.AccountStorageHash), TCrypto.ToHexaString(_safeboxHash)]));
+          [TCrypto.ToHexaString(xAccountStorageHeader.AccountStorageHash), TCrypto.ToHexaString(xAccountStorageHash)]));
         exit;
       end;
       // Response:
-      sbStream.Position := antPos;
-      if not TPCChunk.SaveSafeBoxChunkFromSafeBox(sbStream, responseStream, _from, _to, errors) then
+      xAccountStorageStream.Position := antPos;
+      if not TPCChunk.SaveChunkFromAccountStorage(xAccountStorageStream, xResponseStream, xFrom, xTo, xErrors) then
       begin
-        TLog.NewLog(ltError, Classname, 'Error saving chunk: ' + errors);
+        TLog.NewLog(ltError, Classname, 'Error saving chunk: ' + xErrors);
         exit;
       end;
       // Sending
-      Send(ntp_response, HeaderData.operation, 0, HeaderData.request_id, responseStream);
+      Send(ntp_response, HeaderData.Operation, 0, HeaderData.RequestId, xResponseStream);
     finally
-      responseStream.Free;
+      xResponseStream.Free;
     end;
   finally
-    FreeAndNil(sbStream);
+    FreeAndNil(xAccountStorageStream);
   end;
 end;
 
@@ -609,7 +609,7 @@ begin
           TStreamOp.ReadAnsiString(DataBuffer, nsa.ip);
           DataBuffer.Read(nsa.port, 2);
           DataBuffer.Read(nsa.last_connection_by_server, 4);
-          if (nsa.last_connection_by_server > 0) and (i <= CT_MAX_NODESERVERS_ON_HELLO) then // Protect massive data
+          if (nsa.last_connection_by_server > 0) and (i <= cMAX_NODESERVERS_ON_HELLO) then // Protect massive data
             TConnectionManager.Instance.AddServer(nsa);
         end;
         if TStreamOp.ReadAnsiString(DataBuffer, other_version) >= 0 then
@@ -637,12 +637,12 @@ begin
       end;
 
       TLog.NewLog(ltdebug, Classname, 'Hello received: ' + TBlock.BlockToString(FRemoteOperationBlock));
-      if (HeaderData.header_type in [ntp_request, ntp_response]) then
+      if (HeaderData.HeaderType in [ntp_request, ntp_response]) then
       begin
         // Response:
-        if (HeaderData.header_type = ntp_request) then
+        if (HeaderData.HeaderType = ntp_request) then
         begin
-          Send_Hello(ntp_response, HeaderData.request_id);
+          Send_Hello(ntp_response, HeaderData.RequestId);
         end;
         if (TAccountKey.EqualAccountKeys(FClientPublicKey, TConnectionManager.Instance.NodePrivateKey.PublicKey)) then
         begin
@@ -681,7 +681,7 @@ begin
   errors := '';
   DoDisconnect := true;
   try
-    if HeaderData.header_type <> ntp_autosend then
+    if HeaderData.HeaderType <> ntp_autosend then
     begin
       errors := 'Not autosend';
       exit;
@@ -732,7 +732,7 @@ begin
   xErrors := '';
   xDoDisconnect := true;
   try
-    if HeaderData.header_type <> ntp_autosend then
+    if HeaderData.HeaderType <> ntp_autosend then
     begin
       xErrors := 'Not autosend';
       exit;
@@ -862,7 +862,7 @@ begin
             data.Write(xTransactionType, 1);
             FBufferToSendOperations.GetTransaction(i).SaveToNettransfer(data);
           end;
-          Send(ntp_autosend, CT_NetOp_AddOperations, 0, xRequestId, data);
+          Send(ntp_autosend, cNetOp_AddOperations, 0, xRequestId, data);
           FBufferToSendOperations.ClearHastThree;
         finally
           data.Free;
@@ -917,11 +917,11 @@ begin
     data.Write(c1, 4);
     data.Write(c2, 4);
     request_id := TConnectionManager.Instance.NewRequestId;
-    TConnectionManager.Instance.RegisterRequest(Self, CT_NetOp_GetBlocks, request_id);
+    TConnectionManager.Instance.RegisterRequest(Self, cNetOp_GetBlocks, request_id);
     TLog.NewLog(ltdebug, Classname, Format('Send GET BLOCKS start:%d quantity:%d (from:%d to %d)',
       [StartAddress, quantity, StartAddress, quantity + StartAddress]));
     FIsDownloadingBlocks := quantity > 1;
-    Send(ntp_request, CT_NetOp_GetBlocks, 0, request_id, data);
+    Send(ntp_request, cNetOp_GetBlocks, 0, request_id, data);
     Result := Connected;
   finally
     data.Free;
@@ -960,7 +960,7 @@ begin
   try
     if NetTranferType = ntp_request then
     begin
-      TConnectionManager.Instance.RegisterRequest(Self, CT_NetOp_Hello, request_id);
+      TConnectionManager.Instance.RegisterRequest(Self, cNetOp_Hello, request_id);
     end;
     if TNode.Node.NetServer.Active then
       w := TNode.Node.NetServer.port
@@ -975,7 +975,7 @@ begin
     data.Write(currunixtimestamp, 4);
     // Save last operations block
     TBlock.SaveBlockToStream(TNode.Node.BlockManager.LastBlock, data);
-    nsarr := TConnectionManager.Instance.GetValidNodeServers(true, CT_MAX_NODESERVERS_ON_HELLO);
+    nsarr := TConnectionManager.Instance.GetValidNodeServers(true, cMAX_NODESERVERS_ON_HELLO);
     i := length(nsarr);
     data.Write(i, 4);
     for i := 0 to high(nsarr) do
@@ -991,7 +991,7 @@ begin
     data.Write(TNode.Node.BlockManager.AccountStorage.WorkSum, SizeOf(TNode.Node.BlockManager.AccountStorage.WorkSum));
     //
     // data.SaveToFile('./hello.bin');
-    Send(NetTranferType, CT_NetOp_Hello, 0, request_id, data);
+    Send(NetTranferType, cNetOp_Hello, 0, request_id, data);
     Result := Client.Connected;
   finally
     data.Free;
@@ -1011,7 +1011,7 @@ begin
     // Cypher message:
     cyp := ECIESEncrypt(FClientPublicKey, TheMessage);
     TStreamOp.WriteAnsiString(data, cyp);
-    Send(ntp_autosend, CT_NetOp_Message, 0, 0, data);
+    Send(ntp_autosend, cNetOp_Message, 0, 0, data);
     Result := true;
   finally
     data.Free;
@@ -1053,7 +1053,7 @@ begin
       request_id := TConnectionManager.Instance.NewRequestId;
       NewBlock.SaveBlockToStream(false, data);
       data.Write(TNode.Node.BlockManager.AccountStorage.WorkSum, SizeOf(TNode.Node.BlockManager.AccountStorage.WorkSum));
-      Send(ntp_autosend, CT_NetOp_NewBlock, 0, request_id, data);
+      Send(ntp_autosend, cNetOp_NewBlock, 0, request_id, data);
     finally
       data.Free;
     end;

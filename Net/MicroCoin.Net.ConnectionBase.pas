@@ -87,7 +87,7 @@ type
     procedure DoProcess_GetOperationsBlock_Request(HeaderData: TNetHeaderData; DataBuffer: TStream); virtual; abstract;
     procedure DoProcess_NewBlock(HeaderData: TNetHeaderData; DataBuffer: TStream); virtual; abstract;
     procedure DoProcess_AddOperations(HeaderData: TNetHeaderData; DataBuffer: TStream); virtual; abstract;
-    procedure DoProcess_GetSafeBox_Request(HeaderData: TNetHeaderData; DataBuffer: TStream); virtual; abstract;
+    procedure DoProcess_GetAccountStorage_Request(AHeaderData: TNetHeaderData; ADataBuffer: TStream); virtual; abstract;
 
   public
     constructor Create(AOwner: TComponent); override;
@@ -383,7 +383,7 @@ begin
   iDebugStep := 0;
   try
     Result := false;
-    HeaderData := CT_NetHeaderData;
+    HeaderData := TNetHeaderData.Empty;
     if FIsWaitingForResponse then
     begin
       TLog.NewLog(ltdebug, Classname, 'Is waiting for response ...');
@@ -435,55 +435,55 @@ begin
                 TConnectionManager.Instance.NodeServersAddresses.UnlockList;
               end;
               iDebugStep := 800;
-              TLog.NewLog(ltdebug, Classname, 'Received ' + CT_NetTransferType[HeaderData.header_type] + ' operation:' +
-                TConnectionManager.OperationToText(HeaderData.operation) + ' id:' + Inttostr(HeaderData.request_id) +
-                ' Buffer size:' + Inttostr(HeaderData.buffer_data_length));
-              if (RequestId = HeaderData.request_id) and (HeaderData.header_type = ntp_response) then
+              TLog.NewLog(ltdebug, Classname, 'Received ' + CT_NetTransferType[HeaderData.HeaderType] + ' operation:' +
+                TConnectionManager.OperationToText(HeaderData.Operation) + ' id:' + Inttostr(HeaderData.RequestId) +
+                ' Buffer size:' + Inttostr(HeaderData.BufferDataLength));
+              if (RequestId = HeaderData.RequestId) and (HeaderData.HeaderType = ntp_response) then
               begin
                 Result := true;
               end
               else
               begin
                 iDebugStep := 1000;
-                case HeaderData.operation of
-                  CT_NetOp_Hello:
+                case HeaderData.Operation of
+                  cNetOp_Hello:
                     begin
                       DoProcess_Hello(HeaderData, ReceiveDataBuffer);
                     end;
-                  CT_NetOp_Message:
+                  cNetOp_Message:
                     begin
                       DoProcess_Message(HeaderData, ReceiveDataBuffer);
                     end;
-                  CT_NetOp_GetBlocks:
+                  cNetOp_GetBlocks:
                     begin
-                      if HeaderData.header_type = ntp_request then
+                      if HeaderData.HeaderType = ntp_request then
                         DoProcess_GetBlocks_Request(HeaderData, ReceiveDataBuffer)
-                      else if HeaderData.header_type = ntp_response then
+                      else if HeaderData.HeaderType = ntp_response then
                         DoProcess_GetBlocks_Response(HeaderData, ReceiveDataBuffer)
                       else
                         DisconnectInvalidClient(false, 'Not resquest or response: ' +
                           TConnectionManager.HeaderDataToText(HeaderData));
                     end;
-                  CT_NetOp_GetOperationsBlock:
+                  cNetOp_GetOperationsBlock:
                     begin
-                      if HeaderData.header_type = ntp_request then
+                      if HeaderData.HeaderType = ntp_request then
                         DoProcess_GetOperationsBlock_Request(HeaderData, ReceiveDataBuffer)
                       else
                         TLog.NewLog(ltdebug, Classname, 'Received old response of: ' +
                           TConnectionManager.HeaderDataToText(HeaderData));
                     end;
-                  CT_NetOp_NewBlock:
+                  cNetOp_NewBlock:
                     begin
                       DoProcess_NewBlock(HeaderData, ReceiveDataBuffer);
                     end;
-                  CT_NetOp_AddOperations:
+                  cNetOp_AddOperations:
                     begin
                       DoProcess_AddOperations(HeaderData, ReceiveDataBuffer);
                     end;
-                  CT_NetOp_GetSafeBox:
+                  cNetOp_GetAccountStorage:
                     begin
-                      if HeaderData.header_type = ntp_request then
-                        DoProcess_GetSafeBox_Request(HeaderData, ReceiveDataBuffer)
+                      if HeaderData.HeaderType = ntp_request then
+                        DoProcess_GetAccountStorage_Request(HeaderData, ReceiveDataBuffer)
                       else
                         DisconnectInvalidClient(false, 'Received ' + TConnectionManager.HeaderDataToText(HeaderData));
                     end
@@ -567,7 +567,7 @@ var
 begin
   t_bytes_read := 0;
   Result := false;
-  HeaderData := CT_NetHeaderData;
+  HeaderData := TNetHeaderData.Empty;
   BufferData.Size := 0;
   TPCThread.ProtectEnterCriticalSection(Self, FNetLock);
   try
@@ -688,9 +688,9 @@ begin
       TConnectionManager.Instance.IncStatistics(0, 0, 0, 0, t_bytes_read, 0);
     end;
   end;
-  if (Result) and (HeaderData.header_type = ntp_response) then
+  if (Result) and (HeaderData.HeaderType = ntp_response) then
   begin
-    TConnectionManager.Instance.UnRegisterRequest(Self, HeaderData.operation, HeaderData.request_id);
+    TConnectionManager.Instance.UnRegisterRequest(Self, HeaderData.Operation, HeaderData.RequestId);
   end;
 end;
 
@@ -709,7 +709,7 @@ begin
     case NetTranferType of
       ntp_request:
         begin
-          w := CT_MagicRequest;
+          w := cMagicRequest;
           buffer.Write(w, 2);
           buffer.Write(operation, 2);
           w := 0;
@@ -718,7 +718,7 @@ begin
         end;
       ntp_response:
         begin
-          w := CT_MagicResponse;
+          w := cMagicResponse;
           buffer.Write(w, 2);
           buffer.Write(operation, 2);
           buffer.Write(errorcode, 2);
@@ -726,7 +726,7 @@ begin
         end;
       ntp_autosend:
         begin
-          w := CT_MagicAutoSend;
+          w := cMagicAutoSend;
           buffer.Write(w, 2);
           buffer.Write(operation, 2);
           w := errorcode;

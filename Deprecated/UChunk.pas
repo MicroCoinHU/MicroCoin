@@ -32,15 +32,15 @@ type
   TPCChunk = Class
   private
   public
-    class function SaveSafeBoxChunkFromSafeBox(SafeBoxStream, DestStream : TStream; fromBlock, toBlock : Cardinal; var errors : AnsiString) : Boolean;
-    class function LoadSafeBoxFromChunk(Chunk, DestStream : TStream; var safeBoxHeader : TAccountStorageHeader; var errors : AnsiString) : Boolean;
+    class function SaveChunkFromAccountStorage(AAccountStorageStream, ADestinationStream : TStream; AFromBlock, AToBlock : Cardinal; var RErrors : AnsiString) : Boolean;
+    class function LoadAccountStorageFromChunk(AChunk, ADestinationStream : TStream; var AAccountStorageHeader : TAccountStorageHeader; var RErrors : AnsiString) : Boolean;
   end;
 
 implementation
 
 { TPCChunk }
 
-class function TPCChunk.SaveSafeBoxChunkFromSafeBox(SafeBoxStream, DestStream : TStream; fromBlock, toBlock: Cardinal; var errors : AnsiString) : Boolean;
+class function TPCChunk.SaveChunkFromAccountStorage(AAccountStorageStream, ADestinationStream : TStream; AFromBlock, AToBlock: Cardinal; var RErrors : AnsiString) : Boolean;
 Var
   c: Cardinal;
   cs : Tcompressionstream;
@@ -49,7 +49,7 @@ Var
   initialSbPos : Int64;
   sbHeader : TAccountStorageHeader;
 begin
-  Result := false; errors := '';
+  Result := false; RErrors := '';
   // Chunk struct:
   // - Header:
   //   - Magic value  (fixed AnsiString)
@@ -58,37 +58,37 @@ begin
   //   - Compressed size (4 bytes)
   // - Data:
   //   - Compressed data using ZLib
-  initialSbPos :=SafeBoxStream.Position;
+  initialSbPos :=AAccountStorageStream.Position;
   Try
-    If Not TAccountStorage.LoadHeaderFromStream(SafeBoxStream,sbHeader) then begin
-      errors := 'SafeBoxStream is not a valid SafeBox!';
+    If Not TAccountStorage.LoadHeaderFromStream(AAccountStorageStream,sbHeader) then begin
+      RErrors := 'SafeBoxStream is not a valid SafeBox!';
       exit;
     end;
-    If (sbHeader.startBlock>fromBlock) Or (sbHeader.endBlock<ToBlock) Or (fromBlock>toBlock) then begin
-      errors := Format('Cannot save a chunk from %d to %d on a stream with %d to %d!',[fromBlock,toBlock,sbHeader.startBlock,sbHeader.endBlock]);
+    If (sbHeader.StartBlock>AFromBlock) Or (sbHeader.EndBlock<AToBlock) Or (AFromBlock>AToBlock) then begin
+      RErrors := Format('Cannot save a chunk from %d to %d on a stream with %d to %d!',[AFromBlock,AToBlock,sbHeader.StartBlock,sbHeader.EndBlock]);
       exit;
     end;
-    TLog.NewLog(ltDebug,ClassName,Format('Saving safebox chunk from %d to %d (current blockscount: %d)',[FromBlock,ToBlock,sbHeader.blocksCount]));
+    TLog.NewLog(ltDebug,ClassName,Format('Saving safebox chunk from %d to %d (current blockscount: %d)',[AFromBlock,AToBlock,sbHeader.BlocksCount]));
 
     // Header:
-    TStreamOp.WriteAnsiString(DestStream,CT_AccountChunkIdentificator);
-    DestStream.Write(CT_AccountStorageVersion,SizeOf(CT_AccountStorageVersion));
+    TStreamOp.WriteAnsiString(ADestinationStream,CT_AccountChunkIdentificator);
+    ADestinationStream.Write(CT_AccountStorageVersion,SizeOf(CT_AccountStorageVersion));
     //
     auxStream := TMemoryStream.Create;
     try
-      SafeBoxStream.Position:=initialSbPos;
-      If Not TAccountStorage.CopyChunk(SafeBoxStream,auxStream,fromBlock,toBlock,errors) then exit;
+      AAccountStorageStream.Position:=initialSbPos;
+      If Not TAccountStorage.CopyChunk(AAccountStorageStream,auxStream,AFromBlock,AToBlock,RErrors) then exit;
       auxStream.Position:=0;
       // Save uncompressed size
       c := auxStream.Size;
-      DestStream.Write(c,SizeOf(c));
+      ADestinationStream.Write(c,SizeOf(c));
       // Save compressed size ... later
-      iPosSize := DestStream.Position;
+      iPosSize := ADestinationStream.Position;
       c := $FFFFFFFF;
-      DestStream.Write(c,SizeOf(c)); // Save 4 random bytes, latter will be changed
+      ADestinationStream.Write(c,SizeOf(c)); // Save 4 random bytes, latter will be changed
       //
       // Zip it and add to Stream
-      cs := Tcompressionstream.create(cldefault,DestStream);
+      cs := Tcompressionstream.create(cldefault,ADestinationStream);
       try
         cs.CopyFrom(auxStream,auxStream.Size); // compressing
       finally
@@ -98,18 +98,18 @@ begin
       auxStream.Free;
     end;
     //
-    iAux := DestStream.Position;
-    c := DestStream.Position - iPosSize - 4; // Save data size
-    DestStream.Position:=iPosSize;
-    DestStream.Write(c,SizeOf(c));
-    DestStream.Position := iAux; // Back to last position
-    Result := True; errors := '';
+    iAux := ADestinationStream.Position;
+    c := ADestinationStream.Position - iPosSize - 4; // Save data size
+    ADestinationStream.Position:=iPosSize;
+    ADestinationStream.Write(c,SizeOf(c));
+    ADestinationStream.Position := iAux; // Back to last position
+    Result := True; RErrors := '';
   finally
-    SafeBoxStream.Position:=initialSbPos;
+    AAccountStorageStream.Position:=initialSbPos;
   end;
 end;
 
-class function TPCChunk.LoadSafeBoxFromChunk(Chunk, DestStream: TStream; var safeBoxHeader : TAccountStorageHeader; var errors: AnsiString): Boolean;
+class function TPCChunk.LoadAccountStorageFromChunk(AChunk, ADestinationStream: TStream; var AAccountStorageHeader : TAccountStorageHeader; var RErrors: AnsiString): Boolean;
 var s : AnsiString;
   w : Word;
   cUncompressed, cCompressed : Cardinal;
@@ -119,51 +119,51 @@ var s : AnsiString;
   destInitialPos, auxPos : Int64;
 begin
   Result := false;
-  safeBoxHeader := CT_AccountStorageHeader_NUL;
+  AAccountStorageHeader := CT_AccountStorageHeader_NUL;
   // Header:
-  errors := 'Invalid stream header';
-  TStreamOp.ReadAnsiString(Chunk,s);
+  RErrors := 'Invalid stream header';
+  TStreamOp.ReadAnsiString(AChunk,s);
   If (s<>CT_AccountChunkIdentificator) then begin
     exit;
   end;
-  Chunk.Read(w,sizeof(w));
+  AChunk.Read(w,sizeof(w));
   if (w<>CT_AccountStorageVersion) then begin
-    errors := errors + ' Invalid version '+IntToStr(w);
+    RErrors := RErrors + ' Invalid version '+IntToStr(w);
     exit;
   end;
   // Size
-  Chunk.Read(cUncompressed,SizeOf(cUncompressed)); // Uncompressed size
-  Chunk.Read(cCompressed,SizeOf(cCompressed)); // Compressed size
-  if (Chunk.Size - Chunk.Position < cCompressed) then begin
-    errors := Format('Not enough LZip bytes Stream.size:%d Stream.position:%d (avail %d) LZipSize:%d',[Chunk.Size,Chunk.Position,Chunk.Size - Chunk.Position,cCompressed]);
+  AChunk.Read(cUncompressed,SizeOf(cUncompressed)); // Uncompressed size
+  AChunk.Read(cCompressed,SizeOf(cCompressed)); // Compressed size
+  if (AChunk.Size - AChunk.Position < cCompressed) then begin
+    RErrors := Format('Not enough LZip bytes Stream.size:%d Stream.position:%d (avail %d) LZipSize:%d',[AChunk.Size,AChunk.Position,AChunk.Size - AChunk.Position,cCompressed]);
     exit;
   end;
   //
-  destInitialPos:=DestStream.Position;
-  ds := Tdecompressionstream.create(Chunk);
+  destInitialPos:=ADestinationStream.Position;
+  ds := Tdecompressionstream.create(AChunk);
   try
     repeat
       r := ds.read(dbuff,SizeOf(dbuff));
       if (r>0) then begin
-        DestStream.Write(dbuff,r);
+        ADestinationStream.Write(dbuff,r);
       end;
     until r < SizeOf(dbuff);
     //auxStream.CopyFrom(Stream,cCompressed);
   finally
     ds.Free;
   end;
-  If (DestStream.Size-destInitialPos)<>cUncompressed then begin
-    errors := Format('Uncompressed size:%d <> saved:%d',[(DestStream.Size-destInitialPos),cUncompressed]);
+  If (ADestinationStream.Size-destInitialPos)<>cUncompressed then begin
+    RErrors := Format('Uncompressed size:%d <> saved:%d',[(ADestinationStream.Size-destInitialPos),cUncompressed]);
     exit;
   end;
 
-  auxPos := DestStream.Position;
-  DestStream.Position:=destInitialPos;
-  If Not TAccountStorage.LoadHeaderFromStream(DestStream,safeBoxHeader) then begin
-    errors:= 'Invalid extracted stream!';
+  auxPos := ADestinationStream.Position;
+  ADestinationStream.Position:=destInitialPos;
+  If Not TAccountStorage.LoadHeaderFromStream(ADestinationStream,AAccountStorageHeader) then begin
+    RErrors:= 'Invalid extracted stream!';
     exit;
   end;
-  DestStream.Position:=auxPos;
+  ADestinationStream.Position:=auxPos;
   Result := true;
 end;
 

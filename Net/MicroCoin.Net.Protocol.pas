@@ -20,32 +20,32 @@ uses MicroCoin.BlockChain.BlockHeader,
 
 const
 
-  CT_MagicRequest = $0001;
-  CT_MagicResponse = $0002;
-  CT_MagicAutoSend = $0003;
+  cMagicRequest = $0001;
+  cMagicResponse = $0002;
+  cMagicAutoSend = $0003;
 
-  CT_NetOp_Hello = $0001;
+  cNetOp_Hello = $0001;
   // Sends my last operationblock + servers. Receive last operationblock + servers + same operationblock number of sender
-  CT_NetOp_Error = $0002;
-  CT_NetOp_Message = $0003;
-  CT_NetOp_GetBlocks = $0010;
-  CT_NetOp_GetOperationsBlock = $0005; // Sends from and to. Receive a number of OperationsBlock to check
-  CT_NetOp_NewBlock = $0011;
-  CT_NetOp_AddOperations = $0020;
-  CT_NetOp_GetSafeBox = $0021; // V2 Protocol: Allows to send/receive Safebox in chunk parts
+  cNetOp_Error = $0002;
+  cNetOp_Message = $0003;
+  cNetOp_GetBlocks = $0010;
+  cNetOp_GetOperationsBlock = $0005; // Sends from and to. Receive a number of OperationsBlock to check
+  cNetOp_NewBlock = $0011;
+  cNetOp_AddOperations = $0020;
+  cNetOp_GetAccountStorage = $0021; // V2 Protocol: Allows to send/receive Safebox in chunk parts
 
-  CT_NetError_InvalidProtocolVersion = $0001;
-  CT_NetError_IPBlackListed = $0002;
-  CT_NetError_InvalidDataBufferInfo = $0010;
-  CT_NetError_InternalServerError = $0011;
-  CT_NetError_InvalidNewAccount = $0012;
-  CT_NetError_SafeboxNotFound = $00020;
+  cNetError_InvalidProtocolVersion = $0001;
+  cNetError_IPBlackListed = $0002;
+  cNetError_InvalidDataBufferInfo = $0010;
+  cNetError_InternalServerError = $0011;
+  cNetError_InvalidNewAccount = $0012;
+  cNetError_AccountStorageNotFound = $00020;
 
-  CT_LAST_CONNECTION_BY_SERVER_MAX_MINUTES = 60 * 60 * 3;
-  CT_LAST_CONNECTION_MAX_MINUTES = 60 * 60;
-  CT_MAX_NODESERVERS_ON_HELLO = 10;
-  CT_MIN_NODESERVERS_BUFFER = 50;
-  CT_MAX_NODESERVERS_BUFFER = 300;
+  cLAST_CONNECTION_BY_SERVER_MAX_MINUTES = 60 * 60 * 3;
+  cLAST_CONNECTION_MAX_MINUTES = 60 * 60;
+  cMAX_NODESERVERS_ON_HELLO = 10;
+  cMIN_NODESERVERS_BUFFER = 50;
+  cMAX_NODESERVERS_BUFFER = 300;
 
 type
   TNetTransferType = (ntp_unknown, ntp_request, ntp_response, ntp_autosend);
@@ -59,22 +59,17 @@ type
   end;
 
   TNetHeaderData = record
-    header_type: TNetTransferType;
+    HeaderType: TNetTransferType;
     Protocol: TNetProtocolVersion;
-    operation: Word;
-    request_id: Cardinal;
-    buffer_data_length: Cardinal;
+    Operation: Word;
+    RequestId: Cardinal;
+    BufferDataLength: Cardinal;
     //
-    is_error: Boolean;
-    error_code: Integer;
-    error_text: AnsiString;
+    IsError: Boolean;
+    ErrorCode: Integer;
+    ErrorText: AnsiString;
+    class function Empty: TNetHeaderData; static;
   end;
-
-const
-  CT_NetHeaderData: TNetHeaderData = (header_type: ntp_unknown; Protocol: (protocol_version: 0; protocol_available: 0);
-    operation: 0; request_id: 0; buffer_data_length: 0; is_error: false; error_code: 0; error_text: '');
-
-type
 
   TNetMessage_Hello = record
     last_operation: TBlockHeader;
@@ -82,5 +77,20 @@ type
   end;
 
 implementation
+
+{ TNetHeaderData }
+
+class function TNetHeaderData.Empty: TNetHeaderData;
+begin
+  Result.HeaderType := ntp_unknown;
+  Result.Protocol.protocol_version := 0;
+  Result.Protocol.protocol_available := 0;
+  Result.Operation := 0;
+  Result.RequestId := 0;
+  Result.BufferDataLength := 0;
+  Result.IsError := false;
+  Result.ErrorCode := 0;
+  Result.ErrorText := '';
+end;
 
 end.

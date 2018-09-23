@@ -56,31 +56,30 @@ type
   protected
     procedure SetReadOnly(const Value: Boolean); override;
     procedure SetOrphan(const Value: TOrphan); override;
+    procedure DoDeleteBlockChainBlocks(StartingDeleteBlock: Cardinal); override;
+    procedure UnlockBlockChainStream;
+    procedure DoEraseStorage; override;
     function DoLoadBlockChain(Operations: TBlock; Block: Cardinal): Boolean; override;
     function DoSaveBlockChain(Operations: TBlock): Boolean; override;
-    function DoMoveBlockChain(Start_Block: Cardinal; const DestOrphan: TOrphan; DestStorage: TStorage)
-      : Boolean; override;
+    function DoMoveBlockChain(Start_Block: Cardinal; const DestOrphan: TOrphan; DestStorage: TStorage) : Boolean; override;
     function DoSaveAccountStorage: Boolean; override;
     function DoRestoreAccountStorage(max_block: Int64): Boolean; override;
-    procedure DoDeleteBlockChainBlocks(StartingDeleteBlock: Cardinal); override;
     function BlockExists(Block: Cardinal): Boolean; override;
     function LockBlockChainStream: TFileStream;
-    procedure UnlockBlockChainStream;
-    function LoadBankFileInfo(const Filename: AnsiString; var safeBoxHeader: TAccountStorageHeader): Boolean;
+    function LoadAccountStorageInfo(const AFilename: AnsiString; var AAccountStorageHeader: TAccountStorageHeader): Boolean;
     function GetFirstBlockNumber: Int64; override;
     function GetLastBlockNumber: Int64; override;
     function DoInitialize: Boolean; override;
-    function DoCreateSafeBoxStream(blockCount: Cardinal): TStream; override;
-    procedure DoEraseStorage; override;
+    function DoCreateAccountStorageStream(ABlockCount: Cardinal): TStream; override;
   public
     constructor Create; override;
     destructor Destroy; override;
-    class function GetSafeboxCheckpointingFileName(const BaseDataFolder: AnsiString; Block: Cardinal): AnsiString;
-    property DatabaseFolder: AnsiString read FDatabaseFolder write SetDatabaseFolder;
+    class function GetCheckpointingFileName(const BaseDataFolder: AnsiString; Block: Cardinal): AnsiString;
     procedure CopyConfiguration(const CopyFrom: TStorage); override;
     procedure SetBlockChainFile(BlockChainFileName: AnsiString);
-    function HasUpgradedToVersion2: Boolean; override;
     procedure CleanupVersion1Data; override;
+    function HasUpgradedToVersion2: Boolean; override;
+    property DatabaseFolder: AnsiString read FDatabaseFolder write SetDatabaseFolder;
   end;
 
 implementation
@@ -246,20 +245,20 @@ begin
   end;
 end;
 
-function TFileStorage.DoCreateSafeBoxStream(blockCount: Cardinal): TStream;
+function TFileStorage.DoCreateAccountStorageStream(ABlockCount: Cardinal): TStream;
 var
   fn: TFilename;
   err: AnsiString;
 begin
   Result := nil;
-  fn := GetSafeboxCheckpointingFileName(GetFolder(Orphan), blockCount);
+  fn := GetCheckpointingFileName(GetFolder(Orphan), ABlockCount);
   if (fn <> '') and (FileExists(fn)) then
   begin
     Result := TFileStream.Create(fn, fmOpenRead);
   end;
   if not Assigned(Result) then
   begin
-    err := 'Cannot load SafeBoxStream (block:' + IntToStr(blockCount) + ') file:' + fn;
+    err := 'Cannot load SafeBoxStream (block:' + IntToStr(ABlockCount) + ') file:' + fn;
     TLog.NewLog(ltError, ClassName, err);
   end;
 end;
@@ -317,7 +316,7 @@ function TFileStorage.DoMoveBlockChain(Start_Block: Cardinal; const DestOrphan: 
     end;
   end;
 
-  procedure DoCopySafebox;
+  procedure DoCopyAccountStorage;
   var
     sr: TSearchRec;
     FileAttrs: Integer;
@@ -389,7 +388,7 @@ begin
         // If DestOrphan is empty, then copy possible updated safebox (because, perhaps current saved safebox is from invalid blockchain)
         if (DestOrphan = '') and (Orphan <> '') then
         begin
-          DoCopySafebox;
+          DoCopyAccountStorage;
         end;
       finally
         if db is TFileStorage then
@@ -432,13 +431,13 @@ begin
         if (sr.Attr and FileAttrs) = FileAttrs then
         begin
           auxfn := folder + PathDelim + sr.Name;
-          if LoadBankFileInfo(auxfn, sbHeader) then
+          if LoadAccountStorageInfo(auxfn, sbHeader) then
           begin
-            if (((max_block < 0) or (sbHeader.blockscount <= max_block)) and (sbHeader.blockscount > blockscount)) and
-              (sbHeader.startBlock = 0) and (sbHeader.endBlock = sbHeader.startBlock + sbHeader.blockscount - 1) then
+            if (((max_block < 0) or (sbHeader.BlocksCount <= max_block)) and (sbHeader.BlocksCount > blockscount)) and
+              (sbHeader.StartBlock = 0) and (sbHeader.EndBlock = sbHeader.StartBlock + sbHeader.BlocksCount - 1) then
             begin
               Filename := auxfn;
-              blockscount := sbHeader.blockscount;
+              blockscount := sbHeader.BlocksCount;
             end;
           end;
         end;
@@ -479,7 +478,7 @@ var
   ms: TMemoryStream;
 begin
   Result := True;
-  bankfilename := GetSafeboxCheckpointingFileName(GetFolder(Orphan), BlockManager.blockscount);
+  bankfilename := GetCheckpointingFileName(GetFolder(Orphan), BlockManager.blockscount);
   if (bankfilename <> '') then
   begin
     TLog.NewLog(ltInfo, ClassName, 'Saving Safebox blocks:' + IntToStr(BlockManager.blockscount) + ' file:' +
@@ -534,9 +533,9 @@ begin
 end;
 
 const
-  CT_SafeboxsToStore = 10;
+  cAccountSorageBackupCount = 10;
 
-class function TFileStorage.GetSafeboxCheckpointingFileName(const BaseDataFolder: AnsiString; Block: Cardinal)
+class function TFileStorage.GetCheckpointingFileName(const BaseDataFolder: AnsiString; Block: Cardinal)
   : AnsiString;
 begin
   Result := '';
@@ -544,7 +543,7 @@ begin
     exit;
   // We will store checkpointing
   Result := BaseDataFolder + PathDelim + 'checkpoint' +
-    IntToStr((Block div CT_BankToDiskEveryNBlocks) mod CT_SafeboxsToStore) + '.safebox';
+    IntToStr((Block div cSaveAccountStageOnBlocks) mod cAccountSorageBackupCount) + '.safebox';
 end;
 
 function TFileStorage.GetBlockHeaderFirstBytePosition(Stream: TStream; Block: Cardinal; CanInitialize: Boolean;
@@ -692,18 +691,18 @@ begin
   Result := FStreamLastBlockNumber;
 end;
 
-function TFileStorage.LoadBankFileInfo(const Filename: AnsiString; var safeBoxHeader: TAccountStorageHeader): Boolean;
+function TFileStorage.LoadAccountStorageInfo(const AFilename: AnsiString; var AAccountStorageHeader: TAccountStorageHeader): Boolean;
 var
   fs: TFileStream;
 begin
   Result := false;
-  safeBoxHeader := CT_AccountStorageHeader_NUL;
-  if not FileExists(Filename) then
+  AAccountStorageHeader := CT_AccountStorageHeader_NUL;
+  if not FileExists(AFilename) then
     exit;
-  fs := TFileStream.Create(Filename, fmOpenRead);
+  fs := TFileStream.Create(AFilename, fmOpenRead);
   try
     fs.Position := 0;
-    Result := BlockManager.AccountStorage.LoadHeaderFromStream(fs, safeBoxHeader);
+    Result := BlockManager.AccountStorage.LoadHeaderFromStream(fs, AAccountStorageHeader);
   finally
     fs.Free;
   end;

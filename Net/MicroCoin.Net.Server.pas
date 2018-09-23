@@ -69,7 +69,7 @@ begin
       begin
         // Invalid!
         TLog.NewLog(ltInfo, Classname, 'Refusing Blacklist ip: ' + Client.ClientRemoteAddr);
-        n.SendError(ntp_autosend, CT_NetOp_Error, 0, CT_NetError_IPBlackListed,
+        n.SendError(ntp_autosend, cNetOp_Error, 0, cNetError_IPBlackListed,
           'Your IP is blacklisted:' + Client.ClientRemoteAddr);
         // Wait some time before close connection
         sleep(5000);

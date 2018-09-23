@@ -256,11 +256,11 @@ begin
         [FFreezedAccounts.TotalFee, FTotalFee]));
     end;
     b := FFreezedAccounts.AddNew(FBlockLock);
-    if (b.accounts[0].Balance <> (FBlockLock.reward + FTotalFee)) then
+    if (b.Accounts[0].Balance <> (FBlockLock.reward + FTotalFee)) then
     begin
       TLog.NewLog(ltError, Classname,
         Format('Invalid integrity reward! Account:%d Balance:%d  Reward:%d Fee:%d (Reward+Fee:%d)',
-        [b.accounts[0].AccountNumber, b.accounts[0].Balance, FBlockLock.reward, FTotalFee,
+        [b.Accounts[0].AccountNumber, b.Accounts[0].Balance, FBlockLock.reward, FTotalFee,
         FBlockLock.reward + FTotalFee]));
     end;
     CleanTransaction;

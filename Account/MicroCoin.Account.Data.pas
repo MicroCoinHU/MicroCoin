@@ -148,7 +148,7 @@ type
     CompactTarget: Cardinal;
     nonce: Cardinal;
     BlockPayload: TDynRawBytes;
-    InitialSafeBoxHash: T32Bytes; // 32 direct bytes instead of use an AnsiString (-8 bytes)
+    InitialAccountStorageHash: T32Bytes; // 32 direct bytes instead of use an AnsiString (-8 bytes)
     TransactionHash: T32Bytes; // 32 direct bytes instead of use an AnsiString (-8 bytes)
     ProofOfWork: T32Bytes; // 32 direct bytes instead of use an AnsiString (-8 bytes)
   end;
