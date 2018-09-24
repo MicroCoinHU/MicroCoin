@@ -220,10 +220,15 @@ begin
         [FData.AccountPrice, target.accountInfo.Price]);
       Exit;
     end;
+    {$IFDEF OpenSSL11}
+    if FData.NewAccountKey.x <> FData.NewAccountKey.y
+    then
+    {$ENDIF}
     if not(FData.NewAccountKey.IsValidAccountKey(errors)) then
       Exit; // BUG 20171511
     _IsBuyTransaction := true;
     FPrevious_Seller_updated_block := seller.UpdatedBlock;
+
   end
   else if
   // Is automatic buy account?

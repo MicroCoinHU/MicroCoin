@@ -393,7 +393,7 @@ Var PECS : PECDSA_SIG;
   i : Integer;
   {$IFDEF OpenSSL10}
   {$ELSE}
-  bnr,bns : PBIGNUM;
+  bnr,bns : PPBIGNUM;
   {$ENDIF}
 begin
   PECS := ECDSA_do_sign(PAnsiChar(digest),length(digest),Key.FPrivateKey);
@@ -411,15 +411,19 @@ begin
     p := @Result.s[1];
     i := BN_bn2bin(PECS^._s,p);
     {$ELSE}
-    ECDSA_SIG_get0(PECS,@bnr,@bns);
-    i := BN_num_bytes(bnr);
+    new(bnr);
+    new(bns);
+    ECDSA_SIG_get0(PECS,bnr,bns);
+    i := BN_num_bytes(bnr^);
     SetLength(Result.r,i);
     p := @Result.r[1];
-    i := BN_bn2bin(bnr,p);
-    i := BN_num_bytes(bns);
+    i := BN_bn2bin(bnr^,p);
+    i := BN_num_bytes(bns^);
     SetLength(Result.s,i);
     p := @Result.s[1];
-    i := BN_bn2bin(bns,p);
+    i := BN_bn2bin(bns^,p);
+    dispose(bnr);
+    dispose(bns);
     {$ENDIF}
   Finally
     ECDSA_SIG_free(PECS);

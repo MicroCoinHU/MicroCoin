@@ -36,7 +36,11 @@ var
   // Windows + Delphi only allows OpenSSL v1.0 32 bits
     SSL_C_LIB : AnsiString = 'libcrypto-1_1-x64.dll';
   {$ELSE}
-    SSL_C_LIB : AnsiString = 'libeay32.dll';
+    {$IFDEF OpenSSL10}
+     SSL_C_LIB : AnsiString = 'libeay32.dll';
+    {$ELSE}
+    SSL_C_LIB : AnsiString = 'libcrypto-1_1.dll';
+    {$ENDIF}
   {$ENDIF}
   {$ENDIF}
 {$ENDIF}
@@ -121,7 +125,7 @@ var
   ECDSA_do_verify: function(const _dgst: PAnsiChar; _dgst_len: TC_INT; const _sig: PECDSA_SIG; _eckey: PEC_KEY): TC_INT; cdecl = nil;
   {$IFDEF OpenSSL10}
   {$ELSE}
-  ECDSA_SIG_get0: procedure(const _sig : PECDSA_SIG; const pr: PPBIGNUM; const ps:PPBIGNUM);
+  ECDSA_SIG_get0: procedure(const _sig : PECDSA_SIG; const pr: PPBIGNUM; const ps:PPBIGNUM); cdecl;
   ECDSA_SIG_set0: function(_sig : PECDSA_SIG; r,s : PBIGNUM): TC_INT; cdecl = nil;
   {$ENDIF}
   ECDSA_size: function(const _eckey: PEC_KEY): TC_INT; cdecl = nil;
