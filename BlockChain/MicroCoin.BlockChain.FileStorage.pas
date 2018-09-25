@@ -543,7 +543,7 @@ begin
     exit;
   // We will store checkpointing
   Result := BaseDataFolder + PathDelim + 'checkpoint' +
-    IntToStr((Block div cSaveAccountStageOnBlocks) mod cAccountSorageBackupCount) + '.safebox';
+    IntToStr((Block div cSaveAccountStorageOnBlocks) mod cAccountSorageBackupCount) + '.safebox';
 end;
 
 function TFileStorage.GetBlockHeaderFirstBytePosition(Stream: TStream; Block: Cardinal; CanInitialize: Boolean;

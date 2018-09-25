@@ -211,15 +211,15 @@ begin
     if Assigned(FBlockManager) then
     begin
       FBlockHeader.protocol_version := BlockManager.AccountStorage.CurrentProtocol;
-      if (FBlockHeader.protocol_version = CT_PROTOCOL_1) and (FBlockManager.AccountStorage.CanUpgradeToProtocol2) then
+      if (FBlockHeader.protocol_version = cPROTOCOL_1) and (FBlockManager.AccountStorage.CanUpgradeToProtocol2) then
       begin
-        FBlockHeader.protocol_version := CT_PROTOCOL_2;
+        FBlockHeader.protocol_version := cPROTOCOL_2;
         // If minting... upgrade to Protocol 2
       end;
       FBlockHeader.Block := BlockManager.BlocksCount;
       FBlockHeader.reward := TMicroCoinProtocol.GetRewardForNewLine(BlockManager.BlocksCount);
       FBlockHeader.compact_target := BlockManager.AccountStorage.GetActualCompactTargetHash
-        (FBlockHeader.protocol_version = CT_PROTOCOL_2);
+        (FBlockHeader.protocol_version = cPROTOCOL_2);
       FBlockHeader.initial_safe_box_hash := BlockManager.AccountStorage.AccountStorageHash;
       if BlockManager.LastBlock.timestamp > FBlockHeader.timestamp then
         FBlockHeader.timestamp := BlockManager.LastBlock.timestamp;
@@ -228,16 +228,16 @@ begin
     begin
       FBlockHeader.Block := 0;
       FBlockHeader.reward := TMicroCoinProtocol.GetRewardForNewLine(0);
-      FBlockHeader.compact_target := CT_MinCompactTarget;
-      FBlockHeader.initial_safe_box_hash := TCrypto.DoSha256(CT_Genesis_Magic_String_For_Old_Block_Hash);
+      FBlockHeader.compact_target := cMinimumDifficulty;
+      FBlockHeader.initial_safe_box_hash := TCrypto.DoSha256(cGenesisBlockMagic);
       // Nothing for first line
-      FBlockHeader.protocol_version := CT_PROTOCOL_1;
+      FBlockHeader.protocol_version := cPROTOCOL_1;
     end;
     FBlockHeader.transactionHash := FTransactionHashTree.HashTree;
     FBlockHeader.Fee := 0;
     FBlockHeader.nonce := 0;
     FBlockHeader.proof_of_work := '';
-    FBlockHeader.protocol_available := CT_BlockChain_Protocol_Available;
+    FBlockHeader.protocol_available := cBlockChain_Protocol_Available;
     FIsOnlyBlock := false;
   finally
     try
@@ -283,7 +283,7 @@ begin
     FBlockHeader := ATransactions.FBlockHeader;
     FBlockHeader.account_key := lastopb.account_key; // Except AddressKey
     FBlockHeader.compact_target := BlockManager.AccountStorage.GetActualCompactTargetHash
-      (FBlockHeader.protocol_version = CT_PROTOCOL_2);
+      (FBlockHeader.protocol_version = cPROTOCOL_2);
     FIsOnlyBlock := ATransactions.FIsOnlyBlock;
     FTransactionHashTree.CopyFromHashTree(ATransactions.FTransactionHashTree);
     FBlockHeader.transactionHash := FTransactionHashTree.HashTree;
@@ -546,15 +546,15 @@ begin
     if Assigned(FBlockManager) then
     begin
       FBlockHeader.protocol_version := BlockManager.AccountStorage.CurrentProtocol;
-      if (FBlockHeader.protocol_version = CT_PROTOCOL_1) and (FBlockManager.AccountStorage.CanUpgradeToProtocol2) then
+      if (FBlockHeader.protocol_version = cPROTOCOL_1) and (FBlockManager.AccountStorage.CanUpgradeToProtocol2) then
       begin
         TLog.NewLog(ltinfo, Classname, 'New miner protocol version to 2 at sanitize');
-        FBlockHeader.protocol_version := CT_PROTOCOL_2;
+        FBlockHeader.protocol_version := cPROTOCOL_2;
       end;
       FBlockHeader.Block := BlockManager.BlocksCount;
       FBlockHeader.reward := TMicroCoinProtocol.GetRewardForNewLine(BlockManager.BlocksCount);
       FBlockHeader.compact_target := BlockManager.AccountStorage.GetActualCompactTargetHash
-        (FBlockHeader.protocol_version = CT_PROTOCOL_2);
+        (FBlockHeader.protocol_version = cPROTOCOL_2);
       FBlockHeader.initial_safe_box_hash := BlockManager.AccountStorage.AccountStorageHash;
       if BlockManager.LastBlock.timestamp > FBlockHeader.timestamp then
         FBlockHeader.timestamp := BlockManager.LastBlock.timestamp;
@@ -563,12 +563,12 @@ begin
     begin
       FBlockHeader.Block := 0;
       FBlockHeader.reward := TMicroCoinProtocol.GetRewardForNewLine(0);
-      FBlockHeader.compact_target := CT_MinCompactTarget;
-      FBlockHeader.initial_safe_box_hash := TCrypto.DoSha256(CT_Genesis_Magic_String_For_Old_Block_Hash);
-      FBlockHeader.protocol_version := CT_PROTOCOL_1;
+      FBlockHeader.compact_target := cMinimumDifficulty;
+      FBlockHeader.initial_safe_box_hash := TCrypto.DoSha256(cGenesisBlockMagic);
+      FBlockHeader.protocol_version := cPROTOCOL_1;
     end;
     FBlockHeader.proof_of_work := '';
-    FBlockHeader.protocol_available := CT_BlockChain_Protocol_Available;
+    FBlockHeader.protocol_available := cBlockChain_Protocol_Available;
     n := 0;
     FBlockHeader.Fee := 0;
     //
@@ -742,7 +742,7 @@ begin
   try
     if value = FBlockHeader.block_payload then
       exit;
-    if length(value) > CT_MaxPayloadSize then
+    if length(value) > cMaxPayloadSize then
       exit;
     // Checking Miner Payload valid chars
     for i := 1 to length(value) do

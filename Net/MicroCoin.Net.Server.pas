@@ -40,9 +40,9 @@ uses UConst, MicroCoin.Net.Client, MicroCoin.Net.ConnectionManager, MicroCoin.Ne
 constructor TNetServer.Create;
 begin
   inherited;
-  MaxConnections := CT_MaxClientsConnected;
+  MaxConnections := cMaximumClients;
   NetTcpIpClientClass := TBufferedNetTcpIpClient;
-  port := CT_NetServer_Port;
+  port := cNetServerPort;
 end;
 
 procedure TNetServer.OnNewIncommingConnection(Sender: TObject; Client: TNetTcpIpClient);

@@ -572,14 +572,14 @@ begin
     begin
       ClientTimestampIp := RemoteHost;
       TConnectionManager.Instance.NetworkAdjustedTime.AddNewIp(ClientTimestampIp, connection_ts);
-      if (Abs(TConnectionManager.Instance.NetworkAdjustedTime.TimeOffset) > CT_MaxFutureBlockTimestampOffset) then
+      if (Abs(TConnectionManager.Instance.NetworkAdjustedTime.TimeOffset) > cBlockTimeStampTolerance) then
       begin
         TNode.Node.NotifyNetClientMessage(nil, 'The detected network time is different from this system time in ' +
           Inttostr(TConnectionManager.Instance.NetworkAdjustedTime.TimeOffset) +
           ' seconds! Please check your local time/timezone');
       end;
       //
-      if (Abs(FTimestampDiff) > CT_MaxFutureBlockTimestampOffset) then
+      if (Abs(FTimestampDiff) > cBlockTimeStampTolerance) then
       begin
         TLog.NewLog(ltError, Classname, 'Detected a node (' + ClientRemoteAddr + ') with incorrect timestamp: ' +
           Inttostr(connection_ts) + ' offset ' + Inttostr(FTimestampDiff));

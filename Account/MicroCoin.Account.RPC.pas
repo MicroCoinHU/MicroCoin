@@ -266,7 +266,7 @@ begin
   Result.Success := false;
   Result.ErrorCode := CT_RPC_ErrNum_InternalError;
   Result.ErrorMessage := '';
-  c := AParams.GetAsVariant('account').AsCardinal(CT_MaxAccount);
+  c := AParams.GetAsVariant('account').AsCardinal(cMaxAccountNumber);
   if (c >= 0) and (c < TNode.Node.BlockManager.AccountsCount) then
   begin
     Account := TNode.Node.TransactionStorage.AccountTransaction.Account(c);
@@ -276,7 +276,7 @@ begin
   else
   begin
     Result.ErrorCode := CT_RPC_ErrNum_InvalidAccount;
-    if (c = CT_MaxAccount) then
+    if (c = cMaxAccountNumber) then
       Result.ErrorMessage := 'Need "account" param'
     else
       Result.ErrorMessage := 'Account not found: ' + Inttostr(c);

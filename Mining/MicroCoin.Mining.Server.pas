@@ -488,7 +488,7 @@ begin
           P^.OperationsComp.timestamp := _timestamp;
           P^.OperationsComp.nonce := _nOnce;
           _targetPoW := FNodeNotifyEvents.Node.BlockManager.AccountStorage.GetActualTargetHash
-            (P^.OperationsComp.BlockHeader.protocol_version = CT_PROTOCOL_2);
+            (P^.OperationsComp.BlockHeader.protocol_version = cPROTOCOL_2);
           if (P^.OperationsComp.BlockHeader.proof_of_work <= _targetPoW) then
           begin
             // Candidate!

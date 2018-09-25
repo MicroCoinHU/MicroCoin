@@ -175,7 +175,7 @@ begin
     try
       Client.RemoteHost := ServerIP;
       if ServerPort <= 0 then
-        ServerPort := CT_NetServer_Port;
+        ServerPort := cNetServerPort;
       Client.RemotePort := ServerPort;
       TLog.NewLog(ltdebug, Classname, 'Trying to connect to a server at: ' + ClientRemoteAddr);
       TConnectionManager.Instance.NotifyNetConnectionUpdated;
@@ -585,7 +585,7 @@ begin
       begin
         FNetProtocolVersion := HeaderData.Protocol;
         // Build 1.0.4 accepts net protocol 1 and 2
-        if HeaderData.Protocol.protocol_version > CT_NetProtocol_Available then
+        if HeaderData.Protocol.protocol_version > cNetProtocol_Available then
         begin
           TNode.Node.NotifyNetClientMessage(nil, 'Detected a higher Net protocol version at ' + ClientRemoteAddr +
             ' (v ' + Inttostr(HeaderData.Protocol.protocol_version) + ' ' +
@@ -598,7 +598,7 @@ begin
         end
         else
         begin
-          if (FNetProtocolVersion.protocol_available > CT_NetProtocol_Available) and
+          if (FNetProtocolVersion.protocol_available > cNetProtocol_Available) and
             (not FAlertedForNewProtocolAvailable) then
           begin
             FAlertedForNewProtocolAvailable := true;
@@ -704,7 +704,7 @@ var
 begin
   buffer := TMemoryStream.Create;
   try
-    l := CT_MagicNetIdentification;
+    l := cMagicNetIdentification;
     buffer.Write(l, 4);
     case NetTranferType of
       ntp_request:
@@ -737,9 +737,9 @@ begin
     else
       raise Exception.Create('Invalid encoding');
     end;
-    l := CT_NetProtocol_Version;
+    l := cNetProtocol_Version;
     buffer.Write(l, 2);
-    l := CT_NetProtocol_Available;
+    l := cNetProtocol_Available;
     buffer.Write(l, 2);
     if Assigned(DataBuffer) then
     begin

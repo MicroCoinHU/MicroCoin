@@ -228,7 +228,7 @@ procedure TBlockManager.Clear;
 begin
   AccountStorage.Clear;
   FLastBlockHeader := TBlock.GetFirstBlock;
-  FLastBlockHeader.initial_safe_box_hash := TCrypto.DoSha256(CT_Genesis_Magic_String_For_Old_Block_Hash);
+  FLastBlockHeader.initial_safe_box_hash := TCrypto.DoSha256(cGenesisBlockMagic);
   // Genesis hash
   FLastBlockCache.Clear(true);
   NewLog(nil, ltupdate, 'Clear cache and account storage');
@@ -303,7 +303,7 @@ begin
         n := Storage.LastBlock;
       Storage.RestoreAccountStorage(n);
       // Restore last blockchain
-      if (BlocksCount > 0) and (AccountStorage.CurrentProtocol = CT_PROTOCOL_1) then
+      if (BlocksCount > 0) and (AccountStorage.CurrentProtocol = cPROTOCOL_1) then
       begin
         if not Storage.LoadBlockChainBlock(FLastBlockCache, BlocksCount - 1) then
         begin
@@ -337,10 +337,14 @@ begin
 {$IFDEF TESTNET}
                 Storage.SaveAccountStorage;
 {$ELSE}
-                if (BlocksCount mod (cSaveAccountStageOnBlocks*10)) = 0 then
+  {$IFDEF DEVNET}
+                Storage.SaveAccountStorage;
+  {$ELSE}
+                if (BlocksCount mod (cSaveAccountStorageOnBlocks*10)) = 0 then
                 begin
                   Storage.SaveAccountStorage;
                 end;
+  {$ENDIF}
 {$ENDIF}
               end;
             end
@@ -490,7 +494,7 @@ begin
       else
       begin
         FLastBlockHeader := TBlock.GetFirstBlock;
-        FLastBlockHeader.initial_safe_box_hash := TCrypto.DoSha256(CT_Genesis_Magic_String_For_Old_Block_Hash);
+        FLastBlockHeader.initial_safe_box_hash := TCrypto.DoSha256(cGenesisBlockMagic);
         // Genesis hash
       end;
     finally

@@ -382,12 +382,12 @@ begin
         if (FTransactionStorage.TransactionHashTree.IndexOf(xTransaction) < 0) and (FSentOperations.GetTag(xTransaction.Sha256) = 0) then
         begin
           // Protocol 2 limitation: In order to prevent spam of operations without Fee, will protect it
-          if (xTransaction.Fee = 0) and (BlockManager.AccountStorage.CurrentProtocol >= CT_PROTOCOL_2) and
+          if (xTransaction.Fee = 0) and (BlockManager.AccountStorage.CurrentProtocol >= cPROTOCOL_2) and
             (FTransactionStorage.TransactionHashTree.TransactionCountsWithoutFeeBySameSigner(xTransaction.SignerAccount) >=
-            CT_MaxAccountOperationsPerBlockWithoutFee) then
+            cMaxAccountOperationsPerBlockWithoutFee) then
           begin
             xError := Format(rsAccountSZero, [TAccount.AccountNumberToString(xTransaction.SignerAccount),
-              CT_MaxAccountOperationsPerBlockWithoutFee]);
+              cMaxAccountOperationsPerBlockWithoutFee]);
             if (errors <> '') then
               errors := errors + ' ';
             errors := errors + 'Op ' + IntToStr(j + 1) + '/' + IntToStr(Operations.TransactionCount) + ':' + xError;
@@ -506,7 +506,7 @@ begin
   begin
     TConnectionManager.Instance.AddServer(nsarr[i]);
   end;
-  j := (CT_MaxServersConnected - TConnectionManager.Instance.ConnectionsCount(true));
+  j := (cMaximumNumberOfServers - TConnectionManager.Instance.ConnectionsCount(true));
   if j <= 0 then
     exit;
   TConnectionManager.Instance.DiscoverServers;
@@ -585,7 +585,7 @@ class procedure TNode.DecodeIpStringToNodeServerAddressArray(const Ips: AnsiStri
     end;
     ips_string := copy(ips_string, i + 1, length(ips_string));
     if nsa.port = 0 then
-      nsa.port := CT_NetServer_Port;
+      nsa.port := cNetServerPort;
     Result := (trim(nsa.ip) <> '');
   end;
 
@@ -725,7 +725,7 @@ begin
     WhyNot := 'Invalid Last Block Time';
     exit;
   end;
-  if (unixtimediff > (CT_NewLineSecondsAvg * 10)) then
+  if (unixtimediff > (cBlockTime * 10)) then
   begin
     WhyNot := 'Last block has a long time ago... ' + IntToStr(unixtimediff);
     exit;
@@ -818,7 +818,7 @@ procedure TNode.GetStoredTransactionsFromAccount(const ATransactionList: TTransa
       try
         xLastBlockNumber := block_number + 1;
         while (xLastBlockNumber > block_number) and (act_depth > 0) and
-          (block_number >= (AAccountNumber div CT_AccountsPerBlock)) and (nOpsCounter <= AEndTransaction) do
+          (block_number >= (AAccountNumber div cAccountsPerBlock)) and (nOpsCounter <= AEndTransaction) do
         begin
           xLastBlockNumber := block_number;
           xNextBlockNumber := block_number;
@@ -856,7 +856,7 @@ procedure TNode.GetStoredTransactionsFromAccount(const ATransactionList: TTransa
             end;
           end;
           // Is a new block operation?
-          if (TAccount.AccountBlock(AAccountNumber) = block_number) and ((AAccountNumber mod CT_AccountsPerBlock) = 0)
+          if (TAccount.AccountBlock(AAccountNumber) = block_number) and ((AAccountNumber mod cAccountsPerBlock) = 0)
           then
           begin
             xTransactionData := TTransactionData.Empty;
@@ -931,7 +931,7 @@ begin
         begin
           xHashValid := xTransaction.TransactionHash(0);
           xOldHash := xTransaction.TransactionHash_OLD(0);
-          if (xHashValid = AHash) or ((FBlockManager.BlocksCount < CT_Protocol_Upgrade_v2_MinBlock) and
+          if (xHashValid = AHash) or ((FBlockManager.BlocksCount < cProtocol_Upgrade_v2_MinBlock) and
             (xOldHash = AHash)) then
           begin
             ABlockIndex := i;
@@ -974,7 +974,7 @@ begin
             Result := true;
             exit;
           end
-          else if (RBlock < CT_Protocol_Upgrade_v2_MinBlock) then
+          else if (RBlock < cProtocol_Upgrade_v2_MinBlock) then
           begin
             xOldHash := xTransaction.TransactionHash_OLD(xInitialBlock);
             if (xOldHash = AHash) then

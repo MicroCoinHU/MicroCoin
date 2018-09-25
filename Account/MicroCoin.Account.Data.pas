@@ -87,6 +87,7 @@ type
   TAccount = record
   private
     FHasExtraData: boolean;
+    FParent: Cardinal;
   public
     AccountNumber: Cardinal; // FIXED value. Account number
     AccountInfo: TAccountInfo;
@@ -100,13 +101,18 @@ type
     SubAccounts: array of TSubAccount;
     ExtraData: TExtraData;
     {$ENDIF}
+    class function AccountBlock(const AAccountNumber: Cardinal): Cardinal; static;
     class function Empty: TAccount; static;
     class function IsAccountBlockedByProtocol(AAccountNumber, ABlockCount: Cardinal): Boolean; static;
-    class function AccountNumberToString(AAccountNumber: Cardinal): AnsiString; static;
-    class function ParseAccountNumber(const AStringValue: AnsiString; var RAccountNumber: Cardinal) : Boolean; static;
-    class function AccountBlock(const AAccountNumber: Cardinal): Cardinal; static;
+    class function AccountNumberToString(AAccountNumber: Cardinal): AnsiString;  static;
+    class function ParseAccountNumber(const AStringValue: AnsiString;
+      var RAccountNumber: Cardinal; var RParent: Int64): Boolean; overload; static;
+    class function ParseAccountNumber(const AStringValue: AnsiString; var RAccountNumber: Cardinal) : Boolean; overload; static;
     class function LoadFromStream(AStream : TStream; var RAccount : TAccount; ACurrentProtocol: shortint) : boolean; static;
+    {$IFDEF EXTENDEDACCOUNT}
     property HasExtraData: boolean read FHasExtraData write FHasExtraData;
+    property Parent : Cardinal read FParent write FParent;
+    {$ENDIF}
   end;
 
   TOrderedAccountList = class
@@ -155,7 +161,7 @@ type
 
   TMemBlockAccount = record // TBlockAccount with less memory usage
     BlockChainInfo: TMemTransactionBlock;
-    Accounts: array [0 .. CT_AccountsPerBlock - 1] of TMemAccount;
+    Accounts: array [0 .. cAccountsPerBlock - 1] of TMemAccount;
     BlockHash: T32Bytes; // 32 direct bytes instead of use an AnsiString (-8 bytes)
     AccumulatedWork: UInt64;
   end;
@@ -217,7 +223,7 @@ begin
       begin
         ms := TMemoryStream.Create;
         try
-          w := CT_AccountInfo_ForSale;
+          w := cAccountInfo_ForSale;
           ms.Write(w, Sizeof(w));
           //
           TStreamOp.WriteAccountKey(ms, AccountKey);
@@ -278,7 +284,7 @@ begin
     if ms.Read(w, Sizeof(w)) <> Sizeof(w) then
       exit;
     case w of
-      CT_NID_secp256k1, CT_NID_secp384r1, CT_NID_sect283k1, CT_NID_secp521r1:
+      cNID_secp256k1, cNID_secp384r1, cNID_sect283k1, cNID_secp521r1:
         begin
           dest.State := as_Normal;
           TAccountKey.FromRawString(ARawAccountString, dest.AccountKey);
@@ -287,7 +293,7 @@ begin
           dest.AccountToPay := CT_AccountInfo_NUL.AccountToPay;
           dest.NewPublicKey := CT_AccountInfo_NUL.NewPublicKey;
         end;
-      CT_AccountInfo_ForSale:
+      cAccountInfo_ForSale:
         begin
           TStreamOp.ReadAccountKey(ms, dest.AccountKey);
           ms.Read(dest.LockedUntilBlock, Sizeof(dest.LockedUntilBlock));
@@ -318,7 +324,7 @@ end;
 
 class function TAccount.AccountBlock(const AAccountNumber: Cardinal): Cardinal;
 begin
-  Result := AAccountNumber div CT_AccountsPerBlock;
+  Result := AAccountNumber div cAccountsPerBlock;
 end;
 
 class function TAccount.AccountNumberToString(AAccountNumber: Cardinal): AnsiString;
@@ -331,12 +337,14 @@ begin
 end;
 
 class function TAccount.ParseAccountNumber(const AStringValue: AnsiString;
-  var RAccountNumber: Cardinal): Boolean;
+  var RAccountNumber: Cardinal; var RParent: Int64): Boolean;
 var
   i: Integer;
   an, rn, anaux: Int64;
+  temp : AnsiString;
 begin
   Result := false;
+  RParent := -1;
   if length(trim(AStringValue)) = 0 then
     exit;
   an := 0;
@@ -359,13 +367,27 @@ begin
     Result := true;
     exit;
   end;
-  if (AStringValue[i] in ['-', '.', ' ']) then
-    inc(i);
-  if length(AStringValue) - 1 <> i then
-    exit;
-  rn := StrToIntDef(Copy(AStringValue, i, length(AStringValue)), 0);
+  if (AStringValue[i] in ['-', '.', ' '])
+  then inc(i);
+  if length(AStringValue) - 1 < i
+  then exit;
+  if Pos('/', AStringValue)>0
+  then begin
+    rn := StrToIntDef(Copy(AStringValue, i, 2), 0);
+    temp := Copy(AStringValue, Pos('/', AStringValue)+1, Length(AStringValue)-1);
+    RParent := RAccountNumber;
+    RAccountNumber := StrToIntDef(temp, 0);
+  end else rn := StrToIntDef(Copy(AStringValue, i, length(AStringValue)), 0);
   anaux := ((an * 101) mod 89) + 10;
   Result := rn = anaux;
+end;
+
+class function TAccount.ParseAccountNumber(const AStringValue: AnsiString;
+  var RAccountNumber: Cardinal): Boolean;
+var
+  xParent : Int64;
+begin
+  Result := ParseAccountNumber(AStringValue, RAccountNumber, xParent);
 end;
 
 class function TAccount.Empty: TAccount;
@@ -378,8 +400,8 @@ begin
   Result.Name := '';
   Result.AccountType := 0;
   Result.PreviusUpdatedBlock := 0;
-  Result.HasExtraData := false;
   {$IFDEF EXTENDEDACCOUNT}
+  Result.HasExtraData := false;
     SetLength(Result.SubAccounts, 0);
     Result.ExtraData.DataType := 0;
     Result.ExtraData.ExtraType := 0;
@@ -392,15 +414,15 @@ var
   waitBlocks: Integer;
 begin
   // Update protocol
-  if ABlockCount >= CT_V2BlockNumber then
-    waitBlocks := CT_WaitNewBlocksBeforeTransactionV2
+  if ABlockCount >= cV2EnableAtBlock then
+    waitBlocks := cMinimumBlocksToLiveAccountV2
   else
-    waitBlocks := CT_WaitNewBlocksBeforeTransaction;
+    waitBlocks := cMinimumBlocksToLiveAccount;
   if ABlockCount < waitBlocks then
     Result := true
   else
   begin
-    Result := ((ABlockCount - waitBlocks) * CT_AccountsPerBlock) <= AAccountNumber;
+    Result := ((ABlockCount - waitBlocks) * cAccountsPerBlock) <= AAccountNumber;
   end;
 end;
 
@@ -436,7 +458,7 @@ begin
   then exit;
   if AStream.Read(RAccount.NumberOfTransactions, 4) < 4
   then exit;
-  if ACurrentProtocol >= CT_PROTOCOL_2 then
+  if ACurrentProtocol >= cPROTOCOL_2 then
   begin
     if TStreamOp.ReadAnsiString(AStream, RAccount.Name) < 0 then
       exit;

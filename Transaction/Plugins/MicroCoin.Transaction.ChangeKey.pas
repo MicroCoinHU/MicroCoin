@@ -150,7 +150,7 @@ begin
       Exit;
     end;
   end;
-  if (FData.Fee < 0) or (FData.Fee > CT_MaxTransactionFee) then
+  if (FData.Fee < 0) or (FData.Fee > cMaxTransactionFee) then
   begin
     RErrors := 'Invalid fee: ' + Inttostr(FData.Fee);
     Exit;
@@ -167,10 +167,10 @@ begin
     RErrors := 'Insuficient founds';
     Exit;
   end;
-  if (length(FData.Payload) > CT_MaxPayloadSize) then
+  if (length(FData.Payload) > cMaxPayloadSize) then
   begin
-    RErrors := 'Invalid Payload size:' + Inttostr(length(FData.Payload)) + ' (Max: ' + Inttostr(CT_MaxPayloadSize) + ')';
-    if (AAccountTransaction.FreezedAccountStorage.CurrentProtocol >= CT_PROTOCOL_2) then
+    RErrors := 'Invalid Payload size:' + Inttostr(length(FData.Payload)) + ' (Max: ' + Inttostr(cMaxPayloadSize) + ')';
+    if (AAccountTransaction.FreezedAccountStorage.CurrentProtocol >= cPROTOCOL_2) then
     begin
       Exit; // BUG from protocol 1
     end;
@@ -186,7 +186,7 @@ begin
     Exit;
   end;
   // NEW v2 protocol protection: Does not allow to change key for same key
-  if (AAccountTransaction.FreezedAccountStorage.CurrentProtocol >= CT_PROTOCOL_2) then
+  if (AAccountTransaction.FreezedAccountStorage.CurrentProtocol >= cPROTOCOL_2) then
   begin
     if (TAccountKey.EqualAccountKeys(account_target.accountInfo.AccountKey, FData.NewAccountKey)) then
     begin
@@ -217,7 +217,7 @@ begin
       RErrors := 'Signer and target accounts have different public key';
       Exit;
     end;
-    if (AAccountTransaction.FreezedAccountStorage.CurrentProtocol < CT_PROTOCOL_2) then
+    if (AAccountTransaction.FreezedAccountStorage.CurrentProtocol < cPROTOCOL_2) then
     begin
       RErrors := 'NOT ALLOWED ON PROTOCOL 1';
       Exit;
@@ -442,7 +442,7 @@ begin
   else
     TransactionData.PrintablePayload := TCrypto.ToHexaString(TransactionData.OriginalPayload);
   TransactionData.OperationHash := TransactionHash(ABlock);
-  if (ABlock < CT_Protocol_Upgrade_v2_MinBlock) then
+  if (ABlock < cProtocol_Upgrade_v2_MinBlock) then
   begin
     TransactionData.OperationHash_OLD := TransactionHash_OLD(ABlock);
   end;
@@ -488,7 +488,7 @@ begin
   else
     TransactionData.PrintablePayload := TCrypto.ToHexaString(TransactionData.OriginalPayload);
   TransactionData.OperationHash := TransactionHash(Block);
-  if (Block < CT_Protocol_Upgrade_v2_MinBlock) then
+  if (Block < cProtocol_Upgrade_v2_MinBlock) then
   begin
     TransactionData.OperationHash_OLD := TransactionHash_OLD(Block);
   end;

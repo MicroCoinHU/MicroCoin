@@ -150,7 +150,7 @@ End;
 constructor TECPrivateKey.Create;
 begin
   FPrivateKey := Nil;
-  FEC_OpenSSL_NID := CT_Default_EC_OpenSSL_NID;
+  FEC_OpenSSL_NID := cDefault_EC_OpenSSL_NID;
 end;
 
 destructor TECPrivateKey.Destroy;

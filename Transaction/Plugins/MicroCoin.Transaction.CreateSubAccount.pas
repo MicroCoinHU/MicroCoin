@@ -98,14 +98,14 @@ begin
     exit;
   end;
 
-  if (FData.Fee < 0) or (FData.Fee > CT_MaxTransactionFee)
+  if (FData.Fee < 0) or (FData.Fee > cMaxTransactionFee)
   then begin
     errors := 'Invalid fee: ' + Inttostr(FData.Fee);
     exit;
   end;
 
   xTargetAccount := AccountTransaction.Account(FData.SignerAccount);
-
+{
   if (FData.PublicKey.EC_OpenSSL_NID <> CT_TECDSA_Public_Nul.EC_OpenSSL_NID) and
     (not TAccountKey.EqualAccountKeys(FData.PublicKey, xTargetAccount.accountInfo.AccountKey)) then
   begin
@@ -114,7 +114,7 @@ begin
       TCrypto.ToHexaString(xTargetAccount.accountInfo.AccountKey.ToRawString)]);
     exit;
   end;
-
+}
   if ((xTargetAccount.NumberOfTransactions + 1) <> FData.NumberOfTransactions)
   then begin
     errors := 'Invalid n_operation';
@@ -127,10 +127,10 @@ begin
     exit;
   end;
 
-  if (length(FData.Payload) > CT_MaxPayloadSize)
+  if (length(FData.Payload) > cMaxPayloadSize)
   then begin
-    errors := 'Invalid Payload size:' + Inttostr(length(FData.Payload)) + ' (Max: ' + Inttostr(CT_MaxPayloadSize) + ')';
-    if (AccountTransaction.FreezedAccountStorage.CurrentProtocol >= CT_PROTOCOL_2)
+    errors := 'Invalid Payload size:' + Inttostr(length(FData.Payload)) + ' (Max: ' + Inttostr(cMaxPayloadSize) + ')';
+    if (AccountTransaction.FreezedAccountStorage.CurrentProtocol >= cPROTOCOL_2)
     then exit;
   end;
 
@@ -140,7 +140,7 @@ begin
     exit;
   end;
 
-  if (AccountTransaction.FreezedAccountStorage.CurrentProtocol < CT_PROTOCOL_2)
+  if (AccountTransaction.FreezedAccountStorage.CurrentProtocol < cPROTOCOL_2)
   then begin
     errors := 'NOT ALLOWED ON PROTOCOL 1';
     exit;
@@ -148,21 +148,26 @@ begin
 
   if not TCrypto.ECDSAVerify(xTargetAccount.accountInfo.AccountKey, GetHashForSignature(FData), FData.Signature)
   then begin
-    errors := 'Invalid sign';
+    errors := 'Invalid signature';
     FHasValidSignature := False;
     exit;
   end
   else FHasValidSignature := true;
 
+  FPrevious_Signer_updated_block := xTargetAccount.UpdatedBlock;
+  FPrevious_Destination_updated_block := xTargetAccount.UpdatedBlock;
+
   xAccount :=  AccountTransaction.GetInternalAccount(xTargetAccount.AccountNumber);
   xAccount^.NumberOfTransactions := FData.NumberOfTransactions;
   xAccount^.Balance := xAccount^.Balance - FData.Fee;
+  xAccount^.PreviusUpdatedBlock := xAccount^.UpdatedBlock;
+  xAccount^.UpdatedBlock := AccountTransaction.FreezedAccounts.BlocksCount;
   {$IFDEF EXTENDEDACCOUNT}
-  SetLength(xAccount^.SubAccounts, Length(xAccount^.SubAccounts)+1);
-  xAccount^.SubAccounts[High(xAccount^.SubAccounts)].AccountKey := xTargetAccount.AccountInfo.AccountKey;
-  xAccount^.SubAccounts[High(xAccount^.SubAccounts)].Balance := FData.balance;
-  xAccount^.SubAccounts[High(xAccount^.SubAccounts)].DailyLimit := 0;
-  xAccount^.SubAccounts[High(xAccount^.SubAccounts)].TotalLimit := 0;
+    SetLength(xAccount^.SubAccounts, Length(xAccount^.SubAccounts)+1);
+    xAccount^.SubAccounts[High(xAccount^.SubAccounts)].AccountKey := xTargetAccount.AccountInfo.AccountKey;
+    xAccount^.SubAccounts[High(xAccount^.SubAccounts)].Balance := FData.balance;
+    xAccount^.SubAccounts[High(xAccount^.SubAccounts)].DailyLimit := 0;
+    xAccount^.SubAccounts[High(xAccount^.SubAccounts)].TotalLimit := 0;
   {$ENDIF}
   Result := true;
 end;
@@ -181,6 +186,7 @@ begin
   FData.Balance := ABalance;
   s := GetHashForSignature(FData);
   FData.Signature := TCrypto.ECDSASign(Akey, s);
+  self.Previous_Signer_updated_block
 end;
 
 function TCreateSubAccountTransaction.GetAmount: Int64;
@@ -271,7 +277,7 @@ begin
   TransactionData.transactionSubtype := CT_Op_CreateSubAccount;
   TransactionData.DestAccount := GetDestinationAccount;
   s := '';
-  TransactionData.TransactionAsString := Format('Create sub account (%d)', [FData.TargetAccount]);
+  TransactionData.TransactionAsString := ToString;
   TransactionData.transactionSubtype := CT_OpSubtype_CreateSubAccount;
   TransactionData.OriginalPayload := GetPayload;
   if TCrypto.IsHumanReadable(TransactionData.OriginalPayload) then
@@ -279,7 +285,7 @@ begin
   else
     TransactionData.PrintablePayload := TCrypto.ToHexaString(TransactionData.OriginalPayload);
   TransactionData.OperationHash := TransactionHash(Block);
-  if (Block < CT_Protocol_Upgrade_v2_MinBlock) then
+  if (Block < cProtocol_Upgrade_v2_MinBlock) then
   begin
     TransactionData.OperationHash_OLD := TransactionHash_OLD(Block);
   end;
@@ -355,7 +361,9 @@ end;
 
 function TCreateSubAccountTransaction.ToString: string;
 begin
-  Result := Format('Create sub account %d for account %s',[ FData.TargetAccount, TAccount.AccountNumberToString(FData.SignerAccount)]);
+  Result := Format('Create subaccount %d for account %s',[
+    FData.TargetAccount,
+    TAccount.AccountNumberToString(FData.SignerAccount)]);
 end;
 
 initialization

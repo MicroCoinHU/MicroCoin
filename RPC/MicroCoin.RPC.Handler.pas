@@ -453,7 +453,7 @@ var
     if (OPR.valid) and (OPR.OperationHash <> '') then
     begin
       jsonObject.GetAsVariant('ophash').Value := TCrypto.ToHexaString(OPR.OperationHash);
-      if (OPR.Block < CT_Protocol_Upgrade_v2_MinBlock) then
+      if (OPR.Block < cProtocol_Upgrade_v2_MinBlock) then
       begin
         jsonObject.GetAsVariant('old_ophash').Value := TCrypto.ToHexaString(OPR.OperationHash_OLD);
       end;
@@ -647,7 +647,7 @@ var
       Result := false;
       if (Sender < 0) or (Sender >= FNode.BlockManager.AccountsCount) then
       begin
-        if (Sender = CT_MaxAccount) then
+        if (Sender = cMaxAccountNumber) then
           ErrorDesc := 'Need sender'
         else
           ErrorDesc := 'Invalid sender account ' + Inttostr(Sender);
@@ -656,7 +656,7 @@ var
       end;
       if (target < 0) or (target >= FNode.BlockManager.AccountsCount) then
       begin
-        if (target = CT_MaxAccount) then
+        if (target = cMaxAccountNumber) then
           ErrorDesc := 'Need target'
         else
           ErrorDesc := 'Invalid target account ' + Inttostr(target);
@@ -2394,7 +2394,7 @@ begin
   begin
     // Param "block" contains block number (0..getblockcount-1)
     // Returns JSON object with block information
-    c := params.GetAsVariant('block').AsCardinal(CT_MaxBlock);
+    c := params.GetAsVariant('block').AsCardinal(cMaxBlocks);
     if (c >= 0) and (c < FNode.BlockManager.BlocksCount) then
     begin
       Result := GetBlock(c, GetResultObject);
@@ -2402,7 +2402,7 @@ begin
     else
     begin
       ErrorNum := CT_RPC_ErrNum_InvalidBlock;
-      if (c = CT_MaxBlock) then
+      if (c = cMaxBlocks) then
         ErrorDesc := 'Need block param'
       else
         ErrorDesc := 'Block not found: ' + Inttostr(c);
@@ -2426,8 +2426,8 @@ begin
     end
     else
     begin
-      c := params.GetAsVariant('start').AsCardinal(CT_MaxBlock);
-      c2 := params.GetAsVariant('end').AsCardinal(CT_MaxBlock);
+      c := params.GetAsVariant('start').AsCardinal(cMaxBlocks);
+      c2 := params.GetAsVariant('end').AsCardinal(cMaxBlocks);
       i := params.AsInteger('max', 0);
       if (c < FNode.BlockManager.BlocksCount) and (i > 0) and (i <= 1000) then
       begin
@@ -2453,7 +2453,7 @@ begin
       ErrorNum := CT_RPC_ErrNum_InvalidBlock;
       if (c > c2) then
         ErrorDesc := 'Block start > block end'
-      else if (c = CT_MaxBlock) or (c2 = CT_MaxBlock) then
+      else if (c = cMaxBlocks) or (c2 = cMaxBlocks) then
         ErrorDesc := 'Need param "last" or "start" and "end"/"max"'
       else if (c2 >= FNode.BlockManager.BlocksCount) then
         ErrorDesc := 'Block higher or equal to getblockccount: ' + Inttostr(c2)
@@ -2472,7 +2472,7 @@ begin
     // Param "block" contains block. Null = Pending operation
     // Param "opblock" contains operation inside a block: (0..getblock.operations-1)
     // Returns a JSON object with operation values as "Operation resume format"
-    c := params.GetAsVariant('block').AsCardinal(CT_MaxBlock);
+    c := params.GetAsVariant('block').AsCardinal(cMaxBlocks);
     if (c >= 0) and (c < FNode.BlockManager.BlocksCount) then
     begin
       pcops := TBlock.Create(nil);
@@ -2505,7 +2505,7 @@ begin
     end
     else
     begin
-      if (c = CT_MaxBlock) then
+      if (c = cMaxBlocks) then
         ErrorDesc := 'Need block param'
       else
         ErrorDesc := 'Block not found: ' + Inttostr(c);
@@ -2516,7 +2516,7 @@ begin
   begin
     // Param "block" contains block
     // Returns a JSON array with items as "Operation resume format"
-    c := params.GetAsVariant('block').AsCardinal(CT_MaxBlock);
+    c := params.GetAsVariant('block').AsCardinal(cMaxBlocks);
     if (c >= 0) and (c < FNode.BlockManager.BlocksCount) then
     begin
       pcops := TBlock.Create(nil);
@@ -2552,7 +2552,7 @@ begin
     end
     else
     begin
-      if (c = CT_MaxBlock) then
+      if (c = cMaxBlocks) then
         ErrorDesc := 'Need block param'
       else
         ErrorDesc := 'Block not found: ' + Inttostr(c);
@@ -2565,7 +2565,7 @@ begin
     // Param "account" contains account number
     // Param "depht" (optional or "deep") contains max blocks deep to search (Default: 100)
     // Param "start" and "max" contains starting index and max operations respectively
-    c := params.GetAsVariant('account').AsCardinal(CT_MaxAccount);
+    c := params.GetAsVariant('account').AsCardinal(cMaxAccountNumber);
     if ((c >= 0) and (c < FNode.BlockManager.AccountsCount)) then
     begin
       if (params.IndexOfName('depth') >= 0) then
@@ -2577,7 +2577,7 @@ begin
     else
     begin
       ErrorNum := CT_RPC_ErrNum_InvalidAccount;
-      if (c = CT_MaxAccount) then
+      if (c = cMaxAccountNumber) then
         ErrorDesc := 'Need account param'
       else
         ErrorDesc := 'Account not found: ' + Inttostr(c);
@@ -2647,7 +2647,7 @@ begin
       ErrorDesc := 'Wallet is password protected. Unlock first';
       exit;
     end;
-    Result := OpSendTo(params.AsCardinal('sender', CT_MaxAccount), params.AsCardinal('target', CT_MaxAccount),
+    Result := OpSendTo(params.AsCardinal('sender', cMaxAccountNumber), params.AsCardinal('target', cMaxAccountNumber),
       ToMicroCoins(params.AsDouble('amount', 0)), ToMicroCoins(params.AsDouble('fee', 0)),
       TCrypto.HexaToRaw(params.AsString('payload', '')), params.AsString('payload_method', 'dest'),
       params.AsString('pwd', ''));
@@ -2679,8 +2679,8 @@ begin
       ErrorNum := CT_RPC_ErrNum_InvalidPubKey;
       exit;
     end;
-    Result := SignOpSendTo(params.AsString('rawoperations', ''), params.AsCardinal('sender', CT_MaxAccount),
-      params.AsCardinal('target', CT_MaxAccount), senderpubkey, destpubkey, params.AsCardinal('last_n_operation', 0),
+    Result := SignOpSendTo(params.AsString('rawoperations', ''), params.AsCardinal('sender', cMaxAccountNumber),
+      params.AsCardinal('target', cMaxAccountNumber), senderpubkey, destpubkey, params.AsCardinal('last_n_operation', 0),
       ToMicroCoins(params.AsDouble('amount', 0)), ToMicroCoins(params.AsDouble('fee', 0)),
       TCrypto.HexaToRaw(params.AsString('payload', '')), params.AsString('payload_method', 'dest'),
       params.AsString('pwd', ''));
@@ -2704,10 +2704,10 @@ begin
       ErrorDesc := 'Need "account" param';
       exit;
     end;
-    c := params.AsCardinal('account', CT_MaxAccount);
+    c := params.AsCardinal('account', cMaxAccountNumber);
     if params.IndexOfName('account_signer') >= 0 then
     begin
-      c2 := params.AsCardinal('account_signer', CT_MaxAccount);
+      c2 := params.AsCardinal('account_signer', cMaxAccountNumber);
     end
     else
       c2 := c;
@@ -2772,10 +2772,10 @@ begin
       ErrorDesc := 'Need "account" param';
       exit;
     end;
-    c := params.AsCardinal('account', CT_MaxAccount);
+    c := params.AsCardinal('account', cMaxAccountNumber);
     if params.IndexOfName('account_signer') >= 0 then
     begin
-      c2 := params.AsCardinal('account_signer', CT_MaxAccount);
+      c2 := params.AsCardinal('account_signer', cMaxAccountNumber);
     end
     else
       c2 := c;
@@ -2874,8 +2874,8 @@ begin
     GetResultObject.GetAsVariant('locked').Value := not TRPCServer.Instance.WalletKeys.IsValidPassword;
     GetResultObject.GetAsVariant('timestamp').Value := UnivDateTimeToUnix(DateTime2UnivDateTime(now));
     GetResultObject.GetAsVariant('version').Value := CT_ClientAppVersion;
-    GetResultObject.GetAsObject('netprotocol').GetAsVariant('ver').Value := CT_NetProtocol_Version;
-    GetResultObject.GetAsObject('netprotocol').GetAsVariant('ver_a').Value := CT_NetProtocol_Available;
+    GetResultObject.GetAsObject('netprotocol').GetAsVariant('ver').Value := cNetProtocol_Version;
+    GetResultObject.GetAsObject('netprotocol').GetAsVariant('ver_a').Value := cNetProtocol_Available;
     GetResultObject.GetAsVariant('blocks').Value := FNode.BlockManager.BlocksCount;
     GetResultObject.GetAsVariant('sbh').Value :=
       TCrypto.ToHexaString(FNode.BlockManager.LastBlock.initial_safe_box_hash);
@@ -3020,7 +3020,7 @@ begin
     end;
     ecpkey := TECPrivateKey.Create;
     try
-      ecpkey.GenerateRandomPrivateKey(params.AsInteger('ec_nid', CT_Default_EC_OpenSSL_NID));
+      ecpkey.GenerateRandomPrivateKey(params.AsInteger('ec_nid', cDefault_EC_OpenSSL_NID));
       TRPCServer.Instance.WalletKeys.AddPrivateKey(params.AsString('name', DateTimeToStr(now)), ecpkey);
       FillPublicKeyObject(ecpkey.PublicKey, GetResultObject);
       Result := true;

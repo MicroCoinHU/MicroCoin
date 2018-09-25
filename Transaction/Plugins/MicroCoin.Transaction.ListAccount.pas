@@ -112,7 +112,7 @@ var
   account_signer, account_target: TAccount;
 begin
   Result := false;
-  if (AccountTransaction.FreezedAccountStorage.CurrentProtocol < CT_PROTOCOL_2) then
+  if (AccountTransaction.FreezedAccountStorage.CurrentProtocol < cPROTOCOL_2) then
   begin
     errors := 'List/Delist Account is not allowed on Protocol 1';
     exit;
@@ -163,7 +163,7 @@ begin
       exit;
     end;
     if (FData.LockedUntilBlock > (AccountTransaction.FreezedAccountStorage.BlocksCount +
-      CT_MaxFutureBlocksLockedAccount)) then
+      cMaxLockAccountTime)) then
     begin
       errors := 'Invalid locked block: Current block ' + Inttostr(AccountTransaction.FreezedAccountStorage.BlocksCount)
         + ' cannot lock to block ' + Inttostr(FData.LockedUntilBlock);
@@ -178,7 +178,7 @@ begin
       end;
     end;
   end;
-  if (FData.Fee < 0) or (FData.Fee > CT_MaxTransactionFee) then
+  if (FData.Fee < 0) or (FData.Fee > cMaxTransactionFee) then
   begin
     errors := 'Invalid fee: ' + Inttostr(FData.Fee);
     exit;
@@ -205,9 +205,9 @@ begin
     errors := 'Insuficient founds';
     exit;
   end;
-  if (length(FData.Payload) > CT_MaxPayloadSize) then
+  if (length(FData.Payload) > cMaxPayloadSize) then
   begin
-    errors := 'Invalid Payload size:' + Inttostr(length(FData.Payload)) + ' (Max: ' + Inttostr(CT_MaxPayloadSize) + ')';
+    errors := 'Invalid Payload size:' + Inttostr(length(FData.Payload)) + ' (Max: ' + Inttostr(cMaxPayloadSize) + ')';
     exit;
   end;
   // Is locked?
@@ -590,7 +590,7 @@ begin
   else
     TransactionData.PrintablePayload := TCrypto.ToHexaString(TransactionData.OriginalPayload);
   TransactionData.OperationHash := TransactionHash(Block);
-  if (Block < CT_Protocol_Upgrade_v2_MinBlock) then
+  if (Block < cProtocol_Upgrade_v2_MinBlock) then
   begin
     TransactionData.OperationHash_OLD := TransactionHash_OLD(Block);
   end;

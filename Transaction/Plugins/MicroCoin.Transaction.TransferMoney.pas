@@ -39,8 +39,7 @@ type
       Payload: TRawBytes;
       PublicKey: TECDSA_Public;
       Signature: TECDSA_SIG;
-      // Protocol 2
-      // Next values will only be filled after this operation is executed
+      //
       TransactionStyle: TTransferMoneyTransactionStyle;
       AccountPrice: UInt64;
       SellerAccount: Cardinal;
@@ -62,18 +61,17 @@ type
     function GetSellerAccount: Int64; override;
     function GetNumberOfTransactions: Cardinal; override;
   public
-    function GetBuffer(UseProtocolV2: Boolean): TRawBytes; override;
-    function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean; override;
-    procedure AffectedAccounts(list: TList); override;
-    //
     class function GetTransactionHashForSignature(const trans: TTransferMoneyTransactionData): TRawBytes;
     class function SignTransaction(AKey: TECPrivateKey; var RTransactionData: TTransferMoneyTransactionData): Boolean;
-    function GetTransactionData(ABlock: Cardinal; AAffectedAccountNumber: Cardinal;
-      var TransactionData: TTransactionData): Boolean; override;
-    property Data: TTransferMoneyTransactionData read FData;
     constructor CreateTransaction(ASenderAccount, ANumberOfTransactions, ATargetAccount: Cardinal; AKey: TECPrivateKey; AAmount, AFee: UInt64;
       APayload: TRawBytes);
+    function GetBuffer(UseProtocolV2: Boolean): TRawBytes; override;
     function ToString: string; override;
+    function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean; override;
+    procedure AffectedAccounts(list: TList); override;
+    function GetTransactionData(ABlock: Cardinal; AAffectedAccountNumber: Cardinal; var TransactionData: TTransactionData): Boolean; override;
+    //
+    property Data: TTransferMoneyTransactionData read FData;
   end;
 
   TBuyAccountTransaction = class(TTransferMoneyTransaction)
@@ -115,8 +113,6 @@ begin
   FData.Amount := AAmount;
   FData.Fee := AFee;
   FData.Payload := APayload;
-  // V2: No need to store public key because it's at safebox. Saving at least 64 bytes!
-  // FData.public_key := key.PublicKey;
   if not SignTransaction(AKey, FData) then
   begin
     TLog.NewLog(lterror, Classname, 'Error signing a new Transaction');
@@ -130,8 +126,8 @@ function TTransferMoneyTransaction.ApplyTransaction(AccountTransaction: TAccount
   var errors: AnsiString): Boolean;
 var
   s_new, t_new: Int64;
-  totalamount: UInt64;
-  sender, target, seller: TAccount;
+  xTotalAmount: UInt64;
+  xSenderAccount, xTargetAccount, seller: TAccount;
   _h: TRawBytes;
   _IsBuyTransaction: Boolean;
 begin
@@ -140,43 +136,46 @@ begin
   if not FData.CheckIsValid(AccountTransaction, errors)
   then exit;
 
-  sender := AccountTransaction.Account(FData.SenderAccount);
-  target := AccountTransaction.Account(FData.TargetAccount);
-  if ((sender.NumberOfTransactions + 1) <> FData.NumberOfTransactions) then
+  xSenderAccount := AccountTransaction.Account(FData.SenderAccount);
+  xTargetAccount := AccountTransaction.Account(FData.TargetAccount);
+  xTotalAmount := FData.Amount + FData.Fee;
+
+  if ((xSenderAccount.NumberOfTransactions + 1) <> FData.NumberOfTransactions) then
   begin
-    errors := Format('Invalid n_operation %d (expected %d)', [FData.NumberOfTransactions, sender.NumberOfTransactions + 1]);
+    errors := Format('Invalid n_operation %d (expected %d)', [FData.NumberOfTransactions, xSenderAccount.NumberOfTransactions + 1]);
     Exit;
   end;
-  totalamount := FData.Amount + FData.Fee;
-  if (sender.Balance < totalamount) then
+
+  if (xSenderAccount.Balance < xTotalAmount) then
   begin
-    errors := Format('Insuficient founds %d < (%d + %d = %d)', [sender.Balance, FData.Amount, FData.Fee, totalamount]);
+    errors := Format('Insuficient founds %d < (%d + %d = %d)', [xSenderAccount.Balance, FData.Amount, FData.Fee, xTotalAmount]);
     Exit;
   end;
-  if (target.Balance + FData.Amount > CT_MaxWalletAmount) then
+
+  if (xTargetAccount.Balance + FData.Amount > cMaxWalletAmount) then
   begin
     errors := Format('Target cannot accept this transaction due to max amount %d+%d=%d > %d',
-      [target.Balance, FData.Amount, target.Balance + FData.Amount, CT_MaxWalletAmount]);
+      [xTargetAccount.Balance, FData.Amount, xTargetAccount.Balance + FData.Amount, cMaxWalletAmount]);
     Exit;
   end;
   // Is locked? Protocol 2 check
-  if (sender.accountInfo.IsLocked(AccountTransaction.FreezedAccountStorage.BlocksCount)) then
+  if (xSenderAccount.accountInfo.IsLocked(AccountTransaction.FreezedAccountStorage.BlocksCount)) then
   begin
     errors := 'Sender Account is currently locked';
     Exit;
   end;
   // Build 1.4
   if (FData.PublicKey.EC_OpenSSL_NID <> CT_TECDSA_Public_Nul.EC_OpenSSL_NID) and
-    (not TAccountKey.EqualAccountKeys(FData.PublicKey, sender.accountInfo.AccountKey)) then
+    (not TAccountKey.EqualAccountKeys(FData.PublicKey, xSenderAccount.accountInfo.AccountKey)) then
   begin
     errors := Format('Invalid sender public key for account %d. Distinct from SafeBox public key! %s <> %s',
       [FData.SenderAccount, TCrypto.ToHexaString((FData.PublicKey.ToRawString)),
-      TCrypto.ToHexaString(sender.accountInfo.AccountKey.ToRawString)]);
+      TCrypto.ToHexaString(xSenderAccount.accountInfo.AccountKey.ToRawString)]);
     Exit;
   end;
   // Check signature
   _h := GetTransactionHashForSignature(FData);
-  if (not TCrypto.ECDSAVerify(sender.accountInfo.AccountKey, _h, FData.Signature)) then
+  if (not TCrypto.ECDSAVerify(xSenderAccount.accountInfo.AccountKey, _h, FData.Signature)) then
   begin
     errors := 'Invalid sign';
     FHasValidSignature := false;
@@ -185,39 +184,39 @@ begin
   else
     FHasValidSignature := true;
   //
-  FPrevious_Signer_updated_block := sender.UpdatedBlock;
-  FPrevious_Destination_updated_block := target.UpdatedBlock;
+  FPrevious_Signer_updated_block := xSenderAccount.UpdatedBlock;
+  FPrevious_Destination_updated_block := xTargetAccount.UpdatedBlock;
   // Is buy account ?
   if (FData.TransactionStyle = buy_account) then
   begin
-    if (AccountTransaction.FreezedAccountStorage.CurrentProtocol < CT_PROTOCOL_2) then
+    if (AccountTransaction.FreezedAccountStorage.CurrentProtocol < cPROTOCOL_2) then
     begin
       errors := 'Buy account is not allowed on Protocol 1';
       Exit;
     end;
     seller := AccountTransaction.Account(FData.SellerAccount);
-    if not(target.accountInfo.IsAccountForSale) then
+    if not(xTargetAccount.accountInfo.IsAccountForSale) then
     begin
-      errors := Format('%d is not for sale', [target.AccountNumber]);
+      errors := Format('%d is not for sale', [xTargetAccount.AccountNumber]);
       Exit;
     end;
     // Check that seller is the expected seller
-    if (target.accountInfo.AccountToPay <> seller.AccountNumber) then
+    if (xTargetAccount.accountInfo.AccountToPay <> seller.AccountNumber) then
     begin
       errors := Format('Seller account %d is not expected account %d',
-        [FData.SellerAccount, target.accountInfo.AccountToPay]);
+        [FData.SellerAccount, xTargetAccount.accountInfo.AccountToPay]);
       Exit;
     end;
-    if (target.Balance + FData.Amount < target.accountInfo.Price) then
+    if (xTargetAccount.Balance + FData.Amount < xTargetAccount.accountInfo.Price) then
     begin
       errors := Format('Account %d balance (%d) + amount (%d) < price (%d)',
-        [target.AccountNumber, target.Balance, FData.Amount, target.accountInfo.Price]);
+        [xTargetAccount.AccountNumber, xTargetAccount.Balance, FData.Amount, xTargetAccount.accountInfo.Price]);
       Exit;
     end;
-    if (FData.AccountPrice <> target.accountInfo.Price) then
+    if (FData.AccountPrice <> xTargetAccount.accountInfo.Price) then
     begin
       errors := Format('Signed price (%d) is not the same of account price (%d)',
-        [FData.AccountPrice, target.accountInfo.Price]);
+        [FData.AccountPrice, xTargetAccount.accountInfo.Price]);
       Exit;
     end;
     {$IFDEF OpenSSL11}
@@ -234,11 +233,11 @@ begin
   // Is automatic buy account?
     (FData.TransactionStyle = transaction_with_auto_buy_account) or
   // New automatic buy ?
-    ((AccountTransaction.FreezedAccountStorage.CurrentProtocol >= CT_PROTOCOL_2) and
-    (FData.TransactionStyle = Transaction) and (target.accountInfo.IsAccountForSaleAcceptingTransactions) and
-    (target.Balance + FData.Amount >= target.accountInfo.Price)) then
+    ((AccountTransaction.FreezedAccountStorage.CurrentProtocol >= cPROTOCOL_2) and
+    (FData.TransactionStyle = Transaction) and (xTargetAccount.accountInfo.IsAccountForSaleAcceptingTransactions) and
+    (xTargetAccount.Balance + FData.Amount >= xTargetAccount.accountInfo.Price)) then
   begin
-    if (AccountTransaction.FreezedAccountStorage.CurrentProtocol < CT_PROTOCOL_2) then
+    if (AccountTransaction.FreezedAccountStorage.CurrentProtocol < cPROTOCOL_2) then
     begin
       errors := 'Tx-Buy account is not allowed on Protocol 1';
       Exit;
@@ -249,11 +248,11 @@ begin
     // Fill the purchase data
     FData.TransactionStyle := transaction_with_auto_buy_account;
     // Set this data!
-    FData.AccountPrice := target.accountInfo.Price;
-    FData.SellerAccount := target.accountInfo.AccountToPay;
-    seller := AccountTransaction.Account(target.accountInfo.AccountToPay);
+    FData.AccountPrice := xTargetAccount.accountInfo.Price;
+    FData.SellerAccount := xTargetAccount.accountInfo.AccountToPay;
+    seller := AccountTransaction.Account(xTargetAccount.accountInfo.AccountToPay);
     FPrevious_Seller_updated_block := seller.UpdatedBlock;
-    FData.NewAccountKey := target.accountInfo.NewPublicKey;
+    FData.NewAccountKey := xTargetAccount.accountInfo.NewPublicKey;
   end
   else
   begin
@@ -261,13 +260,13 @@ begin
   end;
   if (_IsBuyTransaction) then
   begin
-    if (AccountTransaction.FreezedAccountStorage.CurrentProtocol < CT_PROTOCOL_2) then
+    if (AccountTransaction.FreezedAccountStorage.CurrentProtocol < cPROTOCOL_2) then
     begin
       errors := 'NOT ALLOWED ON PROTOCOL 1';
       Exit;
     end;
-    Result := AccountTransaction.BuyAccount(sender.AccountNumber, target.AccountNumber, seller.AccountNumber, FData.NumberOfTransactions,
-      FData.Amount, target.accountInfo.Price, FData.Fee, FData.NewAccountKey, errors);
+    Result := AccountTransaction.BuyAccount(xSenderAccount.AccountNumber, xTargetAccount.AccountNumber, seller.AccountNumber, FData.NumberOfTransactions,
+      FData.Amount, xTargetAccount.accountInfo.Price, FData.Fee, FData.NewAccountKey, errors);
   end
   else
   begin
@@ -343,6 +342,7 @@ var
   spayload: AnsiString;
   s: AnsiString;
 begin
+  Result := false;
   TransactionData := TTransactionData.Empty;
   TransactionData.Block := ABlock;
   if self.GetSignerAccount = AAffectedAccountNumber then
@@ -352,28 +352,23 @@ begin
   TransactionData.AffectedAccount := AAffectedAccountNumber;
   TransactionData.transactionType := TransactionType;
   TransactionData.SignerAccount := GetSignerAccount;
-  Result := false;
   TransactionData.DestAccount := Data.TargetAccount;
-  if (Data.TransactionStyle = transaction_with_auto_buy_account) then
-  begin
-    if Data.SenderAccount = AAffectedAccountNumber then
-    begin
+  if (Data.TransactionStyle = transaction_with_auto_buy_account)
+  then begin
+    if Data.SenderAccount = AAffectedAccountNumber
+    then begin
       TransactionData.transactionSubtype := CT_OpSubtype_BuyTransactionBuyer;
       TransactionData.TransactionAsString := 'Tx-Out (MCCA ' + TAccount.AccountNumberToString(Data.TargetAccount) +
         ' Purchase) ' + TCurrencyUtils.CurrencyToString(Data.Amount) + ' MCC from ' +
         TAccount.AccountNumberToString(Data.SenderAccount) + ' to ' + TAccount.AccountNumberToString
         (Data.TargetAccount);
-      if (Data.SenderAccount = Data.SellerAccount) then
-      begin
-        // Valid calc when sender is the same than seller
-        TransactionData.amount := (Int64(Data.Amount) - (Data.AccountPrice)) * (-1);
-      end
-      else
-        TransactionData.amount := Int64(Data.Amount) * (-1);
+      if (Data.SenderAccount = Data.SellerAccount)
+      then TransactionData.amount := (Int64(Data.Amount) - (Data.AccountPrice)) * (-1)
+      else TransactionData.amount := Int64(Data.Amount) * (-1);
       Result := true;
     end
-    else if Data.TargetAccount = AAffectedAccountNumber then
-    begin
+    else if Data.TargetAccount = AAffectedAccountNumber
+    then begin
       TransactionData.transactionSubtype := CT_OpSubtype_BuyTransactionTarget;
       TransactionData.TransactionAsString := 'Tx-In (MCCA ' + TAccount.AccountNumberToString(Data.TargetAccount) +
         ' Purchase) ' + TCurrencyUtils.CurrencyToString(Data.Amount) + ' MCC from ' +
@@ -425,7 +420,7 @@ begin
   else
     TransactionData.PrintablePayload := TCrypto.ToHexaString(TransactionData.OriginalPayload);
   TransactionData.OperationHash := TransactionHash(ABlock);
-  if (ABlock < CT_Protocol_Upgrade_v2_MinBlock) then
+  if (ABlock < cProtocol_Upgrade_v2_MinBlock) then
   begin
     TransactionData.OperationHash_OLD := TransactionHash_OLD(ABlock);
   end;
@@ -436,7 +431,6 @@ class function TTransferMoneyTransaction.GetTransactionHashForSignature(const tr
   : TRawBytes;
 var
   ms: TMemoryStream;
-  s: string;
 begin
   ms := TMemoryStream.Create;
   try
@@ -465,7 +459,6 @@ begin
     SetLength(Result, ms.Size);
     ms.Position := 0;
     ms.ReadBuffer(Result[1], ms.Size);
-    s := TCrypto.ToHexaString(Result);
   finally
     ms.Free;
   end;
@@ -489,14 +482,18 @@ begin
   Stream.Read(FData.TargetAccount, Sizeof(FData.TargetAccount));
   Stream.Read(FData.Amount, Sizeof(FData.Amount));
   Stream.Read(FData.Fee, Sizeof(FData.Fee));
-  if TStreamOp.ReadAnsiString(Stream, FData.Payload) < 0 then
-    Exit;
-  if Stream.Read(FData.PublicKey.EC_OpenSSL_NID, Sizeof(FData.PublicKey.EC_OpenSSL_NID)) < 0 then
-    Exit;
-  if TStreamOp.ReadAnsiString(Stream, FData.PublicKey.x) < 0 then
-    Exit;
-  if TStreamOp.ReadAnsiString(Stream, FData.PublicKey.y) < 0 then
-    Exit;
+  if TStreamOp.ReadAnsiString(Stream, FData.Payload) < 0
+  then exit;
+
+  if Stream.Read(FData.PublicKey.EC_OpenSSL_NID, Sizeof(FData.PublicKey.EC_OpenSSL_NID)) < 0
+  then exit;
+
+  if TStreamOp.ReadAnsiString(Stream, FData.PublicKey.x) < 0
+  then exit;
+
+  if TStreamOp.ReadAnsiString(Stream, FData.PublicKey.y) < 0
+  then exit;
+
   if ((LoadExtendedData) or (self is TBuyAccountTransaction)) then
   begin
     if Stream.Read(b, 1) <> 1 then
@@ -504,16 +501,13 @@ begin
       Exit;
     end;
     case b of
-      0:
-        FData.TransactionStyle := Transaction;
-      1:
-        FData.TransactionStyle := transaction_with_auto_buy_account;
-      2:
-        begin
-          FData.TransactionStyle := buy_account;
-          if (not(self is TBuyAccountTransaction)) then
-            Exit;
-        end
+      0: FData.TransactionStyle := Transaction;
+      1: FData.TransactionStyle := transaction_with_auto_buy_account;
+      2: begin
+           FData.TransactionStyle := buy_account;
+           if (not(self is TBuyAccountTransaction))
+           then exit;
+         end
     else
       Exit;
     end;
@@ -593,7 +587,6 @@ begin
   end;
   TStreamOp.WriteAnsiString(Stream, FData.Signature.r);
   TStreamOp.WriteAnsiString(Stream, FData.Signature.s);
-  // (Stream as TMemoryStream).SaveToFile('streamy');
   Result := true;
 end;
 
@@ -654,8 +647,6 @@ begin
   FData.Amount := amount;
   FData.Fee := fee;
   FData.Payload := payload;
-  // V2: No need to store public key because it's at safebox. Saving at least 64 bytes!
-  // FData.public_key := key.PublicKey;
   FData.TransactionStyle := buy_account;
   FData.AccountPrice := price;
   FData.SellerAccount := account_to_pay;
@@ -721,7 +712,7 @@ begin
   else
     TransactionData.PrintablePayload := TCrypto.ToHexaString(TransactionData.OriginalPayload);
   TransactionData.OperationHash := TransactionHash(Block);
-  if (Block < CT_Protocol_Upgrade_v2_MinBlock) then
+  if (Block < cProtocol_Upgrade_v2_MinBlock) then
   begin
     TransactionData.OperationHash_OLD := TransactionHash_OLD(Block);
   end;
@@ -761,20 +752,20 @@ begin
     RErros := Format('target (%d) is blocked for protocol', [TargetAccount]);
     Exit;
   end;
-  if (Amount <= 0) or (Amount > CT_MaxTransactionAmount) then
+  if (Amount <= 0) or (Amount > cMaxTransactionAmount) then
   begin
-    RErros := Format('Invalid amount %d (0 or max: %d)', [Amount, CT_MaxTransactionAmount]);
+    RErros := Format('Invalid amount %d (0 or max: %d)', [Amount, cMaxTransactionAmount]);
     Exit;
   end;
-  if (Fee < 0) or (Fee > CT_MaxTransactionFee) then
+  if (Fee < 0) or (Fee > cMaxTransactionFee) then
   begin
-    RErros := Format('Invalid fee %d (max %d)', [Fee, CT_MaxTransactionFee]);
+    RErros := Format('Invalid fee %d (max %d)', [Fee, cMaxTransactionFee]);
     Exit;
   end;
-  if (length(Payload) > CT_MaxPayloadSize) then
+  if (length(Payload) > cMaxPayloadSize) then
   begin
-    RErros := 'Invalid Payload size:' + inttostr(length(Payload)) + ' (Max: ' + inttostr(CT_MaxPayloadSize) + ')';
-    if (AAccountTransaction.FreezedAccountStorage.CurrentProtocol >= CT_PROTOCOL_2) then
+    RErros := 'Invalid Payload size:' + inttostr(length(Payload)) + ' (Max: ' + inttostr(cMaxPayloadSize) + ')';
+    if (AAccountTransaction.FreezedAccountStorage.CurrentProtocol >= cPROTOCOL_2) then
     begin
       Exit; // BUG from protocol 1
     end;

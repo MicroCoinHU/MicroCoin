@@ -60,7 +60,7 @@ type
     destructor Destroy; override;
     function GetInternalAccount(AAccountNumber: Cardinal): PAccount;
     function TransferAmount(ASender, ATarget: Cardinal; ANumberOfTransactions: Cardinal; AAmount, AFee: UInt64;
-      var RErrors: AnsiString): Boolean;
+      var RErrors: AnsiString; ASubAccount : Cardinal = 0; ATargetSubAccount : Cardinal = 0): Boolean;
     function UpdateAccountInfo(ASignerAccount, ASignerAccountNumberOfTransactions, ATargetAccount: Cardinal; AAccountInfo: TAccountInfo;
       ANewName: TRawBytes; ANewType: Word; AFee: UInt64; var RErrors: AnsiString): Boolean;
     function BuyAccount(ABuyer, AAccountToBuy, ASeller: Cardinal; ANumberOfTransactions: Cardinal;
@@ -107,9 +107,9 @@ begin
     RErrors := 'Invalid integrity in accounts transaction';
     exit;
   end;
-  if (ABuyer < 0) or (ABuyer >= (FFreezedAccounts.BlocksCount * CT_AccountsPerBlock)) or (AAccountToBuy < 0) or
-    (AAccountToBuy >= (FFreezedAccounts.BlocksCount * CT_AccountsPerBlock)) or (ASeller < 0) or
-    (ASeller >= (FFreezedAccounts.BlocksCount * CT_AccountsPerBlock)) then
+  if (ABuyer < 0) or (ABuyer >= (FFreezedAccounts.BlocksCount * cAccountsPerBlock)) or (AAccountToBuy < 0) or
+    (AAccountToBuy >= (FFreezedAccounts.BlocksCount * cAccountsPerBlock)) or (ASeller < 0) or
+    (ASeller >= (FFreezedAccounts.BlocksCount * cAccountsPerBlock)) then
   begin
     RErrors := 'Invalid account number on buy';
     exit;
@@ -142,7 +142,7 @@ begin
     RErrors := 'Insuficient founds';
     exit;
   end;
-  if (AFee > CT_MaxTransactionFee) then
+  if (AFee > cMaxTransactionFee) then
   begin
     RErrors := 'Max fee';
     exit;
@@ -265,7 +265,7 @@ begin
     end;
     CleanTransaction;
     //
-    if (FFreezedAccounts.CurrentProtocol < CT_PROTOCOL_2) and (FBlockLock.protocol_version = CT_PROTOCOL_2) then
+    if (FFreezedAccounts.CurrentProtocol < cPROTOCOL_2) and (FBlockLock.protocol_version = cPROTOCOL_2) then
     begin
       // First block with new protocol!
       if FFreezedAccounts.CanUpgradeToProtocol2 then
@@ -328,12 +328,10 @@ var
   i: Integer;
   P: PAccount;
 begin
-  if FOrderedList.Find(AAccountNumber, i) then
-  begin
+  if FOrderedList.Find(AAccountNumber, i)
+  then begin
     Result := FOrderedList.GetPointer(i)
-  end
-  else
-  begin
+  end else begin
     i := FOrderedList.Add(FreezedAccountStorage.Account(AAccountNumber));
     Result := FOrderedList.GetPointer(i);
   end;
@@ -355,7 +353,7 @@ begin
 end;
 
 function TAccountTransaction.TransferAmount(ASender, ATarget: Cardinal; ANumberOfTransactions: Cardinal; AAmount, AFee: UInt64;
-  var RErrors: AnsiString): Boolean;
+  var RErrors: AnsiString; ASubAccount : Cardinal = 0; ATargetSubAccount : Cardinal = 0): Boolean;
 var
   PaccSender, PaccTarget: PAccount;
 begin
@@ -366,8 +364,8 @@ begin
     RErrors := 'Invalid integrity in accounts transaction';
     exit;
   end;
-  if (ASender < 0) or (ASender >= (FFreezedAccounts.BlocksCount * CT_AccountsPerBlock)) or (ATarget < 0) or
-    (ATarget >= (FFreezedAccounts.BlocksCount * CT_AccountsPerBlock)) then
+  if (ASender < 0) or (ASender >= (FFreezedAccounts.BlocksCount * cAccountsPerBlock)) or (ATarget < 0) or
+    (ATarget >= (FFreezedAccounts.BlocksCount * cAccountsPerBlock)) then
   begin
     RErrors := 'Invalid sender or target on transfer';
     exit;
@@ -394,12 +392,12 @@ begin
     RErrors := 'Insuficient founds';
     exit;
   end;
-  if ((PaccTarget^.Balance + AAmount) > CT_MaxWalletAmount) then
+  if ((PaccTarget^.Balance + AAmount) > cMaxWalletAmount) then
   begin
     RErrors := 'Max account balance';
     exit;
   end;
-  if (AFee > CT_MaxTransactionFee) then
+  if (AFee > cMaxTransactionFee) then
   begin
     RErrors := 'Max fee';
     exit;
@@ -425,13 +423,22 @@ begin
   PaccSender^.NumberOfTransactions := ANumberOfTransactions;
   PaccSender^.Balance := PaccSender^.Balance - (AAmount + AFee);
   PaccTarget^.Balance := PaccTarget^.Balance + (AAmount);
+{$IFDEF EXTENDEDACCOUNT}
+  if ASubAccount <> 0
+  then PaccSender^.SubAccounts[ASubAccount-1].Balance := PaccSender^.SubAccounts[ASubAccount-1].Balance - AAmount;
+  if ATargetSubAccount <> 0
+  then begin
+    PaccTarget^.SubAccounts[ATargetSubAccount-1].Balance := PaccTarget^.SubAccounts[ATargetSubAccount-1].Balance + AAmount;
+    inc(PaccTarget^.ExtraData.DataType);
+  end;
+{$ENDIF}
 
   Dec(FTotalBalance, AFee);
   inc(FTotalFee, AFee);
   Result := true;
 end;
 
-  function TAccountTransaction.UpdateAccountInfo(ASignerAccount, ASignerAccountNumberOfTransactions, ATargetAccount: Cardinal;
+function TAccountTransaction.UpdateAccountInfo(ASignerAccount, ASignerAccountNumberOfTransactions, ATargetAccount: Cardinal;
   AAccountInfo: TAccountInfo; ANewName: TRawBytes; ANewType: Word; AFee: UInt64; var RErrors: AnsiString): Boolean;
 var
   i: Integer;
@@ -439,8 +446,8 @@ var
 begin
   Result := false;
   RErrors := '';
-  if (ASignerAccount < 0) or (ASignerAccount >= (FFreezedAccounts.BlocksCount * CT_AccountsPerBlock)) or
-    (ATargetAccount < 0) or (ATargetAccount >= (FFreezedAccounts.BlocksCount * CT_AccountsPerBlock)) then
+  if (ASignerAccount < 0) or (ASignerAccount >= (FFreezedAccounts.BlocksCount * cAccountsPerBlock)) or
+    (ATargetAccount < 0) or (ATargetAccount >= (FFreezedAccounts.BlocksCount * cAccountsPerBlock)) then
   begin
     RErrors := 'Invalid account';
     exit;
@@ -453,46 +460,46 @@ begin
   end;
   P_signer := GetInternalAccount(ASignerAccount);
   P_target := GetInternalAccount(ATargetAccount);
-  if (P_signer^.NumberOfTransactions + 1 <> ASignerAccountNumberOfTransactions) then
-  begin
+  if (P_signer^.NumberOfTransactions + 1 <> ASignerAccountNumberOfTransactions)
+  then begin
     RErrors := 'Incorrect n_operation';
     exit;
   end;
-  if (P_signer^.Balance < AFee) then
-  begin
+  if (P_signer^.Balance < AFee)
+  then begin
     RErrors := 'Insuficient founds';
     exit;
   end;
-  if (P_signer^.AccountInfo.IsLocked(FFreezedAccounts.BlocksCount)) then
-  begin
+  if (P_signer^.AccountInfo.IsLocked(FFreezedAccounts.BlocksCount))
+  then begin
     RErrors := 'Signer account is locked until block ' + inttostr(P_signer^.AccountInfo.LockedUntilBlock);
     exit;
   end;
-  if (P_target^.AccountInfo.IsLocked(FFreezedAccounts.BlocksCount)) then
-  begin
+  if (P_target^.AccountInfo.IsLocked(FFreezedAccounts.BlocksCount))
+  then begin
     RErrors := 'Target account is locked until block ' + inttostr(P_target^.AccountInfo.LockedUntilBlock);
     exit;
   end;
-  if P_signer^.UpdatedBlock <> FFreezedAccounts.BlocksCount then
-  begin
+  if P_signer^.UpdatedBlock <> FFreezedAccounts.BlocksCount
+  then begin
     P_signer^.PreviusUpdatedBlock := P_signer^.UpdatedBlock;
     P_signer^.UpdatedBlock := FFreezedAccounts.BlocksCount;
   end;
-  if (ASignerAccount <> ATargetAccount) then
-  begin
-    if P_target^.UpdatedBlock <> FFreezedAccounts.BlocksCount then
-    begin
+  if (ASignerAccount <> ATargetAccount)
+  then begin
+    if P_target^.UpdatedBlock <> FFreezedAccounts.BlocksCount
+    then begin
       P_target^.PreviusUpdatedBlock := P_target^.UpdatedBlock;
       P_target^.UpdatedBlock := FFreezedAccounts.BlocksCount;
     end;
   end;
-  if not TAccountKey.EqualAccountKeys(P_signer^.AccountInfo.AccountKey, P_target^.AccountInfo.AccountKey) then
-  begin
+  if not TAccountKey.EqualAccountKeys(P_signer^.AccountInfo.AccountKey, P_target^.AccountInfo.AccountKey)
+  then begin
     RErrors := 'Signer and target have diff key';
     exit;
   end;
-  if (ANewName <> P_target^.Name) then
-  begin
+  if (ANewName <> P_target^.Name)
+  then begin
     // NEW NAME CHANGE CHECK:
     if (ANewName <> '') then
     begin

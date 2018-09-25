@@ -81,28 +81,28 @@ implementation
 class procedure TAccountKeyHelper.ValidsEC_OpenSSL_NID(list: TList);
 begin
   list.Clear;
-  list.Add(TObject(CT_NID_secp256k1)); // = 714
-  list.Add(TObject(CT_NID_secp384r1)); // = 715
-  list.Add(TObject(CT_NID_sect283k1)); // = 729
-  list.Add(TObject(CT_NID_secp521r1)); // = 716
+  list.Add(TObject(cNID_secp256k1)); // = 714
+  list.Add(TObject(cNID_secp384r1)); // = 715
+  list.Add(TObject(cNID_sect283k1)); // = 729
+  list.Add(TObject(cNID_secp521r1)); // = 716
 end;
 
 class function TAccountKeyHelper.GetECInfoTxt(const EC_OpenSSL_NID: Word): AnsiString;
 begin
   case EC_OpenSSL_NID of
-    CT_NID_secp256k1:
+    cNID_secp256k1:
       begin
         Result := 'secp256k1';
       end;
-    CT_NID_secp384r1:
+    cNID_secp384r1:
       begin
         Result := 'secp384r1';
       end;
-    CT_NID_sect283k1:
+    cNID_sect283k1:
       begin
         Result := 'secp283k1';
       end;
-    CT_NID_secp521r1:
+    cNID_secp521r1:
       begin
         Result := 'secp521r1';
       end
@@ -164,7 +164,7 @@ function TAccountKeyHelper.IsValidAccountKey(var errors: AnsiString): Boolean;
 begin
   errors := '';
   case self.EC_OpenSSL_NID of
-    CT_NID_secp256k1, CT_NID_secp384r1, CT_NID_sect283k1, CT_NID_secp521r1:
+    cNID_secp256k1, cNID_secp384r1, cNID_sect283k1, cNID_secp521r1:
       begin
         Result := TECPrivateKey.IsValidPublicKey(self);
         if not Result then

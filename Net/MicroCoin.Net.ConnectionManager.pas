@@ -515,7 +515,7 @@ constructor TConnectionManager.Create(AOwner: TComponent);
 begin
   inherited;
   TLog.NewLog(ltInfo, Classname, 'TNetData.Create');
-  FMaxConnections := CT_MaxClientsConnected;
+  FMaxConnections := cMaximumClients;
   FNetConnectionsActive := true;
   SetLength(FFixedServers, 0);
   FMaxRemoteOperationBlock := TBlockHeader.Empty;
@@ -532,7 +532,7 @@ begin
   FNetConnections := TPCThreadList.Create('TNetData_NetConnections');
   FIsGettingNewBlockChainFromClient := false;
   FNodePrivateKey := TECPrivateKey.Create;
-  FNodePrivateKey.GenerateRandomPrivateKey(CT_Default_EC_OpenSSL_NID);
+  FNodePrivateKey.GenerateRandomPrivateKey(cDefault_EC_OpenSSL_NID);
   FThreadCheckConnections := TThreadCheckConnections.Create(Self);
   FNetDataNotifyEventsThread := TNetDataNotifyEventsThread.Create(Self);
   FNetClientsDestroyThread := TNetClientsDestroyThread.Create(Self);
@@ -713,11 +713,11 @@ begin
   CleanBlackList;
   if NetStatistics.ClientsConnections > 0 then
   begin
-    j := CT_MinServersConnected - NetStatistics.ServersConnectionsWithResponse;
+    j := cMinimumServersNeeded - NetStatistics.ServersConnectionsWithResponse;
   end
   else
   begin
-    j := CT_MaxServersConnected - NetStatistics.ServersConnectionsWithResponse;
+    j := cMaximumNumberOfServers - NetStatistics.ServersConnectionsWithResponse;
   end;
   if j <= 0 then
     exit;
@@ -808,7 +808,7 @@ begin
     if buffer.Size - buffer.Position < 22 then
       exit;
     buffer.Read(c, 4);
-    if (c <> CT_MagicNetIdentification) then
+    if (c <> cMagicNetIdentification) then
       exit;
     buffer.Read(w, 2);
     case w of
@@ -1193,7 +1193,7 @@ const
               Inttostr(start_block) + '_' + FormatDateTime('yyyymmddhhnnss', DateTime2UnivDateTime(now)), nil);
             Bank.Storage.MoveBlockChainBlocks(start_block, TNode.Node.BlockManager.Storage.Orphan,
               TNode.Node.BlockManager.Storage);
-            TNode.Node.BlockManager.DiskRestoreFromTransactions(CT_MaxBlock);
+            TNode.Node.BlockManager.DiskRestoreFromTransactions(cMaxBlocks);
           finally
             TNode.Node.EnableNewBlocks;
           end;
@@ -1278,7 +1278,7 @@ const
         end;
         if (AAccountStorageHeader.AccountStorageHash <> AHeader) or (AAccountStorageHeader.StartBlock <> AFromBlock) or
           (AAccountStorageHeader.EndBlock <> c) or (AAccountStorageHeader.BlocksCount <> ABlockscount) or
-          (AAccountStorageHeader.Protocol < CT_PROTOCOL_2) or (AAccountStorageHeader.Protocol > CT_BlockChain_Protocol_Available) then
+          (AAccountStorageHeader.Protocol < cPROTOCOL_2) or (AAccountStorageHeader.Protocol > cBlockChain_Protocol_Available) then
         begin
           RErrors := Format
             ('Invalid received chunk based on call: Blockscount:%d %d - from:%d %d to %d %d - SafeboxHash:%s %s',
@@ -1316,8 +1316,8 @@ type
   begin
     Result := false;
     // Will try to download penultimate saved safebox
-    x_blockcount := ((Connection.RemoteOperationBlock.Block div cSaveAccountStageOnBlocks) - 1) *
-      cSaveAccountStageOnBlocks;
+    x_blockcount := ((Connection.RemoteOperationBlock.Block div cSaveAccountStorageOnBlocks) - 1) *
+      cSaveAccountStorageOnBlocks;
     if not Do_GetOperationBlock(x_blockcount, 5000, xBlockHeader) then
     begin
       Connection.DisconnectInvalidClient(false, Format('Cannot obtain operation block %d for downloading safebox',
@@ -1426,7 +1426,7 @@ begin
     if TNode.Node.BlockManager.BlocksCount = 0 then
     begin
       TLog.NewLog(ltdebug, CT_LogSender, 'I have no blocks');
-      if Connection.RemoteOperationBlock.protocol_version >= CT_PROTOCOL_2 then
+      if Connection.RemoteOperationBlock.protocol_version >= cPROTOCOL_2 then
       begin
          Connection.Send_GetBlocks(0, 10, rid);
         //DownloadSafeBox(false);
@@ -1458,7 +1458,7 @@ begin
       if not FindLastSameBlockByOperationsBlock(0, xClientBlockHeader.Block, xClientBlockHeader) then
       begin
         TLog.NewLog(ltInfo, CT_LogSender, 'No found base block to start process... Receiving ALL');
-        if (Connection.RemoteOperationBlock.protocol_version >= CT_PROTOCOL_2) then
+        if (Connection.RemoteOperationBlock.protocol_version >= cPROTOCOL_2) then
         begin
           DownloadAccountStorage(false);
         end
@@ -1926,7 +1926,7 @@ begin
           FNetData.FNetStatistics.ServersConnections := newstats.ServersConnections;
           FNetData.FNetStatistics.ServersConnectionsWithResponse := newstats.ServersConnectionsWithResponse;
           // Must stop clients?
-          if (nserverclients > CT_MaxServersConnected) and
+          if (nserverclients > cMaximumNumberOfServers) and
           // This is to ensure there are more serverclients than clients
             ((nserverclients + nactive + ndeleted) >= FNetData.FMaxConnections) and (Assigned(netserverclientstop)) then
           begin
@@ -1939,7 +1939,7 @@ begin
         finally
           FNetData.FNetConnections.UnlockList;
         end;
-        if (nactive <= CT_MaxServersConnected) and (not Terminated) then
+        if (nactive <= cMaximumNumberOfServers) and (not Terminated) then
         begin
           // Discover
           FNetData.DiscoverServers;

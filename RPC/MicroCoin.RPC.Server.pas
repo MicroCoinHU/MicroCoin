@@ -296,7 +296,7 @@ begin
   FJSON20Strict := true;
   FWalletKeys := nil;
   FRPCServerThread := nil;
-  FPort := CT_JSONRPC_Port;
+  FPort := cJsonRPCPort;
   FCallsCounter := 0;
   FValidIPs := '127.0.0.1;localhost'; // New Build 1.5 - By default, only localhost can access to RPC
   FNodeNotifyEvents := TNodeNotifyEvents.Create(nil);

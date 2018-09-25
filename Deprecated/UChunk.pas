@@ -72,7 +72,7 @@ begin
 
     // Header:
     TStreamOp.WriteAnsiString(ADestinationStream,CT_AccountChunkIdentificator);
-    ADestinationStream.Write(CT_AccountStorageVersion,SizeOf(CT_AccountStorageVersion));
+    ADestinationStream.Write(cAccountStorageVersion,SizeOf(cAccountStorageVersion));
     //
     auxStream := TMemoryStream.Create;
     try
@@ -127,7 +127,7 @@ begin
     exit;
   end;
   AChunk.Read(w,sizeof(w));
-  if (w<>CT_AccountStorageVersion) then begin
+  if (w<>cAccountStorageVersion) then begin
     RErrors := RErrors + ' Invalid version '+IntToStr(w);
     exit;
   end;

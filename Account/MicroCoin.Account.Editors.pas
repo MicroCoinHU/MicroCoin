@@ -206,12 +206,12 @@ end;
 
 procedure TAccountEdit.Change;
 var
-  accNumber : Cardinal;
+  xAccNumber : Cardinal;
 begin
   inherited;
-  if TAccount.ParseAccountNumber(Text, accNumber)
+  if TAccount.ParseAccountNumber(Text, xAccNumber)
   then begin
-    FAccount := TNode.Node.TransactionStorage.BlockManager.AccountStorage.Account(accNumber);
+    FAccount := TNode.Node.TransactionStorage.BlockManager.AccountStorage.Account(xAccNumber);
   end;
 end;
 
@@ -224,7 +224,7 @@ end;
 procedure TAccountEdit.KeyPress(var Key: Char);
 begin
   inherited;
-  if not (Key in ['0'..'9', '-', #8, #9, #13, #10])
+  if not (Key in ['0'..'9', '-', #8, #9, #13, #10, '/'])
   then Key := #0;
   if (Key = '-') and (Pos('-', Text)>0)
   then Key := #0;
@@ -233,7 +233,7 @@ end;
 procedure TAccountEdit.SetAccount(const Value: TAccount);
 begin
   FAccount := Value;
-  Text := TAccount.AccountNumberToString( Value.AccountNumber)
+  Text := TAccount.AccountNumberToString(Value.AccountNumber)
 end;
 
 { TEncryptedMemo }

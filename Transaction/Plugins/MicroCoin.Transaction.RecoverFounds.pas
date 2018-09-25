@@ -88,20 +88,20 @@ begin
     Exit;
   end;
   acc := AccountTransaction.Account(FData.Account);
-  if (acc.UpdatedBlock + CT_RecoverFoundsWaitInactiveCount >= AccountTransaction.FreezedAccountStorage.BlocksCount)
+  if (acc.UpdatedBlock + cRecoverAfterInactive >= AccountTransaction.FreezedAccountStorage.BlocksCount)
   then
   begin
     errors := Format('Account is active to recover founds! Account %d Updated %d + %d >= BlockCount : %d',
-      [FData.Account, acc.UpdatedBlock, CT_RecoverFoundsWaitInactiveCount,
+      [FData.Account, acc.UpdatedBlock, cRecoverAfterInactive,
       AccountTransaction.FreezedAccountStorage.BlocksCount]);
     Exit;
   end;
   // Build 1.0.8 ... there was a BUG. Need to prevent recent created accounts
-  if (TAccount.AccountBlock(FData.Account) + CT_RecoverFoundsWaitInactiveCount >=
+  if (TAccount.AccountBlock(FData.Account) + cRecoverAfterInactive >=
     AccountTransaction.FreezedAccountStorage.BlocksCount) then
   begin
     errors := Format('AccountBlock is active to recover founds! AccountBlock %d + %d >= BlockCount : %d',
-      [TAccount.AccountBlock(FData.Account), CT_RecoverFoundsWaitInactiveCount,
+      [TAccount.AccountBlock(FData.Account), cRecoverAfterInactive,
       AccountTransaction.FreezedAccountStorage.BlocksCount]);
     Exit;
   end;
@@ -110,7 +110,7 @@ begin
     errors := 'Invalid n_operation';
     Exit;
   end;
-  if (FData.Fee <= 0) or (FData.Fee > CT_MaxTransactionFee) then
+  if (FData.Fee <= 0) or (FData.Fee > cMaxTransactionFee) then
   begin
     errors := 'Invalid fee ' + Inttostr(FData.Fee);
     Exit;
@@ -209,7 +209,7 @@ begin
   else
     TransactionData.PrintablePayload := TCrypto.ToHexaString(TransactionData.OriginalPayload);
   TransactionData.OperationHash := TransactionHash(Block);
-  if (Block < CT_Protocol_Upgrade_v2_MinBlock) then
+  if (Block < cProtocol_Upgrade_v2_MinBlock) then
   begin
     TransactionData.OperationHash_OLD := TransactionHash_OLD(Block);
   end;
