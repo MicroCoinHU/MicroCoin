@@ -77,7 +77,7 @@ begin
     exit;
   end;
 
-  if (SenderAccount = TargetAccount) then
+  if (SenderAccount = TargetAccount) and (Subaccount = TargetSubAccount)  then
   begin
     RErros := Format('Sender=Target %d', [SenderAccount]);
     exit;
@@ -143,8 +143,8 @@ begin
   xTargetAccount := AccountTransaction.Account(FData.TargetAccount);
   xTotalAmount := FData.Amount + FData.Fee;
 
-  if ((xSenderAccount.NumberOfTransactions + 1) <> FData.NumberOfTransactions) then
-  begin
+  if ((xSenderAccount.NumberOfTransactions + 1) <> FData.NumberOfTransactions)
+  then begin
     errors := Format('Invalid n_operation %d (expected %d)', [FData.NumberOfTransactions, xSenderAccount.NumberOfTransactions + 1]);
     Exit;
   end;
@@ -161,40 +161,57 @@ begin
   end;
 {$ENDIF}
 
-  if (xSenderAccount.Balance < xTotalAmount) then
-  begin
+  if (xSenderAccount.Balance < xTotalAmount)
+  then begin
     errors := Format('Insuficient founds %d < (%d + %d = %d)', [xSenderAccount.Balance, FData.Amount, FData.Fee, xTotalAmount]);
-    Exit;
+    exit;
   end;
 
-  if (xTargetAccount.Balance + FData.Amount > cMaxWalletAmount) then
-  begin
+{$IFDEF EXTENDEDACCOUNT}
+
+  if xSenderAccount.SubAccounts[FData.Subaccount-1].Balance < xTotalAmount
+  then begin
+    errors := Format('Insuficient founds %d < (%d + %d = %d)', [xSenderAccount.Balance, FData.Amount, FData.Fee, xTotalAmount]);
+    exit;
+  end;
+
+  if xTargetAccount.SubAccounts[FData.TargetSubAccount-1].Balance + FData.Amount > xTargetAccount.SubAccounts[FData.TargetSubAccount-1].TotalLimit
+  then begin
+     errors := 'Subaccount limit exceeds.';
+     exit;
+  end;
+
+{$ENDIF}
+
+  if (xTargetAccount.Balance + FData.Amount > cMaxWalletAmount)
+  then begin
     errors := Format('Target cannot accept this transaction due to max amount %d+%d=%d > %d',
       [xTargetAccount.Balance, FData.Amount, xTargetAccount.Balance + FData.Amount, cMaxWalletAmount]);
-    Exit;
+    exit;
   end;
 
-  if (xSenderAccount.accountInfo.IsLocked(AccountTransaction.FreezedAccountStorage.BlocksCount)) then
-  begin
+  if (xSenderAccount.accountInfo.IsLocked(AccountTransaction.FreezedAccountStorage.BlocksCount))
+  then begin
     errors := 'Sender Account is currently locked';
-    Exit;
+    exit;
   end;
 
   if (FData.PublicKey.EC_OpenSSL_NID <> CT_TECDSA_Public_Nul.EC_OpenSSL_NID) and
-    (not TAccountKey.EqualAccountKeys(FData.PublicKey, xSenderAccount.accountInfo.AccountKey)) then
-  begin
+    (not TAccountKey.EqualAccountKeys(FData.PublicKey, xSenderAccount.SubAccounts[FData.Subaccount-1].AccountKey))
+  then begin
     errors := Format('Invalid sender public key for account %d. Distinct from SafeBox public key! %s <> %s',
       [FData.SenderAccount, TCrypto.ToHexaString((FData.PublicKey.ToRawString)),
       TCrypto.ToHexaString(xSenderAccount.accountInfo.AccountKey.ToRawString)]);
-    Exit;
+    exit;
   end;
 
   _h := GetTransactionHashForSignature(FData);
-  if (not TCrypto.ECDSAVerify(xSenderAccount.accountInfo.AccountKey, _h, FData.Signature)) then
-  begin
+
+  if (not TCrypto.ECDSAVerify(xSenderAccount.SubAccounts[FData.Subaccount-1].AccountKey, _h, FData.Signature))
+  then begin
     errors := 'Invalid signature';
     FHasValidSignature := false;
-    Exit;
+    exit;
   end else FHasValidSignature := true;
 
   FPrevious_Signer_updated_block := xSenderAccount.UpdatedBlock;

@@ -46,6 +46,8 @@ type
       PublicKey: TECDSA_Public;
       Signature: TECDSA_SIG;
       Balance: UInt64;
+      TotalLimit: UInt64;
+      DailyLimit: UInt64;
   end;
   strict private FData: TCreateSubAccountData;
   strict protected
@@ -61,7 +63,9 @@ type
     function GetTransactionType: Byte; override;
     class function GetHashForSignature(const ATransaction: TCreateSubAccountData): TRawBytes; static;
   public
-    constructor Create(AAccountNumber : Cardinal; Afee: UInt64; ANTransactions: Cardinal; AKey: TECPrivateKey; APublicKey: TECDSA_Public; ABalance: UInt64); reintroduce;
+    constructor Create(AAccountNumber : Cardinal; Afee: UInt64; ANTransactions: Cardinal;
+                       AKey: TECPrivateKey; APublicKey: TECDSA_Public; ABalance: UInt64;
+                       ATotalLimit, ADailyLimit : UInt64); reintroduce;
     function GetBuffer(UseProtocolV2: Boolean): TRawBytes; override;
     function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean; override;
     procedure AffectedAccounts(list: TList); override;
@@ -126,6 +130,13 @@ begin
     errors := 'Insuficient founds';
     exit;
   end;
+{$IFDEF EXTENDEDACCOUNT}
+  if xTargetAccount.AvailableBalance-FData.Fee < FData.Balance
+  then begin
+    errors := 'Insuficient founds';
+    exit;
+  end;
+{$ENDIF}
 
   if (length(FData.Payload) > cMaxPayloadSize)
   then begin
@@ -164,16 +175,17 @@ begin
   xAccount^.UpdatedBlock := AccountTransaction.FreezedAccounts.BlocksCount;
   {$IFDEF EXTENDEDACCOUNT}
     SetLength(xAccount^.SubAccounts, Length(xAccount^.SubAccounts)+1);
-    xAccount^.SubAccounts[High(xAccount^.SubAccounts)].AccountKey := xTargetAccount.AccountInfo.AccountKey;
+    xAccount^.SubAccounts[High(xAccount^.SubAccounts)].AccountKey := FData.PublicKey;
     xAccount^.SubAccounts[High(xAccount^.SubAccounts)].Balance := FData.balance;
-    xAccount^.SubAccounts[High(xAccount^.SubAccounts)].DailyLimit := 0;
-    xAccount^.SubAccounts[High(xAccount^.SubAccounts)].TotalLimit := 0;
+    xAccount^.SubAccounts[High(xAccount^.SubAccounts)].DailyLimit := FData.DailyLimit;
+    xAccount^.SubAccounts[High(xAccount^.SubAccounts)].TotalLimit := FData.TotalLimit;
   {$ENDIF}
   Result := true;
 end;
 
 constructor TCreateSubAccountTransaction.Create(AAccountNumber: Cardinal;
-  Afee: uInt64; ANTransactions: Cardinal; AKey: TECPrivateKey; APublicKey: TECDSA_Public; ABalance : UInt64);
+  Afee: uInt64; ANTransactions: Cardinal; AKey: TECPrivateKey; APublicKey: TECDSA_Public; ABalance : UInt64;
+  ATotalLimit, ADailyLimit : UInt64);
 var
   s: AnsiString;
 begin
@@ -184,6 +196,8 @@ begin
   FData.Payload := '';
   FData.PublicKey := APublicKey;
   FData.Balance := ABalance;
+  FData.TotalLimit := ATotalLimit;
+  FData.DailyLimit := ADailyLimit;
   s := GetHashForSignature(FData);
   FData.Signature := TCrypto.ECDSASign(Akey, s);
   self.Previous_Signer_updated_block
@@ -239,6 +253,10 @@ begin
 
     if TStreamOp.WriteAnsiString(Stream, ATransaction.Signature.s) < 0
     then exit;
+
+    Stream.Write(ATransaction.Balance, SizeOf(ATransaction.Balance));
+    Stream.Write(ATransaction.TotalLimit, SizeOf(ATransaction.TotalLimit));
+    Stream.Write(ATransaction.DailyLimit, SizeOf(ATransaction.DailyLimit));
 
     Stream.Position := 0;
     setlength(Result, Stream.Size);
@@ -329,6 +347,8 @@ begin
   then exit;
 
   Stream.Read(FData.Balance, SizeOf(FData.Balance));
+  Stream.Read(FData.TotalLimit, SizeOf(FData.TotalLimit));
+  Stream.Read(FData.DailyLimit, SizeOf(FData.DailyLimit));
 
   Result := true;
 end;
@@ -355,6 +375,8 @@ begin
   then exit;
 
   Stream.Write(FData.Balance, SizeOf(FData.Balance));
+  Stream.Write(FData.TotalLimit, SizeOf(FData.TotalLimit));
+  Stream.Write(FData.DailyLimit, SizeOf(FData.DailyLimit));
 
   Result := true;
 end;
@@ -366,6 +388,8 @@ begin
     TAccount.AccountNumberToString(FData.SignerAccount)]);
 end;
 
+{$IFDEF EXTENDEDACCOUNT}
 initialization
   TTransactionManager.RegisterTransactionPlugin(TCreateSubAccountTransaction, CT_Op_CreateSubAccount);
+{$ENDIF}
 end.

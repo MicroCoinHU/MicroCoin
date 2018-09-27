@@ -127,7 +127,7 @@ function TTransferMoneyTransaction.ApplyTransaction(AccountTransaction: TAccount
 var
   s_new, t_new: Int64;
   xTotalAmount: UInt64;
-  xSenderAccount, xTargetAccount, seller: TAccount;
+  xSenderAccount, xTargetAccount, xSellerAccount: TAccount;
   _h: TRawBytes;
   _IsBuyTransaction: Boolean;
 begin
@@ -143,26 +143,34 @@ begin
   if ((xSenderAccount.NumberOfTransactions + 1) <> FData.NumberOfTransactions) then
   begin
     errors := Format('Invalid n_operation %d (expected %d)', [FData.NumberOfTransactions, xSenderAccount.NumberOfTransactions + 1]);
-    Exit;
+    exit;
   end;
 
   if (xSenderAccount.Balance < xTotalAmount) then
   begin
     errors := Format('Insuficient founds %d < (%d + %d = %d)', [xSenderAccount.Balance, FData.Amount, FData.Fee, xTotalAmount]);
-    Exit;
+    exit;
   end;
+
+{$IFDEF EXTENDEDACCOUNT}
+  if xTotalAmount > xSenderAccount.AvailableBalance
+  then begin
+    errors := Format('Insuficient founds %d < (%d + %d = %d)', [xSenderAccount.AvailableBalance, FData.Amount, FData.Fee, xTotalAmount]);
+    exit;
+  end;
+{$ENDIF}
 
   if (xTargetAccount.Balance + FData.Amount > cMaxWalletAmount) then
   begin
     errors := Format('Target cannot accept this transaction due to max amount %d+%d=%d > %d',
       [xTargetAccount.Balance, FData.Amount, xTargetAccount.Balance + FData.Amount, cMaxWalletAmount]);
-    Exit;
+    exit;
   end;
   // Is locked? Protocol 2 check
   if (xSenderAccount.accountInfo.IsLocked(AccountTransaction.FreezedAccountStorage.BlocksCount)) then
   begin
     errors := 'Sender Account is currently locked';
-    Exit;
+    exit;
   end;
   // Build 1.4
   if (FData.PublicKey.EC_OpenSSL_NID <> CT_TECDSA_Public_Nul.EC_OpenSSL_NID) and
@@ -171,7 +179,7 @@ begin
     errors := Format('Invalid sender public key for account %d. Distinct from SafeBox public key! %s <> %s',
       [FData.SenderAccount, TCrypto.ToHexaString((FData.PublicKey.ToRawString)),
       TCrypto.ToHexaString(xSenderAccount.accountInfo.AccountKey.ToRawString)]);
-    Exit;
+    exit;
   end;
   // Check signature
   _h := GetTransactionHashForSignature(FData);
@@ -194,14 +202,14 @@ begin
       errors := 'Buy account is not allowed on Protocol 1';
       Exit;
     end;
-    seller := AccountTransaction.Account(FData.SellerAccount);
+    xSellerAccount := AccountTransaction.Account(FData.SellerAccount);
     if not(xTargetAccount.accountInfo.IsAccountForSale) then
     begin
       errors := Format('%d is not for sale', [xTargetAccount.AccountNumber]);
       Exit;
     end;
     // Check that seller is the expected seller
-    if (xTargetAccount.accountInfo.AccountToPay <> seller.AccountNumber) then
+    if (xTargetAccount.accountInfo.AccountToPay <> xSellerAccount.AccountNumber) then
     begin
       errors := Format('Seller account %d is not expected account %d',
         [FData.SellerAccount, xTargetAccount.accountInfo.AccountToPay]);
@@ -226,7 +234,7 @@ begin
     if not(FData.NewAccountKey.IsValidAccountKey(errors)) then
       Exit; // BUG 20171511
     _IsBuyTransaction := true;
-    FPrevious_Seller_updated_block := seller.UpdatedBlock;
+    FPrevious_Seller_updated_block := xSellerAccount.UpdatedBlock;
 
   end
   else if
@@ -250,8 +258,8 @@ begin
     // Set this data!
     FData.AccountPrice := xTargetAccount.accountInfo.Price;
     FData.SellerAccount := xTargetAccount.accountInfo.AccountToPay;
-    seller := AccountTransaction.Account(xTargetAccount.accountInfo.AccountToPay);
-    FPrevious_Seller_updated_block := seller.UpdatedBlock;
+    xSellerAccount := AccountTransaction.Account(xTargetAccount.accountInfo.AccountToPay);
+    FPrevious_Seller_updated_block := xSellerAccount.UpdatedBlock;
     FData.NewAccountKey := xTargetAccount.accountInfo.NewPublicKey;
   end
   else
@@ -265,7 +273,7 @@ begin
       errors := 'NOT ALLOWED ON PROTOCOL 1';
       Exit;
     end;
-    Result := AccountTransaction.BuyAccount(xSenderAccount.AccountNumber, xTargetAccount.AccountNumber, seller.AccountNumber, FData.NumberOfTransactions,
+    Result := AccountTransaction.BuyAccount(xSenderAccount.AccountNumber, xTargetAccount.AccountNumber, xSellerAccount.AccountNumber, FData.NumberOfTransactions,
       FData.Amount, xTargetAccount.accountInfo.Price, FData.Fee, FData.NewAccountKey, errors);
   end
   else

@@ -87,7 +87,11 @@ type
   TAccount = record
   private
     FHasExtraData: boolean;
+{$IFDEF EXTENDEDACCOUNT}
     FParent: Cardinal;
+    function GetSubAccountsBalance: UInt64;
+    function GetAvailableBalance: UInt64;
+{$ENDIF}
   public
     AccountNumber: Cardinal; // FIXED value. Account number
     AccountInfo: TAccountInfo;
@@ -112,6 +116,8 @@ type
     {$IFDEF EXTENDEDACCOUNT}
     property HasExtraData: boolean read FHasExtraData write FHasExtraData;
     property Parent : Cardinal read FParent write FParent;
+    property SubAccountsBalance : UInt64 read GetSubAccountsBalance;
+    property AvailableBalance : UInt64 read GetAvailableBalance;
     {$ENDIF}
   end;
 
@@ -408,6 +414,22 @@ begin
     Result.ExtraData.Data := '';
   {$ENDIF}
 end;
+
+{$IFDEF EXTENDEDACCOUNT}
+function TAccount.GetAvailableBalance: UInt64;
+begin
+  Result := Balance - SubAccountsBalance;
+end;
+
+function TAccount.GetSubAccountsBalance: UInt64;
+var
+  i : integer;
+begin
+  Result := 0;
+  for i := Low(SubAccounts) to High(SubAccounts)
+  do Result := Result + SubAccounts[i].Balance;
+end;
+{$ENDIF}
 
 class function TAccount.IsAccountBlockedByProtocol(AAccountNumber, ABlockCount: Cardinal): Boolean;
 var
