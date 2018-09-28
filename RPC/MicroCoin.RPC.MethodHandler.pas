@@ -29,7 +29,7 @@ unit MicroCoin.RPC.MethodHandler;
 
 interface
 
-uses UJsonFunctions, MicroCoin.RPC.Result;
+uses UJsonFunctions, MicroCoin.RPC.Result, Classes;
 
 type
 
@@ -39,16 +39,21 @@ type
     IHandlerWrapper = interface
      ['{C5C7E236-D8D3-4AEA-9FD1-13133F34D41E}']
      function GetHandler : THandler;
+     function GetDescription: string;
      property Handler : THandler read GetHandler;
+     property Description : string read GetDescription;
     end;
 
     THandlerWrapper = class(TInterfacedObject, IHandlerWrapper)
     private
      FHandler : THandler;
+     FDescription : string;
+     function GetDescription: string;
     public
      function GetHandler : THandler;
      constructor Create(AHandler : THandler);
      property Handler : THandler read GetHandler write FHandler;
+     property Description : string read GetDescription;
     end;
   {$endif}
 
@@ -58,6 +63,11 @@ implementation
 constructor THandlerWrapper.Create(AHandler: THandler);
 begin
   Handler := AHandler;
+end;
+
+function THandlerWrapper.GetDescription: string;
+begin
+
 end;
 
 function THandlerWrapper.GetHandler: THandler;

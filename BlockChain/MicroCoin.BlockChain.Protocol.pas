@@ -128,8 +128,6 @@ begin
     SetLength(Part3, ms.Size);
     ms.Position := 0;
     ms.ReadBuffer(Part3[1], ms.Size);
-    s := TCrypto.ToHexaString(operationBlock.transactionHash);
-    s := '';
   finally
     ms.Free;
   end;

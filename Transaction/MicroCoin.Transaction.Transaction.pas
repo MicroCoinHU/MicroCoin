@@ -216,7 +216,6 @@ function TTransaction.TransactionHash_OLD(Block: Cardinal): TRawBytes;
 var
   ms: TMemoryStream;
   _a, _o: Cardinal;
-  s: AnsiString;
 begin
   ms := TMemoryStream.Create;
   try
@@ -232,8 +231,6 @@ begin
     SetLength(Result, ms.Size);
     ms.Position := 0;
     ms.Read(Result[1], ms.Size);
-    s := TCrypto.ToHexaString(Result);
-    s := '';
   finally
     ms.Free;
   end;
