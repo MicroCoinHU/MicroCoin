@@ -214,7 +214,7 @@ begin
   TNode.Node.BlockManager.StorageClass := TFileStorage;
   TFileStorage(TNode.Node.BlockManager.Storage).DatabaseFolder := TFolderHelper.GetMicroCoinDataFolder + PathDelim + 'Data';
 
-  TNode.Node.BlockManager.DiskRestoreFromTransactions(CT_MaxBlock);
+  TNode.Node.BlockManager.DiskRestoreFromTransactions(cMaxBlocks);
 
   FWalletKeys.AccountStorage := TNode.Node.BlockManager.AccountStorage;
 
@@ -237,7 +237,7 @@ var
 begin
   i := FSettings.MinerServerPort;
   if (i < 0) then
-    i := CT_JSONRPCMinerServer_Port;
+    i := cMinerServerPort;
   if (i > 0) then
   begin
     Port := i;

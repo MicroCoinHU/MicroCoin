@@ -48,6 +48,8 @@ type
     function GetBlockPayload: TRawBytes;
     procedure SetBlockPayload(const value: TRawBytes);
     procedure OnHashTreeChanged(Sender: TObject);
+    function GetProofOfWork: TRawBytes;
+    procedure SetProofOfWork(const Value: TRawBytes);
   protected
     procedure Notification(AComponent: TComponent; Operation: TOperation); override;
     function SaveBlockToStreamExt(ASaveOnlyBlock: Boolean; AStream: TStream; ASaveToStorage: Boolean): Boolean;
@@ -59,17 +61,10 @@ type
     procedure CopyFrom(ATransactions: TBlock);
     function AddTransaction(AExecute: Boolean; ATransaction: ITransaction; var RErrors: AnsiString): Boolean;
     function AddTransactions(ATransactions: TTransactionHashTree; var errors: AnsiString): Integer;
-    property Transaction[index: Integer]: ITransaction read GetTransaction;
-    property BlockManager: TBlockManagerBase read FBlockManager write SetBank;
     procedure Clear(DeleteTransactions: Boolean);
     function Count: Integer;
-    property BlockHeader: TBlockHeader read FBlockHeader;
     class function BlockToString(ABlockHeader: TBlockHeader): AnsiString;
     class function SaveBlockToStream(const ABlockHeader: TBlockHeader; Stream: TStream): Boolean; overload;
-    property AccountKey: TAccountKey read GetAccountKey write SetAccountKey;
-    property nonce: Cardinal read GetnOnce write SetnOnce;
-    property timestamp: Cardinal read Gettimestamp write Settimestamp;
-    property BlockPayload: TRawBytes read GetBlockPayload write SetBlockPayload;
     procedure UpdateTimestamp;
     function SaveBlockToStorage(Stream: TStream): Boolean;
     function SaveBlockToStream(ASaveOnlyBlock: Boolean; Stream: TStream): Boolean; overload;
@@ -77,7 +72,6 @@ type
     function LoadBlockFromStream(Stream: TStream; var errors: AnsiString): Boolean;
     //
     function ValidateBlock(var errors: AnsiString): Boolean;
-    property IsOnlyBlock: Boolean read FIsOnlyBlock;
     procedure Lock;
     procedure Unlock;
     //
@@ -86,11 +80,20 @@ type
     class function GetFirstBlock: TBlockHeader;
     class function Equals(const ABlock1, ABlock2: TBlockHeader): Boolean;
     //
+    property Transaction[index: Integer]: ITransaction read GetTransaction;
+    property BlockManager: TBlockManagerBase read FBlockManager write SetBank;
+    property AccountKey: TAccountKey read GetAccountKey write SetAccountKey;
+    property nonce: Cardinal read GetnOnce write SetnOnce;
+    property timestamp: Cardinal read Gettimestamp write Settimestamp;
+    property BlockPayload: TRawBytes read GetBlockPayload write SetBlockPayload;
+    property IsOnlyBlock: Boolean read FIsOnlyBlock;
+    property BlockHeader: TBlockHeader read FBlockHeader write FBlockHeader;
     property AccountTransaction: TAccountTransaction read FAccountTransaction;
     property TransactionHashTree: TTransactionHashTree read FTransactionHashTree;
     property PoW_Digest_Part1: TRawBytes read FDigest_Part1;
     property PoW_Digest_Part2_Payload: TRawBytes read FDigest_Part2_Payload;
     property PoW_Digest_Part3: TRawBytes read FDigest_Part3;
+    property ProofOfWork : TRawBytes read GetProofOfWork write SetProofOfWork;
   end;
 
 implementation
@@ -374,6 +377,11 @@ end;
 function TBlock.GetnOnce: Cardinal;
 begin
   Result := FBlockHeader.nonce;
+end;
+
+function TBlock.GetProofOfWork: TRawBytes;
+begin
+  Result := FBlockHeader.proof_of_work;
 end;
 
 function TBlock.GetTransaction(index: Integer): ITransaction;
@@ -774,6 +782,11 @@ begin
   finally
     Unlock;
   end;
+end;
+
+procedure TBlock.SetProofOfWork(const Value: TRawBytes);
+begin
+  FBlockHeader.proof_of_work := Value;
 end;
 
 procedure TBlock.Settimestamp(const value: Cardinal);

@@ -34,7 +34,7 @@ var
   {$ELSE}
   {$IFDEF CPU64BITS}
   // Windows + Delphi only allows OpenSSL v1.0 32 bits
-    SSL_C_LIB : AnsiString = 'libcrypto-1_1-x64.dll';
+    SSL_C_LIB : AnsiString = 'libeay32.dll';
   {$ELSE}
     {$IFDEF OpenSSL10}
      SSL_C_LIB : AnsiString = 'libeay32.dll';

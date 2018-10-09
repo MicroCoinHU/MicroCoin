@@ -136,6 +136,7 @@ Const
   CT_Op_ChangeAccountInfo = $08;
   CT_Op_CreateSubAccount = $09;
   CT_Op_Transaction_Extended = $0A;
+  CT_Op_Data = $0B;
 
   CT_OpSubtype_TransactionSender          = 11;
   CT_OpSubtype_TransactionReceiver        = 12;
@@ -167,7 +168,7 @@ Const
   CT_TRUE_FALSE : array[Boolean] Of AnsiString = ('FALSE','TRUE');
 
   CT_MAX_0_fee_operations_per_block_by_miner = {$IFDEF PRODUCTION}2000{$ELSE}{$IFDEF TESTNET}2{$ELSE}2{$ENDIF}{$ENDIF};
-  CT_MAX_Operations_per_block_by_miner =  {$IFDEF PRODUCTION}10000{$ELSE}{$IFDEF TESTNET}50{$ELSE}50{$ENDIF}{$ENDIF};
+  CT_MAX_Operations_per_block_by_miner =  {$IFDEF PRODUCTION}10000{$ELSE}{$IFDEF TESTNET}100000{$ELSE}50{$ENDIF}{$ENDIF};
   {$IFDEF DEVNET}
   CT_BLOCK_EXTENDED_ACCOUNT_DATA = 19;
   {$ELSE}

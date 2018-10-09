@@ -1,3 +1,30 @@
+{==============================================================================|
+| MicroCoin                                                                    |
+| Copyright (c) 2017-2018 MicroCoin Developers                                 |
+|==============================================================================|
+| Permission is hereby granted, free of charge, to any person obtaining a copy |
+| of this software and associated documentation files (the "Software"), to     |
+| deal in the Software without restriction, including without limitation the   |
+| rights to use, copy, modify, merge, publish, distribute, sublicense, and/or  |
+| sell opies of the Software, and to permit persons to whom the Software is    |
+| furnished to do so, subject to the following conditions:                     |
+|                                                                              |
+| The above copyright notice and this permission notice shall be included in   |
+| all copies or substantial portions of the Software.                          |
+|------------------------------------------------------------------------------|
+| THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR   |
+| IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,     |
+| FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE  |
+| AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER       |
+| LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING      |
+| FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER          |
+| DEALINGS IN THE SOFTWARE.                                                    |
+|==============================================================================|
+| File:       MicroCoin.Transaction.TransaferMoneyExtended.pas                 |
+| Created at: 2018-09-29                                                       |
+| Purpose:    Extended version of transafer money transaction with subaccounts |
+|==============================================================================}
+
 unit MicroCoin.Transaction.TransaferMoneyExtended;
 
 {$ifdef FPC}
@@ -134,8 +161,10 @@ var
   xTotalAmount : UInt64;
   _h : TRawBytes;
 begin
+
   Result := false;
   errors := '';
+
   if not FData.CheckIsValid(AccountTransaction, errors)
   then exit;
 
@@ -148,7 +177,7 @@ begin
     errors := Format('Invalid n_operation %d (expected %d)', [FData.NumberOfTransactions, xSenderAccount.NumberOfTransactions + 1]);
     Exit;
   end;
-{$IFDEF EXTENDEDACCOUNT}
+
   if Length(xSenderAccount.SubAccounts) < FData.Subaccount
   then begin
     errors := Format('Invalid subaccount %d/%d', [FData.SenderAccount, FData.Subaccount]);
@@ -159,15 +188,12 @@ begin
     errors := Format('Invalid subaccount %d/%d', [FData.TargetAccount, FData.TargetSubAccount]);
     exit;
   end;
-{$ENDIF}
 
   if (xSenderAccount.Balance < xTotalAmount)
   then begin
     errors := Format('Insuficient founds %d < (%d + %d = %d)', [xSenderAccount.Balance, FData.Amount, FData.Fee, xTotalAmount]);
     exit;
   end;
-
-{$IFDEF EXTENDEDACCOUNT}
 
   if xSenderAccount.SubAccounts[FData.Subaccount-1].Balance < xTotalAmount
   then begin
@@ -180,8 +206,6 @@ begin
      errors := 'Subaccount limit exceeds.';
      exit;
   end;
-
-{$ENDIF}
 
   if (xTargetAccount.Balance + FData.Amount > cMaxWalletAmount)
   then begin
@@ -296,8 +320,6 @@ end;
 function TTransferMoneyExtended.GetTransactionData(ABlock,
   AAffectedAccountNumber: Cardinal;
   var TransactionData: TTransactionData): Boolean;
-var
-  s: string;
 begin
   Result := true;
   TransactionData := TTransactionData.Empty;
@@ -306,7 +328,6 @@ begin
   TransactionData.DestAccount := GetDestinationAccount;
   TransactionData.Amount := GetAmount;
   TransactionData.Fee := GetFee;
-  s := '';
   TransactionData.TransactionAsString := ToString;
   TransactionData.transactionSubtype := 0;
   TransactionData.OriginalPayload := GetPayload;

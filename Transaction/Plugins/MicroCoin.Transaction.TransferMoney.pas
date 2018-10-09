@@ -276,8 +276,7 @@ begin
     Result := AccountTransaction.BuyAccount(xSenderAccount.AccountNumber, xTargetAccount.AccountNumber, xSellerAccount.AccountNumber, FData.NumberOfTransactions,
       FData.Amount, xTargetAccount.accountInfo.Price, FData.Fee, FData.NewAccountKey, errors);
   end
-  else
-  begin
+  else begin
     Result := AccountTransaction.TransferAmount(FData.SenderAccount, FData.TargetAccount, FData.NumberOfTransactions, FData.Amount,
       FData.Fee, errors);
   end;
