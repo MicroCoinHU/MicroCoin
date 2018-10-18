@@ -79,7 +79,7 @@ implementation
 
 procedure TCreateSubAccountTransaction.AffectedAccounts(list: TList);
 begin
-  list.Add(TObject(FData.SignerAccount))
+  list.Add(TObject(PtrInt(FData.SignerAccount)))
 end;
 
 function TCreateSubAccountTransaction.ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean;

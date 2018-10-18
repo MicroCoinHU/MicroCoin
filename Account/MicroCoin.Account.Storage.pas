@@ -864,7 +864,7 @@ begin
         for i := 1 to length(P^.BlockHash) do
         begin
 {$IFDEF FPC}
-          FBufferBlocksHash[i + j] := AnsiChar(P^.block_hash[i - (low(FBufferBlocksHash) - low(P^.block_hash))]);
+          FBufferBlocksHash[i + j] := AnsiChar(P^.BlockHash[i - (low(FBufferBlocksHash) - low(P^.BlockHash))]);
 {$ELSE}
           FBufferBlocksHash[i + j] := AnsiChar(P^.BlockHash[i - {$IFDEF uselowmem}1{$ELSE}0{$ENDIF}]);
 {$ENDIF}
@@ -1517,6 +1517,7 @@ begin
   TMicroCoinProtocol.CalcProofOfWork(ANewOperationBlock, PoW);
   if (PoW <> ANewOperationBlock.proof_of_work) then
   begin
+//  ANewOperationBlock := Pow;
     errors := 'Proof of work is bad calculated ' + TCrypto.ToHexaString(ANewOperationBlock.proof_of_work) + ' <> Good: '
       + TCrypto.ToHexaString(PoW);
     exit;
@@ -1684,7 +1685,7 @@ begin
   for i := 1 to length(P^.BlockHash) do
   begin
 {$IFDEF FPC}
-    FBufferBlocksHash[i + j] := AnsiChar(P^.block_hash[i - (low(FBufferBlocksHash) - low(P^.block_hash))]);
+    FBufferBlocksHash[i + j] := AnsiChar(P^.BlockHash[i - (low(FBufferBlocksHash) - low(P^.BlockHash))]);
 {$ELSE}
     FBufferBlocksHash[i + j] := AnsiChar(P^.BlockHash[i - {$IFDEF uselowmem}1{$ELSE}0{$ENDIF}]);
 {$ENDIF}

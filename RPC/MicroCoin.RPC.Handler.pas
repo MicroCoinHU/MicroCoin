@@ -681,7 +681,7 @@ var
         FillOperationResumeToJSONObject(OPR, GetResultObject);
         Result := true;
       finally
-        opt.Free;
+//        opt.Free;
       end;
     finally
       FNode.SequenceLock.Release;
@@ -714,7 +714,7 @@ var
         FillOperationsHashTreeToJSONObject(OperationsHashTree, GetResultObject);
         Result := true;
       finally
-        opt.Free;
+//        opt.Free;
       end;
     finally
       OperationsHashTree.Free;
@@ -834,7 +834,7 @@ var
         FillOperationResumeToJSONObject(OPR, GetResultObject);
         Result := true;
       finally
-        opck.Free;
+//        opck.Free;
       end;
     finally
       FNode.SequenceLock.Release;
@@ -1152,7 +1152,7 @@ var
             try
               operationsht.AddTransactionToHashTree(opck);
             finally
-              opck.Free;
+//              opck.Free;
             end;
           end; // For
           // Ready to execute...
@@ -1211,7 +1211,7 @@ var
         FillOperationsHashTreeToJSONObject(OperationsHashTree, GetResultObject);
         Result := true;
       finally
-        opck.Free;
+//        opck.Free;
       end;
     finally
       OperationsHashTree.Free;
@@ -1538,7 +1538,7 @@ var
       OperationsHashTree.AddTransactionToHashTree(opSale);
       Result := true;
     finally
-      opSale.Free;
+//      opSale.Free;
     end;
   end;
 
@@ -1620,7 +1620,7 @@ var
       OperationsHashTree.AddTransactionToHashTree(opDelist);
       Result := true;
     finally
-      opDelist.Free;
+//      opDelist.Free;
     end;
   end;
 
@@ -1790,7 +1790,7 @@ var
       OperationsHashTree.AddTransactionToHashTree(opChangeInfo);
       Result := true;
     finally
-      opChangeInfo.Free;
+//      opChangeInfo.Free;
     end;
   end;
 
@@ -1937,7 +1937,7 @@ var
       OperationsHashTree.AddTransactionToHashTree(opBuy);
       Result := true;
     finally
-      opBuy.Free;
+//      opBuy.Free;
     end;
   end;
 
@@ -2873,7 +2873,7 @@ begin
     GetResultObject.GetAsVariant('port').Value := FNode.NetServer.Port;
     GetResultObject.GetAsVariant('locked').Value := not TRPCServer.Instance.WalletKeys.IsValidPassword;
     GetResultObject.GetAsVariant('timestamp').Value := UnivDateTimeToUnix(DateTime2UnivDateTime(now));
-    GetResultObject.GetAsVariant('version').Value := CT_ClientAppVersion;
+    GetResultObject.GetAsVariant('version').Value := ClientAppVersion;
     GetResultObject.GetAsObject('netprotocol').GetAsVariant('ver').Value := cNetProtocol_Version;
     GetResultObject.GetAsObject('netprotocol').GetAsVariant('ver_a').Value := cNetProtocol_Available;
     GetResultObject.GetAsVariant('blocks').Value := FNode.BlockManager.BlocksCount;

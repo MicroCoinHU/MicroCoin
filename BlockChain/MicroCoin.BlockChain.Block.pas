@@ -824,6 +824,7 @@ function TBlock.ValidateBlock(var errors: AnsiString): Boolean;
 var
   lastpow: AnsiString;
   i: Integer;
+  xPow: AnsiString;
 begin
   errors := '';
   Result := false;
@@ -839,6 +840,13 @@ begin
       errors := 'ERROR DEV 20170523-2';
       exit;
     end;
+
+    TMicroCoinProtocol.CalcProofOfWork(self.FBlockHeader, xPow);
+    if xPow<>self.FBlockHeader.proof_of_work then
+    begin
+      FBlockHeader.proof_of_work := xPow;
+    end;
+
     // Check OperationBlock info:
     if not AccountTransaction.FreezedAccountStorage.IsValidNewBlockHeader(BlockHeader, true, errors) then
       exit;

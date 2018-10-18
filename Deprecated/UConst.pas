@@ -11,7 +11,7 @@ unit UConst;
   or visit http://www.opensource.org/licenses/mit-license.php.
 
   This unit is a part of Pascal Coin, a P2P crypto currency without need of
-  historical operations.   
+  historical operations.
 
   If you like it, consider a donation using BitCoin:
     16K3HCZRhFUtM8GdWRcfKeaa6KsuyxZaYk
@@ -20,6 +20,9 @@ unit UConst;
 
 
 interface
+{$IFDEF WINDOWS}
+uses Windows;
+{$ENDIF}
 
 {$I config.inc}
 
@@ -30,7 +33,13 @@ type
   PtrUInt = cardinal;
 {$ENDIF}
 
+
+var
+  ClientAppVersion : AnsiString = {$IFDEF PRODUCTION}'1.3.2'{$ELSE}{$IFDEF TESTNET}'TESTNET 1.1.3'{$ELSE}'DEVNET 1.1.3'{$ENDIF}{$ENDIF};
+
 Const
+
+
   cGenesisBlockMagic : AnsiString = '(c) Peter Nemeth - Okes rendben okes';
 
   cGenesisBlockPoW =
@@ -80,7 +89,7 @@ Const
   cMinimumNodeCountToCalculateNAT = 4;
 
   cMinimumServersNeeded = 3;
-  cMaximumNumberOfServers = 5;
+  cMaximumNumberOfServers = 6;
 
   cMaximumClients = 100;
 
@@ -155,9 +164,8 @@ Const
   CT_OpSubtype_ChangeAccountInfo          = 81;
   CT_OpSubtype_CreateSubAccount           = 91;
 
-  CT_ClientAppVersion : AnsiString = {$IFDEF PRODUCTION}'1.1.3'{$ELSE}{$IFDEF TESTNET}'TESTNET 1.1.3'{$ELSE}'DEVNET 1.1.3'{$ENDIF}{$ENDIF};
   {$IFDEF PRODUCTION}
-  CT_Discover_IPs =  '194.182.64.181;185.28.101.93;80.211.211.48;94.177.237.196;185.33.146.44;80.211.200.121;194.182.64.181';
+  CT_Discover_IPs =  '195.181.240.58;194.182.64.181;185.28.101.93;80.211.211.48;94.177.237.196;185.33.146.44;80.211.200.121;194.182.64.181';
   {$ENDIF}
   {$IFDEF TESTNET}
   CT_Discover_IPs =  '194.182.64.181;185.33.146.44';
@@ -177,6 +185,48 @@ Const
 
 implementation
 
-end.
+{$IFDEF WINDOWS}
+uses SysUtils;
 
+procedure GetBuildInfo(var V1, V2, V3, V4: word);
+var
+  VerInfoSize, VerValueSize, Dummy: DWORD;
+  VerInfo: Pointer;
+  VerValue: PVSFixedFileInfo;
+begin
+  VerInfoSize := GetFileVersionInfoSize(PChar(ParamStr(0)), Dummy);
+  if VerInfoSize > 0 then
+  begin
+      GetMem(VerInfo, VerInfoSize);
+      try
+        if GetFileVersionInfo(PChar(ParamStr(0)), 0, VerInfoSize, VerInfo) then
+        begin
+          VerQueryValue(VerInfo, '\', Pointer(VerValue), VerValueSize);
+          with VerValue^ do
+          begin
+            V1 := dwFileVersionMS shr 16;
+            V2 := dwFileVersionMS and $FFFF;
+            V3 := dwFileVersionLS shr 16;
+            V4 := dwFileVersionLS and $FFFF;
+          end;
+        end;
+      finally
+        FreeMem(VerInfo, VerInfoSize);
+      end;
+  end;
+end;
+
+function GetBuildInfoAsString: string;
+var
+  V1, V2, V3, V4: word;
+begin
+  GetBuildInfo(V1, V2, V3, V4);
+  Result := IntToStr(V1) + '.' + IntToStr(V2) + '.' +
+    IntToStr(V3) + '.' + IntToStr(V4);
+end;
+
+initialization
+  ClientAppVersion := GetBuildInfoAsString;
+{$ENDIF}
+end.
 
