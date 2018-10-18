@@ -57,6 +57,8 @@ type
     procedure SetLogFileName(const Value: AnsiString);
     function GetLogFileName: AnsiString;
     procedure SetValidIPs(const Value: AnsiString);
+    function GetWalletKeys: TKeyManager;
+    procedure SetWalletKeys(const Value: TKeyManager);
   strict private
     procedure OnNodeNewOperation(Sender: TObject);
     constructor Create;
@@ -71,7 +73,7 @@ type
 
     property Port: Word read FPort write FPort;
     property Active: Boolean read FActive write SetActive;
-    property WalletKeys: TKeyManager read FWalletKeys write FWalletKeys;
+    property WalletKeys: TKeyManager read GetWalletKeys write SetWalletKeys;
     //
     property JSON20Strict: Boolean read FJSON20Strict write FJSON20Strict;
     property IniFileName: AnsiString read FIniFileName write SetIniFileName;
@@ -107,6 +109,11 @@ function TRPCServer.GetNewCallCounter: Int64;
 begin
   inc(FCallsCounter);
   Result := FCallsCounter;
+end;
+
+function TRPCServer.GetWalletKeys: TKeyManager;
+begin
+  Result := FWalletKeys;
 end;
 
 procedure TRPCServer.OnNodeNewOperation(Sender: TObject);
@@ -276,6 +283,11 @@ begin
     TLog.NewLog(ltupdate, Classname, 'Updated RPC Server valid IPs to: ' + FValidIPs)
 end;
 
+procedure TRPCServer.SetWalletKeys(const Value: TKeyManager);
+begin
+  FWalletKeys := Value;
+end;
+
 function TRPCServer.IsValidClientIP(const clientIp: string; clientPort: Word): Boolean;
 begin
   if FValidIPs = '' then
@@ -289,6 +301,8 @@ end;
 constructor TRPCServer.Create;
 begin
   inherited;
+  if Assigned(FInstance)
+  then raise Exception.Create('Multiple instance');
   FActive := false;
   FRPCLog := nil;
   FIniFile := nil;
@@ -301,6 +315,7 @@ begin
   FValidIPs := '127.0.0.1;localhost'; // New Build 1.5 - By default, only localhost can access to RPC
   FNodeNotifyEvents := TNodeNotifyEvents.Create(nil);
   FNodeNotifyEvents.OnTransactionsChanged := OnNodeNewOperation;
+  FInstance := self;
 end;
 
 destructor TRPCServer.Destroy;
