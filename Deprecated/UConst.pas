@@ -35,7 +35,7 @@ type
 
 
 var
-  ClientAppVersion : AnsiString = {$IFDEF PRODUCTION}'1.3.2'{$ELSE}{$IFDEF TESTNET}'TESTNET 1.1.3'{$ELSE}'DEVNET 1.1.3'{$ENDIF}{$ENDIF};
+  ClientAppVersion : AnsiString = {$IFDEF PRODUCTION}'1.3.2'{$ELSE}{$IFDEF TESTNET}'TESTNET 1.3.2'{$ELSE}'DEVNET 1.3.2'{$ENDIF}{$ENDIF};
 
 Const
 
