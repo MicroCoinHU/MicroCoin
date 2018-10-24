@@ -19,18 +19,9 @@ unit UWalletKeys;
 
 interface
 
-uses Classes, MicroCoin.Account.AccountKey, UCrypto;
+uses Classes, MicroCoin.Account.AccountKey, UCrypto, MicroCoin.Keys.MicroCoinKeyManager;
 
 type
-  PWalletKey = ^TWalletKey;
-  TWalletKey = record
-    Name: AnsiString;
-    AccountKey: TAccountKey;
-    CryptedKey: TRawBytes;
-    PrivateKey: TECPrivateKey;
-    SearchableAccountKey: TRawBytes;
-  end;
-
   TWalletKeys = class(TComponent)
   strict private
     FSearchableKeys: TList;

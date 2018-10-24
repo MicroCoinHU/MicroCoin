@@ -17,7 +17,7 @@ interface
 uses Classes, MicroCoin.BlockChain.BlockManager, UCrypto,
   UThread, SyncObjs, ULog, MicroCoin.Transaction.Base,
   MicroCoin.Common.Lists, MicroCoin.Account.Data,
-  MicroCoin.Transaction.Itransaction, MicroCoin.Keys.KeyManager,
+  MicroCoin.Transaction.Itransaction, MicroCoin.Keys.MicroCoinKeyManager,
   MicroCoin.Transaction.Transaction, MicroCoin.BlockChain.Events,
   MicroCoin.Net.Connection, MicroCoin.Net.ConnectionManager,
   MicroCoin.Transaction.Events, MicroCoin.Net.Server, MicroCoin.Net.NodeServer,
@@ -40,7 +40,7 @@ type
     FPeerCache: AnsiString;
     FDisabledsNewBlocksCount: Integer;
     FSentOperations: TOrderedRawList;
-    FKeyManager: TKeyManager;
+    FKeyManager: TMicroCoinKeyManager;
 {$IFDEF BufferOfFutureOperations}
     FBufferAuxWaitingOperations: TOperationsHashTree;
 {$ENDIF}
@@ -49,7 +49,7 @@ type
     procedure OnNewBlock(Sender: TObject);
     procedure SetNodeLogFilename(const Value: TFilename);
     function GetNodeLogFilename: TFilename;
-    procedure SetKeyManager(const Value: TKeyManager);
+    procedure SetKeyManager(const Value: TMicroCoinKeyManager);
   protected
     procedure Notification(AComponent: TComponent; Operation: TOperation); override;
   public
@@ -97,7 +97,7 @@ type
     property BlockManager: TBlockManager read FBlockManager;
   published
     property NodeLogFilename: TFilename read GetNodeLogFilename write SetNodeLogFilename;
-    property KeyManager : TKeyManager read FKeyManager write SetKeyManager;
+    property KeyManager : TMicroCoinKeyManager read FKeyManager write SetKeyManager;
   end;
 
 
@@ -1084,10 +1084,10 @@ begin
   end;
 end;
 
-procedure TNode.SetKeyManager(const Value: TKeyManager);
+procedure TNode.SetKeyManager(const Value: TMicroCoinKeyManager);
 begin
   FKeyManager := Value;
-  FKeyManager.AccountStorage := self.BlockManager.AccountStorage;
+//  FKeyManager.AccountStorage := self.BlockManager.AccountStorage;
 end;
 
 procedure TNode.SetNodeLogFilename(const Value: TFilename);

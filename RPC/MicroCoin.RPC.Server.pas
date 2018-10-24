@@ -16,10 +16,10 @@ unit MicroCoin.RPC.Server;
 
 interface
 
-uses Sysutils, Classes, httpsend, UWalletkeys, Ulog, Inifiles,
+uses Sysutils, Classes, httpsend, Ulog, Inifiles,
 {$IFDEF fpc} fpjson, {$ELSE}System.Json, {$ENDIF} UJSONFunctions, synautil,
   UConst, UThread, blcksock, synsock, MicroCoin.RPC.Handler, MicroCoin.Node.Events,
-  MicroCoin.Transaction.Itransaction, MicroCoin.Keys.KeyManager,
+  MicroCoin.Transaction.Itransaction, MicroCoin.Keys.MicroCoinKeyManager,
   UCrypto, MicroCoin.Common, MicroCoin.Transaction.Base, MicroCoin.Account.Data;
 
 type
@@ -39,7 +39,7 @@ type
   private
     FRPCServerThread: TRPCServerThread;
     FActive: Boolean;
-    FWalletKeys: TKeyManager;
+    FWalletKeys: TMicroCoinKeyManager;
     FPort: Word;
     FJSON20Strict: Boolean;
     FIniFileName: AnsiString;
@@ -57,8 +57,8 @@ type
     procedure SetLogFileName(const Value: AnsiString);
     function GetLogFileName: AnsiString;
     procedure SetValidIPs(const Value: AnsiString);
-    function GetWalletKeys: TKeyManager;
-    procedure SetWalletKeys(const Value: TKeyManager);
+    function GetWalletKeys: TMicroCoinKeyManager;
+    procedure SetWalletKeys(const Value: TMicroCoinKeyManager);
   strict private
     procedure OnNodeNewOperation(Sender: TObject);
     constructor Create;
@@ -73,7 +73,7 @@ type
 
     property Port: Word read FPort write FPort;
     property Active: Boolean read FActive write SetActive;
-    property WalletKeys: TKeyManager read GetWalletKeys write SetWalletKeys;
+    property WalletKeys: TMicroCoinKeyManager read GetWalletKeys write SetWalletKeys;
     //
     property JSON20Strict: Boolean read FJSON20Strict write FJSON20Strict;
     property IniFileName: AnsiString read FIniFileName write SetIniFileName;
@@ -111,7 +111,7 @@ begin
   Result := FCallsCounter;
 end;
 
-function TRPCServer.GetWalletKeys: TKeyManager;
+function TRPCServer.GetWalletKeys: TMicroCoinKeyManager;
 begin
   Result := FWalletKeys;
 end;
@@ -283,7 +283,7 @@ begin
     TLog.NewLog(ltupdate, Classname, 'Updated RPC Server valid IPs to: ' + FValidIPs)
 end;
 
-procedure TRPCServer.SetWalletKeys(const Value: TKeyManager);
+procedure TRPCServer.SetWalletKeys(const Value: TMicroCoinKeyManager);
 begin
   FWalletKeys := Value;
 end;

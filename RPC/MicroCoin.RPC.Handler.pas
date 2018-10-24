@@ -21,7 +21,7 @@ uses UThread, SysUtils, Classes, blcksock,
   Synautil, Math, UCrypto, MicroCoin.RPC.MethodHandler,
   MicroCoin.Account.Data, MicroCoin.BlockChain.Block,
   MicroCoin.RPC.PluginManager, MicroCoin.Node.Node,
-  MicroCoin.RPC.Result,
+  MicroCoin.RPC.Result, MicroCoin.keys.microcoinkeymanager,
   MicroCoin.Account.Storage, MicroCoin.BlockChain.BlockHeader,
   MicroCoin.Transaction.Itransaction,
   MicroCoin.Transaction.TransferMoney, MicroCoin.Transaction.ChangeKey,
@@ -64,7 +64,7 @@ implementation
 
 uses UAES, MicroCoin.Net.ConnectionManager,
   MicroCoin.Net.NodeServer,
-  MicroCoin.Net.Client, MicroCoin.Net.Connection, UWalletKeys, UECIES, UConst, MicroCoin.RPC.Server, ULog, Variants,
+  MicroCoin.Net.Client, MicroCoin.Net.Connection, UECIES, UConst, MicroCoin.RPC.Server, ULog, Variants,
   UTime;
 
 constructor TRPCHandler.Create(hsock: TSocket);
