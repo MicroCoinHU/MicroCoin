@@ -47,15 +47,15 @@ type
     valid: Boolean;
     Block: Cardinal;
     NOpInsideBlock: Integer;
-    OpType: Word;
-    OpSubtype: Word;
+    transactionType: Word;
+    transactionSubtype: Word;
     time: Cardinal;
     AffectedAccount: Cardinal;
     SignerAccount: Int64; // Is the account that executes this operation
     DestAccount: Int64; //
     SellerAccount: Int64; // Protocol 2 - only used when is a pay to transaction
     newKey: TAccountKey;
-    OperationTxt: AnsiString;
+    TransactionAsString: AnsiString;
     Amount: Int64;
     Fee: Int64;
     Balance: Int64;
@@ -73,7 +73,7 @@ class function TTransactionData.Empty: TTransactionData;
 begin
   Result.valid := false;
   Result.NOpInsideBlock := -1;
-  Result.OpType := 0;
+  Result.transactionType := 0;
   Result.Block := 0;
   Result.SignerAccount := -1;
   Result.DestAccount := -1;
@@ -83,9 +83,9 @@ begin
   Result.newKey.x := '';
   Result.newKey.y := '';
   Result.time := 0;
-  Result.OpSubtype := 0;
+  Result.transactionSubtype := 0;
   Result.AffectedAccount := 0;
-  Result.OperationTxt := '';
+  Result.TransactionAsString := '';
   Result.Amount := 0;
   Result.Fee := 0;
   Result.OriginalPayload := '';

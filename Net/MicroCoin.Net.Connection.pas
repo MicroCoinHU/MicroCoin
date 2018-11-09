@@ -69,7 +69,7 @@ type
     procedure DoProcess_GetOperationsBlock_Request(HeaderData: TNetHeaderData; DataBuffer: TStream); override;
     procedure DoProcess_NewBlock(HeaderData: TNetHeaderData; DataBuffer: TStream); override;
     procedure DoProcess_AddOperations(HeaderData: TNetHeaderData; DataBuffer: TStream); override;
-    procedure DoProcess_GetSafeBox_Request(HeaderData: TNetHeaderData; DataBuffer: TStream); override;
+    procedure DoProcess_GetAccountStorage_Request(HeaderData: TNetHeaderData; DataBuffer: TStream); override;
   public
     constructor Create(AOwner : TComponent); override;
     destructor Destroy; override;
@@ -113,7 +113,7 @@ begin
   FBufferLock := TPCCriticalSection.Create('TNetConnectionBase_BufferLock');
   FBufferReceivedOperationsHash := TOrderedRawList.Create;
   FBufferToSendOperations := TTransactionHashTree.Create;
-  FRemoteOperationBlock := CT_OperationBlock_NUL;
+  FRemoteOperationBlock := TBlockHeader.Empty;
   FRemoteAccumulatedWork := 0;
   FClientPublicKey := CT_TECDSA_Public_Nul;
   FTimestampDiff := 0;
@@ -131,17 +131,17 @@ end;
 procedure TNetConnection.DoProcess_AddOperations(HeaderData: TNetHeaderData; DataBuffer: TStream);
 var
   c, i: Integer;
-  optype: Byte;
-  opclass: TTransactionClass;
-  op: ITransaction;
-  Operations: TTransactionHashTree;
+  xTransactionType: Byte;
+  xTransactionClass: TTransactionClass;
+  xTransaction: ITransaction;
+  xTransactions: TTransactionHashTree;
   errors: AnsiString;
   DoDisconnect: Boolean;
 begin
   DoDisconnect := true;
-  Operations := TTransactionHashTree.Create;
+  xTransactions := TTransactionHashTree.Create;
   try
-    if HeaderData.header_type <> ntp_autosend then
+    if HeaderData.HeaderType <> ntp_autosend then
     begin
       errors := 'Not autosend';
       exit;
@@ -155,15 +155,15 @@ begin
     for i := 1 to c do
     begin
       errors := 'Invalid operation ' + Inttostr(i) + '/' + Inttostr(c);
-      if not DataBuffer.Read(optype, 1) = 1 then
+      if not DataBuffer.Read(xTransactionType, 1) = 1 then
         exit;
-      opclass := TTransactionManager.GetTransactionPlugin(optype);
-      if not Assigned(opclass) then
+      xTransactionClass := TTransactionManager.GetTransactionPlugin(xTransactionType);
+      if not Assigned(xTransactionClass) then
         exit;
-      op := opclass.Create;
+      xTransaction := xTransactionClass.Create;
       try
-        op.LoadFromNettransfer(DataBuffer);
-        Operations.AddTransactionToHashTree(op);
+        xTransaction.LoadFromNettransfer(DataBuffer);
+        xTransactions.AddTransactionToHashTree(xTransaction);
       finally
         // op.Free;
       end;
@@ -181,21 +181,21 @@ begin
         // Add to received buffer
         FBufferLock.Acquire;
         try
-          for i := 0 to Operations.OperationsCount - 1 do
+          for i := 0 to xTransactions.TransactionCount - 1 do
           begin
-            op := Operations.GetOperation(i);
-            FBufferReceivedOperationsHash.Add(op.Sha256);
-            c := FBufferToSendOperations.IndexOf(op);
+            xTransaction := xTransactions.GetTransaction(i);
+            FBufferReceivedOperationsHash.Add(xTransaction.Sha256);
+            c := FBufferToSendOperations.IndexOf(xTransaction);
             if (c >= 0) then
               FBufferToSendOperations.Delete(c);
           end;
         finally
           FBufferLock.Release;
         end;
-        TNode.Node.AddOperations(Self, Operations, nil, errors);
+        TNode.Node.AddOperations(Self, xTransactions, nil, errors);
       end;
     finally
-      Operations.Free;
+      xTransactions.Free;
     end;
   end;
 end;
@@ -203,22 +203,22 @@ end;
 procedure TNetConnection.DoProcess_GetBlocks_Request(HeaderData: TNetHeaderData; DataBuffer: TStream);
 var
   b, b_start, b_end: Cardinal;
-  op: TBlock;
-  db: TMemoryStream;
+  xBlock: TBlock;
+  xMemoryStream: TMemoryStream;
   c: Cardinal;
-  errors: AnsiString;
-  DoDisconnect: Boolean;
-  posquantity: Int64;
+  xErrors: AnsiString;
+  xDoDisconnect: Boolean;
+  xPosQuantity: Int64;
 begin
-  DoDisconnect := true;
+  xDoDisconnect := true;
   try
-    if HeaderData.header_type <> ntp_request then
+    if HeaderData.HeaderType <> ntp_request then
     begin
-      errors := 'Not request';
+      xErrors := 'Not request';
       exit;
     end;
     // DataBuffer contains: from and to
-    errors := 'Invalid structure';
+    xErrors := 'Invalid structure';
     if (DataBuffer.Size - DataBuffer.Position < 8) then
     begin
       exit;
@@ -227,61 +227,61 @@ begin
     DataBuffer.Read(b_end, 4);
     if (b_start < 0) or (b_start > b_end) then
     begin
-      errors := 'Invalid structure start or end: ' + Inttostr(b_start) + ' ' + Inttostr(b_end);
+      xErrors := 'Invalid structure start or end: ' + Inttostr(b_start) + ' ' + Inttostr(b_end);
       exit;
     end;
     if (b_end >= TConnectionManager.Instance.Bank.BlocksCount) then
       b_end := TConnectionManager.Instance.Bank.BlocksCount - 1;
 
-    DoDisconnect := false;
+    xDoDisconnect := false;
 
-    db := TMemoryStream.Create;
+    xMemoryStream := TMemoryStream.Create;
     try
-      op := TBlock.Create(TConnectionManager.Instance.Bank);
+      xBlock := TBlock.Create(TConnectionManager.Instance.Bank);
       try
         c := b_end - b_start + 1;
-        posquantity := db.Position;
-        db.Write(c, 4);
+        xPosQuantity := xMemoryStream.Position;
+        xMemoryStream.Write(c, 4);
         c := 0;
         b := b_start;
         for b := b_start to b_end do
         begin
           Inc(c);
-          if TConnectionManager.Instance.Bank.LoadTransactions(op, b) then
+          if TConnectionManager.Instance.Bank.LoadTransactions(xBlock, b) then
           begin
-            op.SaveBlockToStream(false, db);
+            xBlock.SaveBlockToStream(false, xMemoryStream);
             // db.SaveToFile('stream0');
           end
           else
           begin
-            SendError(ntp_response, HeaderData.operation, HeaderData.request_id, CT_NetError_InternalServerError,
+            SendError(ntp_response, HeaderData.Operation, HeaderData.RequestId, cNetError_InternalServerError,
               'Operations of block:' + Inttostr(b) + ' not found');
             exit;
           end;
           // Build 1.0.5 To prevent high data over net in response (Max 2 Mb of data)
-          if (db.Size > (1024 * 1024 * 2)) then
+          if (xMemoryStream.Size > (1024 * 1024 * 2)) then
           begin
             // Stop
-            db.Position := posquantity;
-            db.Write(c, 4);
+            xMemoryStream.Position := xPosQuantity;
+            xMemoryStream.Write(c, 4);
             // BUG of Build 1.0.5 !!! Need to break bucle OH MY GOD!
-            db.Position := db.Size;
+            xMemoryStream.Position := xMemoryStream.Size;
             break;
           end;
         end;
         // db.SaveToFile('stream1');
-        Send(ntp_response, HeaderData.operation, 0, HeaderData.request_id, db);
+        Send(ntp_response, HeaderData.Operation, 0, HeaderData.RequestId, xMemoryStream);
       finally
-        op.Free;
+        xBlock.Free;
       end;
     finally
-      db.Free;
+      xMemoryStream.Free;
     end;
     TLog.NewLog(ltdebug, Classname, 'Sending operations from block ' + Inttostr(b_start) + ' to ' + Inttostr(b_end));
   finally
-    if DoDisconnect then
+    if xDoDisconnect then
     begin
-      DisconnectInvalidClient(false, errors + ' > ' + TConnectionManager.HeaderDataToText(HeaderData) + ' BuffSize: ' +
+      DisconnectInvalidClient(false, xErrors + ' > ' + TConnectionManager.HeaderDataToText(HeaderData) + ' BuffSize: ' +
         Inttostr(DataBuffer.Size));
     end;
   end;
@@ -289,48 +289,48 @@ end;
 
 procedure TNetConnection.DoProcess_GetBlocks_Response(HeaderData: TNetHeaderData; DataBuffer: TStream);
 var
-  op: TBlock;
-  opcount, i: Cardinal;
-  newBlockAccount: TAccountStorageEntry;
-  errors: AnsiString;
-  DoDisconnect: Boolean;
+  xBlock: TBlock;
+  xCount, i: Cardinal;
+  xNewBlockAccount: TAccountStorageEntry;
+  xErrors: AnsiString;
+  xDoDisconnect: Boolean;
 begin
-  DoDisconnect := true;
+  xDoDisconnect := true;
   try
-    if HeaderData.header_type <> ntp_response then
+    if HeaderData.HeaderType <> ntp_response then
     begin
-      errors := 'Not response';
+      xErrors := 'Not response';
       exit;
     end;
-    if HeaderData.is_error then
+    if HeaderData.IsError then
     begin
-      DoDisconnect := false;
+      xDoDisconnect := false;
       exit; //
     end;
     // DataBuffer contains: from and to
-    errors := 'Invalid structure';
-    op := TBlock.Create(nil);
+    xErrors := 'Invalid structure';
+    xBlock := TBlock.Create(nil);
     try
-      op.BlockManager := TNode.Node.BlockManager;
+      xBlock.BlockManager := TNode.Node.BlockManager;
       if DataBuffer.Size - DataBuffer.Position < 4 then
       begin
-        DisconnectInvalidClient(false, 'DoProcess_GetBlocks_Response invalid format: ' + errors);
+        DisconnectInvalidClient(false, 'DoProcess_GetBlocks_Response invalid format: ' + xErrors);
         exit;
       end;
-      DataBuffer.Read(opcount, 4);
-      DoDisconnect := false;
-      for i := 1 to opcount do
+      DataBuffer.Read(xCount, 4);
+      xDoDisconnect := false;
+      for i := 1 to xCount do
       begin
-        if not op.LoadBlockFromStream(DataBuffer, errors) then
+        if not xBlock.LoadBlockFromStream(DataBuffer, xErrors) then
         begin
-          errors := 'Error decoding block ' + Inttostr(i) + '/' + Inttostr(opcount) + ' Errors:' + errors;
-          DoDisconnect := true;
+          xErrors := 'Error decoding block ' + Inttostr(i) + '/' + Inttostr(xCount) + ' Errors:' + xErrors;
+          xDoDisconnect := true;
           exit;
         end;
-        if (op.BlockHeader.Block = TNode.Node.BlockManager.BlocksCount) then
+        if (xBlock.BlockHeader.Block = TNode.Node.BlockManager.BlocksCount) then
         begin
-          if (TNode.Node.BlockManager.AddNewBlockToBlockChain(op,
-            TConnectionManager.Instance.NetworkAdjustedTime.GetMaxAllowedTimestampForNewBlock, newBlockAccount, errors))
+          if (TNode.Node.BlockManager.AddNewBlockToBlockChain(xBlock,
+            TConnectionManager.Instance.NetworkAdjustedTime.GetMaxAllowedTimestampForNewBlock, xNewBlockAccount, xErrors))
           then
           begin
             // Ok, one more!
@@ -341,32 +341,32 @@ begin
             // Perhaps an orphan blockchain: Me or Client!
             TLog.NewLog(ltInfo, Classname, 'Distinct operation block found! My:' +
               TBlock.BlockToString(TNode.Node.BlockManager.AccountStorage.Block(TNode.Node.BlockManager.BlocksCount - 1)
-              .BlockHeader) + ' remote:' + TBlock.BlockToString(op.BlockHeader) + ' Errors: ' + errors);
+              .BlockHeader) + ' remote:' + TBlock.BlockToString(xBlock.BlockHeader) + ' Errors: ' + xErrors);
           end;
         end
         else
         begin
           // Receiving an unexpected operationblock
           TLog.NewLog(ltError, Classname, 'Received a distinct block, finalizing: ' +
-            TBlock.BlockToString(op.BlockHeader) + ' (My block: ' +
+            TBlock.BlockToString(xBlock.BlockHeader) + ' (My block: ' +
             TBlock.BlockToString(TNode.Node.BlockManager.LastBlock) + ')');
           FIsDownloadingBlocks := false;
           exit;
         end;
       end;
       FIsDownloadingBlocks := false;
-      if ((opcount > 0) and (FRemoteOperationBlock.Block >= TNode.Node.BlockManager.BlocksCount)) then
+      if ((xCount > 0) and (FRemoteOperationBlock.Block >= TNode.Node.BlockManager.BlocksCount)) then
       begin
         Send_GetBlocks(TNode.Node.BlockManager.BlocksCount, 100, i);
       end;
       TNode.Node.NotifyBlocksChanged;
     finally
-      op.Free;
+      xBlock.Free;
     end;
   finally
-    if DoDisconnect then
+    if xDoDisconnect then
     begin
-      DisconnectInvalidClient(false, errors + ' > ' + TConnectionManager.HeaderDataToText(HeaderData) + ' BuffSize: ' +
+      DisconnectInvalidClient(false, xErrors + ' > ' + TConnectionManager.HeaderDataToText(HeaderData) + ' BuffSize: ' +
         Inttostr(DataBuffer.Size));
     end;
   end;
@@ -385,7 +385,7 @@ begin
   blocksstr := '';
   DoDisconnect := true;
   try
-    if HeaderData.header_type <> ntp_request then
+    if HeaderData.HeaderType <> ntp_request then
     begin
       errors := 'Not request';
       exit;
@@ -413,7 +413,7 @@ begin
       if b_end < b_start then
       begin
         errors := 'Block:' + Inttostr(b_end) + ' not found';
-        SendError(ntp_response, HeaderData.operation, HeaderData.request_id, CT_NetError_InternalServerError, errors);
+        SendError(ntp_response, HeaderData.Operation, HeaderData.RequestId, cNetError_InternalServerError, errors);
         exit;
       end;
     end;
@@ -427,7 +427,7 @@ begin
       total_b := 0;
       repeat
         ob := TNode.Node.BlockManager.AccountStorage.Block(b).BlockHeader;
-        if TBlock.SaveOperationBlockToStream(ob, msops) then
+        if TBlock.SaveBlockToStream(ob, msops) then
         begin
           blocksstr := blocksstr + Inttostr(b) + ',';
           b := b + inc_b;
@@ -436,7 +436,7 @@ begin
         else
         begin
           errors := 'ERROR DEV 20170522-1 block:' + Inttostr(b);
-          SendError(ntp_response, HeaderData.operation, HeaderData.request_id, CT_NetError_InternalServerError, errors);
+          SendError(ntp_response, HeaderData.Operation, HeaderData.RequestId, cNetError_InternalServerError, errors);
           exit;
         end;
       until (b > b_end);
@@ -444,7 +444,7 @@ begin
       try
         db.Write(total_b, 4);
         db.WriteBuffer(msops.Memory^, msops.Size);
-        Send(ntp_response, HeaderData.operation, 0, HeaderData.request_id, db);
+        Send(ntp_response, HeaderData.Operation, 0, HeaderData.RequestId, db);
       finally
         db.Free;
       end;
@@ -462,16 +462,16 @@ begin
   end;
 end;
 
-procedure TNetConnection.DoProcess_GetSafeBox_Request(HeaderData: TNetHeaderData; DataBuffer: TStream);
+procedure TNetConnection.DoProcess_GetAccountStorage_Request(HeaderData: TNetHeaderData; DataBuffer: TStream);
 var
-  _blockcount: Cardinal;
-  _safeboxHash: TRawBytes;
-  _from, _to: Cardinal;
-  sbStream: TStream;
-  responseStream: TStream;
+  xBlockCount: Cardinal;
+  xAccountStorageHash: TRawBytes;
+  xFrom, xTo: Cardinal;
+  xAccountStorageStream: TStream;
+  xResponseStream: TStream;
   antPos: Int64;
-  sbHeader: TAccountStorageHeader;
-  errors: AnsiString;
+  xAccountStorageHeader: TAccountStorageHeader;
+  xErrors: AnsiString;
 begin
   {
     This call is used to obtain a chunk of the safebox
@@ -485,43 +485,43 @@ begin
     - If not available (requesting for an old safebox) will retun not available
     If not valid will disconnect
   }
-  DataBuffer.Read(_blockcount, SizeOf(_blockcount));
-  TStreamOp.ReadAnsiString(DataBuffer, _safeboxHash);
-  DataBuffer.Read(_from, SizeOf(_from));
-  DataBuffer.Read(_to, SizeOf(_to));
+  DataBuffer.Read(xBlockCount, SizeOf(xBlockCount));
+  TStreamOp.ReadAnsiString(DataBuffer, xAccountStorageHash);
+  DataBuffer.Read(xFrom, SizeOf(xFrom));
+  DataBuffer.Read(xTo, SizeOf(xTo));
   //
-  sbStream := TNode.Node.BlockManager.Storage.CreateSafeBoxStream(_blockcount);
+  xAccountStorageStream := TNode.Node.BlockManager.Storage.CreateAccountStorageStream(xBlockCount);
   try
-    responseStream := TMemoryStream.Create;
+    xResponseStream := TMemoryStream.Create;
     try
-      if not Assigned(sbStream) then
+      if not Assigned(xAccountStorageStream) then
       begin
-        SendError(ntp_response, HeaderData.operation, CT_NetError_SafeboxNotFound, HeaderData.request_id,
-          Format('Safebox for block %d not found', [_blockcount]));
+        SendError(ntp_response, HeaderData.Operation, cNetError_AccountStorageNotFound, HeaderData.RequestId,
+          Format('Safebox for block %d not found', [xBlockCount]));
         exit;
       end;
-      antPos := sbStream.Position;
-      TAccountStorage.LoadHeaderFromStream(sbStream, sbHeader);
-      if sbHeader.AccountStorageHash <> _safeboxHash then
+      antPos := xAccountStorageStream.Position;
+      TAccountStorage.LoadHeaderFromStream(xAccountStorageStream, xAccountStorageHeader);
+      if xAccountStorageHeader.AccountStorageHash <> xAccountStorageHash then
       begin
         DisconnectInvalidClient(false, Format('Invalid safeboxhash on GetSafeBox request (Real:%s > Requested:%s)',
-          [TCrypto.ToHexaString(sbHeader.AccountStorageHash), TCrypto.ToHexaString(_safeboxHash)]));
+          [TCrypto.ToHexaString(xAccountStorageHeader.AccountStorageHash), TCrypto.ToHexaString(xAccountStorageHash)]));
         exit;
       end;
       // Response:
-      sbStream.Position := antPos;
-      if not TPCChunk.SaveSafeBoxChunkFromSafeBox(sbStream, responseStream, _from, _to, errors) then
+      xAccountStorageStream.Position := antPos;
+      if not TPCChunk.SaveChunkFromAccountStorage(xAccountStorageStream, xResponseStream, xFrom, xTo, xErrors) then
       begin
-        TLog.NewLog(ltError, Classname, 'Error saving chunk: ' + errors);
+        TLog.NewLog(ltError, Classname, 'Error saving chunk: ' + xErrors);
         exit;
       end;
       // Sending
-      Send(ntp_response, HeaderData.operation, 0, HeaderData.request_id, responseStream);
+      Send(ntp_response, HeaderData.Operation, 0, HeaderData.RequestId, xResponseStream);
     finally
-      responseStream.Free;
+      xResponseStream.Free;
     end;
   finally
-    FreeAndNil(sbStream);
+    FreeAndNil(xAccountStorageStream);
   end;
 end;
 
@@ -572,14 +572,14 @@ begin
     begin
       ClientTimestampIp := RemoteHost;
       TConnectionManager.Instance.NetworkAdjustedTime.AddNewIp(ClientTimestampIp, connection_ts);
-      if (Abs(TConnectionManager.Instance.NetworkAdjustedTime.TimeOffset) > CT_MaxFutureBlockTimestampOffset) then
+      if (Abs(TConnectionManager.Instance.NetworkAdjustedTime.TimeOffset) > cBlockTimeStampTolerance) then
       begin
         TNode.Node.NotifyNetClientMessage(nil, 'The detected network time is different from this system time in ' +
           Inttostr(TConnectionManager.Instance.NetworkAdjustedTime.TimeOffset) +
           ' seconds! Please check your local time/timezone');
       end;
       //
-      if (Abs(FTimestampDiff) > CT_MaxFutureBlockTimestampOffset) then
+      if (Abs(FTimestampDiff) > cBlockTimeStampTolerance) then
       begin
         TLog.NewLog(ltError, Classname, 'Detected a node (' + ClientRemoteAddr + ') with incorrect timestamp: ' +
           Inttostr(connection_ts) + ' offset ' + Inttostr(FTimestampDiff));
@@ -609,7 +609,7 @@ begin
           TStreamOp.ReadAnsiString(DataBuffer, nsa.ip);
           DataBuffer.Read(nsa.port, 2);
           DataBuffer.Read(nsa.last_connection_by_server, 4);
-          if (nsa.last_connection_by_server > 0) and (i <= CT_MAX_NODESERVERS_ON_HELLO) then // Protect massive data
+          if (nsa.last_connection_by_server > 0) and (i <= cMAX_NODESERVERS_ON_HELLO) then // Protect massive data
             TConnectionManager.Instance.AddServer(nsa);
         end;
         if TStreamOp.ReadAnsiString(DataBuffer, other_version) >= 0 then
@@ -637,12 +637,12 @@ begin
       end;
 
       TLog.NewLog(ltdebug, Classname, 'Hello received: ' + TBlock.BlockToString(FRemoteOperationBlock));
-      if (HeaderData.header_type in [ntp_request, ntp_response]) then
+      if (HeaderData.HeaderType in [ntp_request, ntp_response]) then
       begin
         // Response:
-        if (HeaderData.header_type = ntp_request) then
+        if (HeaderData.HeaderType = ntp_request) then
         begin
-          Send_Hello(ntp_response, HeaderData.request_id);
+          Send_Hello(ntp_response, HeaderData.RequestId);
         end;
         if (TAccountKey.EqualAccountKeys(FClientPublicKey, TConnectionManager.Instance.NodePrivateKey.PublicKey)) then
         begin
@@ -681,7 +681,7 @@ begin
   errors := '';
   DoDisconnect := true;
   try
-    if HeaderData.header_type <> ntp_autosend then
+    if HeaderData.HeaderType <> ntp_autosend then
     begin
       errors := 'Not autosend';
       exit;
@@ -724,55 +724,55 @@ end;
 
 procedure TNetConnection.DoProcess_NewBlock(HeaderData: TNetHeaderData; DataBuffer: TStream);
 var
-  bacc: TAccountStorageEntry;
-  op: TBlock;
-  errors: AnsiString;
-  DoDisconnect: Boolean;
+  xStorageEntry: TAccountStorageEntry;
+  xBlock: TBlock;
+  xErrors: AnsiString;
+  xDoDisconnect: Boolean;
 begin
-  errors := '';
-  DoDisconnect := true;
+  xErrors := '';
+  xDoDisconnect := true;
   try
-    if HeaderData.header_type <> ntp_autosend then
+    if HeaderData.HeaderType <> ntp_autosend then
     begin
-      errors := 'Not autosend';
+      xErrors := 'Not autosend';
       exit;
     end;
-    op := TBlock.Create(nil);
+    xBlock := TBlock.Create(nil);
     try
-      op.BlockManager := TNode.Node.BlockManager;
-      if not op.LoadBlockFromStream(DataBuffer, errors) then
+      xBlock.BlockManager := TNode.Node.BlockManager;
+      if not xBlock.LoadBlockFromStream(DataBuffer, xErrors) then
       begin
-        errors := 'Error decoding new account: ' + errors;
+        xErrors := 'Error decoding new account: ' + xErrors;
         exit;
       end
       else
       begin
-        DoDisconnect := false;
+        xDoDisconnect := false;
         if DataBuffer.Size - DataBuffer.Position >= SizeOf(FRemoteAccumulatedWork) then
         begin
           DataBuffer.Read(FRemoteAccumulatedWork, SizeOf(FRemoteAccumulatedWork));
-          TLog.NewLog(ltdebug, Classname, 'Received NEW BLOCK with height: ' + Inttostr(op.BlockHeader.Block) +
+          TLog.NewLog(ltdebug, Classname, 'Received NEW BLOCK with height: ' + Inttostr(xBlock.BlockHeader.Block) +
             ' Accumulated work ' + Inttostr(FRemoteAccumulatedWork));
         end
         else
           FRemoteAccumulatedWork := 0;
-        FRemoteOperationBlock := op.BlockHeader;
+        FRemoteOperationBlock := xBlock.BlockHeader;
         //
         if FRemoteAccumulatedWork = 0 then
         begin
           // Old version. No data
-          if (op.BlockHeader.Block > TNode.Node.BlockManager.BlocksCount) then
+          if (xBlock.BlockHeader.Block > TNode.Node.BlockManager.BlocksCount) then
           begin
             TConnectionManager.Instance.GetNewBlockChainFromClient(Self, Format('BlocksCount:%d > my BlocksCount:%d',
-              [op.BlockHeader.Block + 1, TNode.Node.BlockManager.BlocksCount]));
+              [xBlock.BlockHeader.Block + 1, TNode.Node.BlockManager.BlocksCount]));
           end
-          else if (op.BlockHeader.Block = TNode.Node.BlockManager.BlocksCount) then
+          else if (xBlock.BlockHeader.Block = TNode.Node.BlockManager.BlocksCount) then
           begin
             // New block candidate:
-            if not TNode.Node.AddNewBlockChain(Self, op, bacc, errors) then
+            if not TNode.Node.AddNewBlockChain(Self, xBlock, xStorageEntry, xErrors) then
             begin
               // Received a new invalid block... perhaps I'm an orphan blockchain
-              TConnectionManager.Instance.GetNewBlockChainFromClient(Self, 'Has a distinct block. ' + errors);
+              TConnectionManager.Instance.GetNewBlockChainFromClient(Self, 'Has a distinct block. ' + xErrors);
             end;
           end;
         end
@@ -780,13 +780,13 @@ begin
         begin
           if (FRemoteAccumulatedWork > TNode.Node.BlockManager.AccountStorage.WorkSum) then
           begin
-            if (op.BlockHeader.Block = TNode.Node.BlockManager.BlocksCount) then
+            if (xBlock.BlockHeader.Block = TNode.Node.BlockManager.BlocksCount) then
             begin
               // New block candidate:
-              if not TNode.Node.AddNewBlockChain(Self, op, bacc, errors) then
+              if not TNode.Node.AddNewBlockChain(Self, xBlock, xStorageEntry, xErrors) then
               begin
                 // Really is a new block? (Check it)
-                if (op.BlockHeader.Block = TNode.Node.BlockManager.BlocksCount) then
+                if (xBlock.BlockHeader.Block = TNode.Node.BlockManager.BlocksCount) then
                 begin
                   // Received a new invalid block... perhaps I'm an orphan blockchain
                   TConnectionManager.Instance.GetNewBlockChainFromClient(Self,
@@ -799,18 +799,18 @@ begin
               // Received a new higher work
               TConnectionManager.Instance.GetNewBlockChainFromClient(Self,
                 Format('Higher Work and distinct blocks count. Need to download BlocksCount:%d  my BlocksCount:%d',
-                [op.BlockHeader.Block + 1, TNode.Node.BlockManager.BlocksCount]));
+                [xBlock.BlockHeader.Block + 1, TNode.Node.BlockManager.BlocksCount]));
             end;
           end;
         end;
       end;
     finally
-      op.Free;
+      xBlock.Free;
     end;
   finally
-    if DoDisconnect then
+    if xDoDisconnect then
     begin
-      DisconnectInvalidClient(false, errors + ' > ' + TConnectionManager.HeaderDataToText(HeaderData) + ' BuffSize: ' +
+      DisconnectInvalidClient(false, xErrors + ' > ' + TConnectionManager.HeaderDataToText(HeaderData) + ' BuffSize: ' +
         Inttostr(DataBuffer.Size));
     end;
   end;
@@ -819,50 +819,50 @@ end;
 function TNetConnection.Send_AddOperations(Operations: TTransactionHashTree): Boolean;
 var
   data: TMemoryStream;
-  c1, request_id: Cardinal;
-  i, nOpsToSend: Integer;
-  optype: Byte;
+  c1, xRequestId: Cardinal;
+  i, xNumberOfTransactionsToSend: Integer;
+  xTransactionType: Byte;
 begin
   Result := false;
   if not Connected then
     exit;
   NetLock.Acquire;
   try
-    nOpsToSend := 0;
+    xNumberOfTransactionsToSend := 0;
     FBufferLock.Acquire;
     try
       if Assigned(Operations) then
       begin
-        for i := 0 to Operations.OperationsCount - 1 do
+        for i := 0 to Operations.TransactionCount - 1 do
         begin
-          if FBufferReceivedOperationsHash.IndexOf(Operations.GetOperation(i).Sha256) < 0 then
+          if FBufferReceivedOperationsHash.IndexOf(Operations.GetTransaction(i).Sha256) < 0 then
           begin
-            FBufferReceivedOperationsHash.Add(Operations.GetOperation(i).Sha256);
-            if FBufferToSendOperations.IndexOf(Operations.GetOperation(i)) < 0 then
+            FBufferReceivedOperationsHash.Add(Operations.GetTransaction(i).Sha256);
+            if FBufferToSendOperations.IndexOf(Operations.GetTransaction(i)) < 0 then
             begin
-              FBufferToSendOperations.AddTransactionToHashTree(Operations.GetOperation(i));
+              FBufferToSendOperations.AddTransactionToHashTree(Operations.GetTransaction(i));
             end;
           end;
         end;
-        nOpsToSend := Operations.OperationsCount;
+        xNumberOfTransactionsToSend := Operations.TransactionCount;
       end;
-      if FBufferToSendOperations.OperationsCount > 0 then
+      if FBufferToSendOperations.TransactionCount > 0 then
       begin
         TLog.NewLog(ltdebug, Classname, Format('Sending %d Operations to %s (inProc:%d, Received:%d)',
-          [FBufferToSendOperations.OperationsCount, ClientRemoteAddr, nOpsToSend,
+          [FBufferToSendOperations.TransactionCount, ClientRemoteAddr, xNumberOfTransactionsToSend,
           FBufferReceivedOperationsHash.Count]));
         data := TMemoryStream.Create;
         try
-          request_id := TConnectionManager.Instance.NewRequestId;
-          c1 := FBufferToSendOperations.OperationsCount;
+          xRequestId := TConnectionManager.Instance.NewRequestId;
+          c1 := FBufferToSendOperations.TransactionCount;
           data.Write(c1, 4);
-          for i := 0 to FBufferToSendOperations.OperationsCount - 1 do
+          for i := 0 to FBufferToSendOperations.TransactionCount - 1 do
           begin
-            optype := FBufferToSendOperations.GetOperation(i).optype;
-            data.Write(optype, 1);
-            FBufferToSendOperations.GetOperation(i).SaveToNettransfer(data);
+            xTransactionType := FBufferToSendOperations.GetTransaction(i).TransactionType;
+            data.Write(xTransactionType, 1);
+            FBufferToSendOperations.GetTransaction(i).SaveToNettransfer(data);
           end;
-          Send(ntp_autosend, CT_NetOp_AddOperations, 0, request_id, data);
+          Send(ntp_autosend, cNetOp_AddOperations, 0, xRequestId, data);
           FBufferToSendOperations.ClearHastThree;
         finally
           data.Free;
@@ -870,8 +870,8 @@ begin
       end
       else
         TLog.NewLog(ltdebug, Classname, Format('Not sending any operations to %s (inProc:%d, Received:%d, Sent:%d)',
-          [ClientRemoteAddr, nOpsToSend, FBufferReceivedOperationsHash.Count,
-          FBufferToSendOperations.OperationsCount]));
+          [ClientRemoteAddr, xNumberOfTransactionsToSend, FBufferReceivedOperationsHash.Count,
+          FBufferToSendOperations.TransactionCount]));
     finally
       FBufferLock.Release;
     end;
@@ -917,11 +917,11 @@ begin
     data.Write(c1, 4);
     data.Write(c2, 4);
     request_id := TConnectionManager.Instance.NewRequestId;
-    TConnectionManager.Instance.RegisterRequest(Self, CT_NetOp_GetBlocks, request_id);
+    TConnectionManager.Instance.RegisterRequest(Self, cNetOp_GetBlocks, request_id);
     TLog.NewLog(ltdebug, Classname, Format('Send GET BLOCKS start:%d quantity:%d (from:%d to %d)',
       [StartAddress, quantity, StartAddress, quantity + StartAddress]));
     FIsDownloadingBlocks := quantity > 1;
-    Send(ntp_request, CT_NetOp_GetBlocks, 0, request_id, data);
+    Send(ntp_request, cNetOp_GetBlocks, 0, request_id, data);
     Result := Connected;
   finally
     data.Free;
@@ -960,7 +960,7 @@ begin
   try
     if NetTranferType = ntp_request then
     begin
-      TConnectionManager.Instance.RegisterRequest(Self, CT_NetOp_Hello, request_id);
+      TConnectionManager.Instance.RegisterRequest(Self, cNetOp_Hello, request_id);
     end;
     if TNode.Node.NetServer.Active then
       w := TNode.Node.NetServer.port
@@ -974,8 +974,8 @@ begin
     currunixtimestamp := UnivDateTimeToUnix(DateTime2UnivDateTime(now));
     data.Write(currunixtimestamp, 4);
     // Save last operations block
-    TBlock.SaveOperationBlockToStream(TNode.Node.BlockManager.LastBlock, data);
-    nsarr := TConnectionManager.Instance.GetValidNodeServers(true, CT_MAX_NODESERVERS_ON_HELLO);
+    TBlock.SaveBlockToStream(TNode.Node.BlockManager.LastBlock, data);
+    nsarr := TConnectionManager.Instance.GetValidNodeServers(true, cMAX_NODESERVERS_ON_HELLO);
     i := length(nsarr);
     data.Write(i, 4);
     for i := 0 to high(nsarr) do
@@ -986,12 +986,12 @@ begin
       data.Write(nsa.last_connection, 4);
     end;
     // Send client version
-    TStreamOp.WriteAnsiString(data, CT_ClientAppVersion{$IFDEF LINUX} + 'l'{$ELSE} + 'w'{$ENDIF}{$IFDEF FPC}{$IFDEF LCL} + 'L'{$ELSE} + 'F'{$ENDIF}{$ENDIF});
+    TStreamOp.WriteAnsiString(data, UConst.ClientAppVersion{$IFDEF LINUX} + ' Linux'{$ELSE} + ' Windows'{$ENDIF}{$IFDEF FPC}{$IFDEF LCL} + ' '{$ELSE} + ' '{$ENDIF}{$ELSE}+' '{$ENDIF}{$IFDEF DEBUG}+' Debug'{$ELSE}+''{$ENDIF}{$IFDEF CONSOLE}+' daemon'{$ENDIF});
     // Build 1.5 send accumulated work
     data.Write(TNode.Node.BlockManager.AccountStorage.WorkSum, SizeOf(TNode.Node.BlockManager.AccountStorage.WorkSum));
     //
     // data.SaveToFile('./hello.bin');
-    Send(NetTranferType, CT_NetOp_Hello, 0, request_id, data);
+    Send(NetTranferType, cNetOp_Hello, 0, request_id, data);
     Result := Client.Connected;
   finally
     data.Free;
@@ -1011,7 +1011,7 @@ begin
     // Cypher message:
     cyp := ECIESEncrypt(FClientPublicKey, TheMessage);
     TStreamOp.WriteAnsiString(data, cyp);
-    Send(ntp_autosend, CT_NetOp_Message, 0, 0, data);
+    Send(ntp_autosend, cNetOp_Message, 0, 0, data);
     Result := true;
   finally
     data.Free;
@@ -1037,7 +1037,7 @@ begin
       FBufferLock.Release;
     end;
     // Checking if operationblock is the same to prevent double messaging...
-    if (TBlock.EqualsOperationBlock(FRemoteOperationBlock, NewBlock.BlockHeader)) then
+    if (TBlock.Equals(FRemoteOperationBlock, NewBlock.BlockHeader)) then
     begin
       TLog.NewLog(ltdebug, Classname, 'This connection has the same block, does not need to send');
       exit;
@@ -1053,7 +1053,7 @@ begin
       request_id := TConnectionManager.Instance.NewRequestId;
       NewBlock.SaveBlockToStream(false, data);
       data.Write(TNode.Node.BlockManager.AccountStorage.WorkSum, SizeOf(TNode.Node.BlockManager.AccountStorage.WorkSum));
-      Send(ntp_autosend, CT_NetOp_NewBlock, 0, request_id, data);
+      Send(ntp_autosend, cNetOp_NewBlock, 0, request_id, data);
     finally
       data.Free;
     end;
@@ -1071,14 +1071,14 @@ begin
   try
     FBufferLock.Acquire;
     try
-      for i := 0 to Operations.OperationsCount - 1 do
+      for i := 0 to Operations.TransactionCount - 1 do
       begin
-        if FBufferReceivedOperationsHash.IndexOf(Operations.GetOperation(i).Sha256) < 0 then
+        if FBufferReceivedOperationsHash.IndexOf(Operations.GetTransaction(i).Sha256) < 0 then
         begin
-          FBufferReceivedOperationsHash.Add(Operations.GetOperation(i).Sha256);
-          if FBufferToSendOperations.IndexOf(Operations.GetOperation(i)) < 0 then
+          FBufferReceivedOperationsHash.Add(Operations.GetTransaction(i).Sha256);
+          if FBufferToSendOperations.IndexOf(Operations.GetTransaction(i)) < 0 then
           begin
-            FBufferToSendOperations.AddTransactionToHashTree(Operations.GetOperation(i));
+            FBufferToSendOperations.AddTransactionToHashTree(Operations.GetTransaction(i));
             Inc(Result);
           end;
         end;

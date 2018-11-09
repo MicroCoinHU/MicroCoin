@@ -27,8 +27,8 @@ type
 
   TRecoverFoundsData = record
     Account: Cardinal;
-    n_operation: Cardinal;
-    fee: UInt64;
+    NumberOfTransactions: Cardinal;
+    Fee: UInt64;
   end;
 
   TRecoverFoundsTransaction = class(TTransaction)
@@ -43,11 +43,11 @@ type
     function GetPayload: TRawBytes; override;
     function GetSignerAccount: Cardinal; override;
     function GetNumberOfTransactions: Cardinal; override;
-    function GetOpType: Byte; override;
+    function GetTransactionType: Byte; override;
   public
     constructor Create(account_number, n_operation: Cardinal; fee: UInt64);
 
-    function GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes; override;
+    function GetBuffer(UseProtocolV2: Boolean): TRawBytes; override;
     function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean; override;
     procedure AffectedAccounts(list: TList); override;
     function GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal;
@@ -58,7 +58,7 @@ type
   end;
 
 const
-  CT_TOpRecoverFoundsData_NUL: TRecoverFoundsData = (Account: 0; n_operation: 0; fee: 0);
+  CT_TOpRecoverFoundsData_NUL: TRecoverFoundsData = (Account: 0; NumberOfTransactions: 0; Fee: 0);
 
 implementation
 
@@ -71,8 +71,8 @@ constructor TRecoverFoundsTransaction.Create(account_number, n_operation: Cardin
 begin
   inherited Create;
   FData.Account := account_number;
-  FData.n_operation := n_operation;
-  FData.fee := fee;
+  FData.NumberOfTransactions := n_operation;
+  FData.Fee := fee;
   FHasValidSignature := true; // Recover founds doesn't need a signature
 end;
 
@@ -88,55 +88,55 @@ begin
     Exit;
   end;
   acc := AccountTransaction.Account(FData.Account);
-  if (acc.updated_block + CT_RecoverFoundsWaitInactiveCount >= AccountTransaction.FreezedAccountStorage.BlocksCount)
+  if (acc.UpdatedBlock + cRecoverAfterInactive >= AccountTransaction.FreezedAccountStorage.BlocksCount)
   then
   begin
     errors := Format('Account is active to recover founds! Account %d Updated %d + %d >= BlockCount : %d',
-      [FData.Account, acc.updated_block, CT_RecoverFoundsWaitInactiveCount,
+      [FData.Account, acc.UpdatedBlock, cRecoverAfterInactive,
       AccountTransaction.FreezedAccountStorage.BlocksCount]);
     Exit;
   end;
   // Build 1.0.8 ... there was a BUG. Need to prevent recent created accounts
-  if (TAccount.AccountBlock(FData.Account) + CT_RecoverFoundsWaitInactiveCount >=
+  if (TAccount.AccountBlock(FData.Account) + cRecoverAfterInactive >=
     AccountTransaction.FreezedAccountStorage.BlocksCount) then
   begin
     errors := Format('AccountBlock is active to recover founds! AccountBlock %d + %d >= BlockCount : %d',
-      [TAccount.AccountBlock(FData.Account), CT_RecoverFoundsWaitInactiveCount,
+      [TAccount.AccountBlock(FData.Account), cRecoverAfterInactive,
       AccountTransaction.FreezedAccountStorage.BlocksCount]);
     Exit;
   end;
-  if ((acc.n_operation + 1) <> FData.n_operation) then
+  if ((acc.NumberOfTransactions + 1) <> FData.NumberOfTransactions) then
   begin
     errors := 'Invalid n_operation';
     Exit;
   end;
-  if (FData.fee <= 0) or (FData.fee > CT_MaxTransactionFee) then
+  if (FData.Fee <= 0) or (FData.Fee > cMaxTransactionFee) then
   begin
-    errors := 'Invalid fee ' + Inttostr(FData.fee);
+    errors := 'Invalid fee ' + Inttostr(FData.Fee);
     Exit;
   end;
-  if (acc.balance < FData.fee) then
+  if (acc.Balance < FData.Fee) then
   begin
     errors := 'Insuficient founds';
     Exit;
   end;
-  FPrevious_Signer_updated_block := acc.updated_block;
-  Result := AccountTransaction.TransferAmount(FData.Account, FData.Account, FData.n_operation, 0, FData.fee, errors);
+  FPrevious_Signer_updated_block := acc.UpdatedBlock;
+  Result := AccountTransaction.TransferAmount(FData.Account, FData.Account, FData.NumberOfTransactions, 0, FData.Fee, errors);
 end;
 
-function TRecoverFoundsTransaction.GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes;
+function TRecoverFoundsTransaction.GetBuffer(UseProtocolV2: Boolean): TRawBytes;
 var
   ms: TMemoryStream;
 begin
   if UseProtocolV2 then
-    Result := inherited GetBufferForOpHash(UseProtocolV2)
+    Result := inherited GetBuffer(UseProtocolV2)
   else
   begin
     ms := TMemoryStream.Create;
     try
       ms.Write(FData.Account, Sizeof(FData.Account));
-      ms.Write(FData.n_operation, Sizeof(FData.n_operation));
-      ms.Write(FData.fee, Sizeof(FData.fee));
+      ms.Write(FData.NumberOfTransactions, Sizeof(FData.NumberOfTransactions));
+      ms.Write(FData.Fee, Sizeof(FData.Fee));
       ms.Position := 0;
       SetLength(Result, ms.Size);
       ms.ReadBuffer(Result[1], ms.Size);
@@ -158,8 +158,8 @@ begin
   if Stream.Size - Stream.Position < 16 then
     Exit;
   Stream.Read(FData.Account, Sizeof(FData.Account));
-  Stream.Read(FData.n_operation, Sizeof(FData.n_operation));
-  Stream.Read(FData.fee, Sizeof(FData.fee));
+  Stream.Read(FData.NumberOfTransactions, Sizeof(FData.NumberOfTransactions));
+  Stream.Read(FData.Fee, Sizeof(FData.Fee));
   Result := true;
 end;
 
@@ -170,7 +170,7 @@ end;
 
 function TRecoverFoundsTransaction.GetFee: UInt64;
 begin
-  Result := FData.fee;
+  Result := FData.Fee;
 end;
 
 function TRecoverFoundsTransaction.GetPayload: TRawBytes;
@@ -178,7 +178,7 @@ begin
   Result := '';
 end;
 
-function TRecoverFoundsTransaction.GetOpType: Byte;
+function TRecoverFoundsTransaction.GetTransactionType: Byte;
 begin
   Result := CT_Op_Recover;
 end;
@@ -186,8 +186,8 @@ end;
 function TRecoverFoundsTransaction.SaveToStream(Stream: TStream; SaveExtendedData: Boolean): Boolean;
 begin
   Stream.Write(FData.Account, Sizeof(FData.Account));
-  Stream.Write(FData.n_operation, Sizeof(FData.n_operation));
-  Stream.Write(FData.fee, Sizeof(FData.fee));
+  Stream.Write(FData.NumberOfTransactions, Sizeof(FData.NumberOfTransactions));
+  Stream.Write(FData.Fee, Sizeof(FData.Fee));
   Result := true;
 end;
 
@@ -200,8 +200,8 @@ function TRecoverFoundsTransaction.GetTransactionData(Block, Affected_account_nu
   var TransactionData: TTransactionData): Boolean;
 begin
   TransactionData := TTransactionData.Empty;
-  TransactionData.OpSubtype := CT_OpSubtype_Recover;
-  TransactionData.OperationTxt := 'Recover founds';
+  TransactionData.transactionSubtype := CT_OpSubtype_Recover;
+  TransactionData.TransactionAsString := 'Recover founds';
   Result := true;
   TransactionData.OriginalPayload := GetPayload;
   if TCrypto.IsHumanReadable(TransactionData.OriginalPayload) then
@@ -209,7 +209,7 @@ begin
   else
     TransactionData.PrintablePayload := TCrypto.ToHexaString(TransactionData.OriginalPayload);
   TransactionData.OperationHash := TransactionHash(Block);
-  if (Block < CT_Protocol_Upgrade_v2_MinBlock) then
+  if (Block < cProtocol_Upgrade_v2_MinBlock) then
   begin
     TransactionData.OperationHash_OLD := TransactionHash_OLD(Block);
   end;
@@ -218,14 +218,14 @@ end;
 
 function TRecoverFoundsTransaction.GetNumberOfTransactions: Cardinal;
 begin
-  Result := FData.n_operation;
+  Result := FData.NumberOfTransactions;
 end;
 
 function TRecoverFoundsTransaction.toString: string;
 begin
   Result := Format('Recover founds of account %s fee:%s (n_op:%d)',
-    [TAccount.AccountNumberToAccountTxtNumber(FData.Account), TCurrencyUtils.FormatMoney(FData.fee),
-    FData.n_operation]);
+    [TAccount.AccountNumberToString(FData.Account), TCurrencyUtils.CurrencyToString(FData.Fee),
+    FData.NumberOfTransactions]);
 end;
 
 initialization

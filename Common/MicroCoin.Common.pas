@@ -108,24 +108,23 @@ var
 begin
   Str1Len := Length(Str1);
   Str2Len := Length(Str2);
-  if (Str1Len < Str2Len) then
-    Result := -1
-  else if (Str1Len > Str2Len) then
-    Result := 1
-  else
-  begin
+  if (Str1Len < Str2Len)
+  then Result := -1
+  else if (Str1Len > Str2Len)
+  then Result := 1
+  else begin
     Result := 0;
     for i := 1 to Str1Len do
     begin
-      if Str1[i] = Str2[i] then
-        continue;
-      if Str1[i] < Str2[i] then
-      begin
+      if Str1[i] = Str2[i]
+      then continue;
+      if Str1[i] < Str2[i]
+      then begin
         Result := -1;
         break;
       end
-      else if Str1[i] > Str2[i] then
-      begin
+      else if Str1[i] > Str2[i]
+      then begin
         Result := 1;
         break;
       end

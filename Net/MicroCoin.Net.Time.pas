@@ -119,7 +119,7 @@ var
 begin
   l := FTimesList.LockList;
   try
-    Result := (GetAdjustedTime + CT_MaxFutureBlockTimestampOffset);
+    Result := (GetAdjustedTime + cBlockTimeStampTolerance);
   finally
     FTimesList.UnlockList;
   end;
@@ -180,7 +180,7 @@ var
 begin
   last := FTimeOffset;
   list.Sort(SortPNetworkAdjustedTimeReg);
-  if list.Count < CT_MinNodesToCalcNAT then
+  if list.Count < cMinimumNodeCountToCalculateNAT then
   begin
     FTimeOffset := 0;
   end

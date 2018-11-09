@@ -206,12 +206,12 @@ end;
 
 procedure TAccountEdit.Change;
 var
-  accNumber : Cardinal;
+  xAccNumber : Cardinal;
 begin
   inherited;
-  if TAccount.AccountTxtNumberToAccountNumber(Text, accNumber)
+  if TAccount.ParseAccountNumber(Text, xAccNumber)
   then begin
-    FAccount := TNode.Node.Operations.BlockManager.AccountStorage.Account(accNumber);
+    FAccount := TNode.Node.TransactionStorage.BlockManager.AccountStorage.Account(xAccNumber);
   end;
 end;
 
@@ -224,7 +224,7 @@ end;
 procedure TAccountEdit.KeyPress(var Key: Char);
 begin
   inherited;
-  if not (Key in ['0'..'9', '-', #8, #9, #13, #10])
+  if not (Key in ['0'..'9', '-', #8, #9, #13, #10, '/'])
   then Key := #0;
   if (Key = '-') and (Pos('-', Text)>0)
   then Key := #0;
@@ -233,24 +233,29 @@ end;
 procedure TAccountEdit.SetAccount(const Value: TAccount);
 begin
   FAccount := Value;
-  Text := TAccount.AccountNumberToAccountTxtNumber( Value.AccountNumber)
+  Text := TAccount.AccountNumberToString(Value.AccountNumber)
 end;
 
 { TEncryptedMemo }
 
 function TEncryptedMemo.GetEncryptedMessage: AnsiString;
 begin
-  if csDesigning in ComponentState
-  then Exit('');
 
-  if Trim(Text)<>'' then begin
-    case FEncryptionMode of
-      emNone:    Result := Text;
-      emTarget:  Result := ECIESEncrypt(account.AccountInfo.AccountKey, Text);
-      emSource:  Result := ECIESEncrypt(account.AccountInfo.AccountKey, Text);
-      emPassword: Result := TAESComp.EVP_Encrypt_AES256(Text, FPassword);
-    end;
-  end else Result := '';
+  Result := '';
+
+  if csDesigning in ComponentState
+  then Exit;
+
+  if Trim(Text)=''
+  then exit;
+
+  case FEncryptionMode of
+    emNone:    Result := Text;
+    emTarget:  Result := ECIESEncrypt(account.AccountInfo.AccountKey, Text);
+    emSource:  Result := ECIESEncrypt(account.AccountInfo.AccountKey, Text);
+    emPassword: Result := TAESComp.EVP_Encrypt_AES256(Text, FPassword);
+  end;
+
 end;
 
 end.

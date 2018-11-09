@@ -391,7 +391,7 @@ var
       jsonObject.GetAsVariant('nonce').Value := Int64(ob.nonce);
       jsonObject.GetAsVariant('payload').Value := ob.block_payload;
       jsonObject.GetAsVariant('sbh').Value := TCrypto.ToHexaString(ob.initial_safe_box_hash);
-      jsonObject.GetAsVariant('oph').Value := TCrypto.ToHexaString(ob.operations_hash);
+      jsonObject.GetAsVariant('oph').Value := TCrypto.ToHexaString(ob.transactionHash);
       jsonObject.GetAsVariant('pow').Value := TCrypto.ToHexaString(ob.proof_of_work);
       jsonObject.GetAsVariant('hashratekhs').Value := FNode.BlockManager.AccountStorage.CalcBlockHashRateInKhs(ob.Block, 50);
       jsonObject.GetAsVariant('maturation').Value := FNode.BlockManager.BlocksCount - ob.Block - 1;
@@ -425,17 +425,17 @@ var
       else
         jsonObject.GetAsVariant('maturation').Value := null;
     end;
-    jsonObject.GetAsVariant('optype').Value := OPR.OpType;
-    jsonObject.GetAsVariant('subtype').Value := OPR.OpSubtype;
+    jsonObject.GetAsVariant('optype').Value := OPR.transactionType;
+    jsonObject.GetAsVariant('subtype').Value := OPR.transactionSubtype;
     jsonObject.GetAsVariant('account').Value := OPR.AffectedAccount;
     jsonObject.GetAsVariant('signer_account').Value := OPR.SignerAccount;
-    jsonObject.GetAsVariant('optxt').Value := OPR.OperationTxt;
+    jsonObject.GetAsVariant('optxt').Value := OPR.TransactionAsString;
     jsonObject.GetAsVariant('amount').Value := ToJSONCurrency(OPR.Amount);
     jsonObject.GetAsVariant('fee').Value := ToJSONCurrency(OPR.fee);
     if (OPR.balance >= 0) and (OPR.valid) then
       jsonObject.GetAsVariant('balance').Value := ToJSONCurrency(OPR.balance);
     jsonObject.GetAsVariant('payload').Value := TCrypto.ToHexaString(OPR.OriginalPayload);
-    if (OPR.OpType = CT_Op_Transaction) then
+    if (OPR.transactionType = CT_Op_Transaction) then
     begin
       if OPR.SignerAccount >= 0 then
       begin
@@ -453,7 +453,7 @@ var
     if (OPR.valid) and (OPR.OperationHash <> '') then
     begin
       jsonObject.GetAsVariant('ophash').Value := TCrypto.ToHexaString(OPR.OperationHash);
-      if (OPR.Block < CT_Protocol_Upgrade_v2_MinBlock) then
+      if (OPR.Block < cProtocol_Upgrade_v2_MinBlock) then
       begin
         jsonObject.GetAsVariant('old_ophash').Value := TCrypto.ToHexaString(OPR.OperationHash_OLD);
       end;
@@ -463,7 +463,7 @@ var
   procedure FillOperationsHashTreeToJSONObject(const OperationsHashTree: TTransactionHashTree;
     jsonObject: TPCJSONObject);
   begin
-    jsonObject.GetAsVariant('operations').Value := OperationsHashTree.OperationsCount;
+    jsonObject.GetAsVariant('operations').Value := OperationsHashTree.TransactionCount;
     jsonObject.GetAsVariant('amount').Value := ToJSONCurrency(OperationsHashTree.TotalAmount);
     jsonObject.GetAsVariant('fee').Value := ToJSONCurrency(OperationsHashTree.TotalFee);
     jsonObject.GetAsVariant('rawoperations').Value := OperationsHashTreeToHexaString(OperationsHashTree);
@@ -472,12 +472,12 @@ var
   function GetAccountOperations(accountNumber: cardinal; jsonArray: TPCJSONArray;
     maxBlocksDepth, startReg, maxReg: integer): Boolean;
   var
-    list: TList;
-    Op: ITransaction;
-    OPR: TTransactionData;
-    Obj: TPCJSONObject;
-    OperationsResume: TTransactionList;
-    i, nCounter: integer;
+    xList: TList;
+    xTransaction: ITransaction;
+    xTransactionData: TTransactionData;
+    xJsonObject: TPCJSONObject;
+    xTransactionList: TTransactionList;
+    i, xCounter: integer;
   begin
     Result := false;
     if (startReg < -1) or (maxReg <= 0) then
@@ -486,51 +486,51 @@ var
       ErrorDesc := 'Invalid start or max value';
       exit;
     end;
-    nCounter := 0;
-    OperationsResume := TTransactionList.Create;
+    xCounter := 0;
+    xTransactionList := TTransactionList.Create;
     try
       if (startReg = -1) then
       begin
         // 1.5.5 change: If start=-1 then will include PENDING OPERATIONS, otherwise not.
         // Only will return pending operations if start=0, otherwise
-        list := TList.Create;
+        xList := TList.Create;
         try
-          FNode.Operations.OperationsHashTree.GetTransactionsAffectingAccount(accountNumber, list);
-          for i := list.Count - 1 downto 0 do
+          FNode.TransactionStorage.TransactionHashTree.GetTransactionsAffectingAccount(accountNumber, xList);
+          for i := xList.Count - 1 downto 0 do
           begin
-            Op := FNode.Operations.OperationsHashTree.GetOperation(PtrInt(list[i]));
-            if Op.GetTransactionData(0, accountNumber, OPR) then
+            xTransaction := FNode.TransactionStorage.TransactionHashTree.GetTransaction(PtrInt(xList[i]));
+            if xTransaction.GetTransactionData(0, accountNumber, xTransactionData) then
             begin
-              OPR.NOpInsideBlock := i;
-              OPR.Block := FNode.Operations.BlockHeader.Block;
-              OPR.balance := FNode.Operations.AccountTransaction.Account(accountNumber).balance;
-              if (nCounter >= startReg) and (nCounter < maxReg) then
+              xTransactionData.NOpInsideBlock := i;
+              xTransactionData.Block := FNode.TransactionStorage.BlockHeader.Block;
+              xTransactionData.balance := FNode.TransactionStorage.AccountTransaction.Account(accountNumber).Balance;
+              if (xCounter >= startReg) and (xCounter < maxReg) then
               begin
-                OperationsResume.Add(OPR);
+                xTransactionList.Add(xTransactionData);
               end;
-              inc(nCounter);
+              inc(xCounter);
             end;
           end;
         finally
-          list.Free;
+          xList.Free;
         end;
       end;
-      if (nCounter < maxReg) then
+      if (xCounter < maxReg) then
       begin
         if (startReg < 0) then
           startReg := 0; // Prevent -1 value
-        FNode.GetStoredOperationsFromAccount(OperationsResume, accountNumber, maxBlocksDepth, startReg,
+        FNode.GetStoredTransactionsFromAccount(xTransactionList, accountNumber, maxBlocksDepth, startReg,
           startReg + maxReg - 1);
       end;
-      for i := 0 to OperationsResume.Count - 1 do
+      for i := 0 to xTransactionList.Count - 1 do
       begin
-        Obj := jsonArray.GetAsObject(jsonArray.Count);
-        OPR := OperationsResume[i];
-        FillOperationResumeToJSONObject(OPR, Obj);
+        xJsonObject := jsonArray.GetAsObject(jsonArray.Count);
+        xTransactionData := xTransactionList[i];
+        FillOperationResumeToJSONObject(xTransactionData, xJsonObject);
       end;
       Result := true;
     finally
-      OperationsResume.Free;
+      xTransactionList.Free;
     end;
   end;
 
@@ -642,12 +642,12 @@ var
     errors: AnsiString;
     OPR: TTransactionData;
   begin
-    FNode.OperationSequenceLock.Acquire; // Use lock to prevent N_Operation race-condition on concurrent sends
+    FNode.SequenceLock.Acquire; // Use lock to prevent N_Operation race-condition on concurrent sends
     try
       Result := false;
       if (Sender < 0) or (Sender >= FNode.BlockManager.AccountsCount) then
       begin
-        if (Sender = CT_MaxAccount) then
+        if (Sender = cMaxAccountNumber) then
           ErrorDesc := 'Need sender'
         else
           ErrorDesc := 'Invalid sender account ' + Inttostr(Sender);
@@ -656,22 +656,22 @@ var
       end;
       if (target < 0) or (target >= FNode.BlockManager.AccountsCount) then
       begin
-        if (target = CT_MaxAccount) then
+        if (target = cMaxAccountNumber) then
           ErrorDesc := 'Need target'
         else
           ErrorDesc := 'Invalid target account ' + Inttostr(target);
         ErrorNum := CT_RPC_ErrNum_InvalidAccount;
         exit;
       end;
-      sacc := FNode.Operations.AccountTransaction.Account(Sender);
-      tacc := FNode.Operations.AccountTransaction.Account(target);
+      sacc := FNode.TransactionStorage.AccountTransaction.Account(Sender);
+      tacc := FNode.TransactionStorage.AccountTransaction.Account(target);
 
-      opt := CreateOperationTransaction(Sender, target, sacc.n_operation, Amount, fee, sacc.accountInfo.AccountKey,
+      opt := CreateOperationTransaction(Sender, target, sacc.NumberOfTransactions, Amount, fee, sacc.accountInfo.AccountKey,
         tacc.accountInfo.AccountKey, RawPayload, Payload_method, EncodePwd);
       if opt = nil then
         exit;
       try
-        if not FNode.AddOperation(nil, opt, errors) then
+        if not FNode.AddTransaction(nil, opt, errors) then
         begin
           ErrorDesc := 'Error adding operation: ' + errors;
           ErrorNum := CT_RPC_ErrNum_InvalidOperation;
@@ -681,10 +681,10 @@ var
         FillOperationResumeToJSONObject(OPR, GetResultObject);
         Result := true;
       finally
-        opt.Free;
+//        opt.Free;
       end;
     finally
-      FNode.OperationSequenceLock.Release;
+      FNode.SequenceLock.Release;
     end;
   end;
 
@@ -714,7 +714,7 @@ var
         FillOperationsHashTreeToJSONObject(OperationsHashTree, GetResultObject);
         Result := true;
       finally
-        opt.Free;
+//        opt.Free;
       end;
     finally
       OperationsHashTree.Free;
@@ -808,7 +808,7 @@ var
     errors: AnsiString;
     OPR: TTransactionData;
   begin
-    FNode.OperationSequenceLock.Acquire; // Use lock to prevent N_Operation race-condition on concurrent invocations
+    FNode.SequenceLock.Acquire; // Use lock to prevent N_Operation race-condition on concurrent invocations
     try
       Result := false;
       if (account_signer < 0) or (account_signer >= FNode.BlockManager.AccountsCount) then
@@ -817,14 +817,14 @@ var
         ErrorNum := CT_RPC_ErrNum_InvalidAccount;
         exit;
       end;
-      acc_signer := FNode.Operations.AccountTransaction.Account(account_signer);
+      acc_signer := FNode.TransactionStorage.AccountTransaction.Account(account_signer);
 
-      opck := CreateOperationChangeKey(account_signer, acc_signer.n_operation, account_target,
+      opck := CreateOperationChangeKey(account_signer, acc_signer.NumberOfTransactions, account_target,
         acc_signer.accountInfo.AccountKey, new_pub_key, fee, RawPayload, Payload_method, EncodePwd);
       if not Assigned(opck) then
         exit;
       try
-        if not FNode.AddOperation(nil, opck, errors) then
+        if not FNode.AddTransaction(nil, opck, errors) then
         begin
           ErrorDesc := 'Error adding operation: ' + errors;
           ErrorNum := CT_RPC_ErrNum_InvalidOperation;
@@ -834,10 +834,10 @@ var
         FillOperationResumeToJSONObject(OPR, GetResultObject);
         Result := true;
       finally
-        opck.Free;
+//        opck.Free;
       end;
     finally
-      FNode.OperationSequenceLock.Release;
+      FNode.SequenceLock.Release;
     end;
   end;
 
@@ -846,7 +846,7 @@ var
   function CreateOperationListAccountForSale(account_signer, account_last_n_operation, account_listed: cardinal;
     const account_signer_pubkey: TAccountKey; account_price: UInt64; locked_until_block: cardinal;
     account_to_pay: cardinal; const new_account_pubkey: TAccountKey; fee: UInt64; RawPayload: TRawBytes;
-    const Payload_method, EncodePwd: AnsiString): TOpListAccountForSale;
+    const Payload_method, EncodePwd: AnsiString): TListAccountForSaleTransaction;
   // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
   var
     i: integer;
@@ -903,7 +903,7 @@ var
     end
     else
       f_raw := '';
-    Result := TOpListAccountForSale.CreateListAccountForSale(account_signer, account_last_n_operation + 1,
+    Result := TListAccountForSaleTransaction.CreateListAccountForSale(account_signer, account_last_n_operation + 1,
       account_listed, account_price, fee, account_to_pay, new_account_pubkey, locked_until_block,
       TRPCServer.Instance.WalletKeys.Key[i].PrivateKey, f_raw);
     if not Result.HasValidSignature then
@@ -919,7 +919,7 @@ var
 // It assumes that account_number,account_last_n_operation are correct
   function CreateOperationDelistAccountForSale(account_signer, account_last_n_operation, account_delisted: cardinal;
     const account_signer_pubkey: TAccountKey; fee: UInt64; RawPayload: TRawBytes;
-    const Payload_method, EncodePwd: AnsiString): TOpDelistAccountForSale;
+    const Payload_method, EncodePwd: AnsiString): TDelistAccountTransaction;
   // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
   var
     i: integer;
@@ -969,7 +969,7 @@ var
     end
     else
       f_raw := '';
-    Result := TOpDelistAccountForSale.CreateDelistAccountForSale(account_signer, account_last_n_operation + 1,
+    Result := TDelistAccountTransaction.CreateDelistAccountForSale(account_signer, account_last_n_operation + 1,
       account_delisted, fee, TRPCServer.Instance.WalletKeys.Key[i].PrivateKey, f_raw);
     if not Result.HasValidSignature then
     begin
@@ -1074,7 +1074,7 @@ var
           begin
             if Trim(ctxt) <> '' then
             begin
-              if not TAccount.AccountTxtNumberToAccountNumber(Trim(ctxt), an) then
+              if not TAccount.ParseAccountNumber(Trim(ctxt), an) then
               begin
                 errors := 'Invalid account number at pos ' + Inttostr(istart) + ': ' + ctxt;
                 exit;
@@ -1094,7 +1094,7 @@ var
     //
     if (Trim(ctxt) <> '') then
     begin
-      if not TAccount.AccountTxtNumberToAccountNumber(Trim(ctxt), an) then
+      if not TAccount.ParseAccountNumber(Trim(ctxt), an) then
       begin
         errors := 'Invalid account number at pos ' + Inttostr(istart) + ': ' + ctxt;
         exit;
@@ -1122,7 +1122,7 @@ var
     operationsht: TTransactionHashTree;
     OperationsResumeList: TTransactionList;
   begin
-    FNode.OperationSequenceLock.Acquire; // Use lock to prevent N_Operation race-condition on concurrent invocations
+    FNode.SequenceLock.Acquire; // Use lock to prevent N_Operation race-condition on concurrent invocations
     try
       Result := false;
       accountsnumber := TOrderedList.Create;
@@ -1144,15 +1144,15 @@ var
               ErrorNum := CT_RPC_ErrNum_InvalidAccount;
               exit;
             end;
-            acc := FNode.Operations.AccountTransaction.Account(accountsnumber.Get(ian));
-            opck := CreateOperationChangeKey(acc.AccountNumber, acc.n_operation, acc.AccountNumber, acc.accountInfo.AccountKey,
+            acc := FNode.TransactionStorage.AccountTransaction.Account(accountsnumber.Get(ian));
+            opck := CreateOperationChangeKey(acc.AccountNumber, acc.NumberOfTransactions, acc.AccountNumber, acc.accountInfo.AccountKey,
               new_pub_key, fee, RawPayload, Payload_method, EncodePwd);
             if not Assigned(opck) then
               exit;
             try
               operationsht.AddTransactionToHashTree(opck);
             finally
-              opck.Free;
+//              opck.Free;
             end;
           end; // For
           // Ready to execute...
@@ -1181,7 +1181,7 @@ var
         accountsnumber.Free;
       end;
     finally
-      FNode.OperationSequenceLock.Release;
+      FNode.SequenceLock.Release;
     end;
   end;
 
@@ -1211,7 +1211,7 @@ var
         FillOperationsHashTreeToJSONObject(OperationsHashTree, GetResultObject);
         Result := true;
       finally
-        opck.Free;
+//        opck.Free;
       end;
     finally
       OperationsHashTree.Free;
@@ -1220,37 +1220,37 @@ var
 
   function OperationsInfo(const HexaStringOperationsHashTree: TRawBytes; jsonArray: TPCJSONArray): Boolean;
   var
-    OperationsHashTree: TTransactionHashTree;
-    errors: AnsiString;
-    OPR: TTransactionData;
-    Obj: TPCJSONObject;
-    Op: ITransaction;
+    xTransactionHashTree: TTransactionHashTree;
+    xErrors: AnsiString;
+    xTransactionData: TTransactionData;
+    xJsonObject: TPCJSONObject;
+    xTransaction: ITransaction;
     i: integer;
   begin
-    if not HexaStringToOperationsHashTree(HexaStringOperationsHashTree, OperationsHashTree, errors) then
+    if not HexaStringToOperationsHashTree(HexaStringOperationsHashTree, xTransactionHashTree, xErrors) then
     begin
       ErrorNum := CT_RPC_ErrNum_InvalidData;
-      ErrorDesc := 'Error decoding param "rawoperations": ' + errors;
+      ErrorDesc := 'Error decoding param "rawoperations": ' + xErrors;
       exit;
     end;
     try
       jsonArray.Clear;
-      for i := 0 to OperationsHashTree.OperationsCount - 1 do
+      for i := 0 to xTransactionHashTree.TransactionCount - 1 do
       begin
-        Op := OperationsHashTree.GetOperation(i);
-        Obj := jsonArray.GetAsObject(i);
-        if Op.GetTransactionData(0, Op.SignerAccount, OPR) then
+        xTransaction := xTransactionHashTree.GetTransaction(i);
+        xJsonObject := jsonArray.GetAsObject(i);
+        if xTransaction.GetTransactionData(0, xTransaction.SignerAccount, xTransactionData) then
         begin
-          OPR.NOpInsideBlock := i;
-          OPR.balance := -1;
+          xTransactionData.NOpInsideBlock := i;
+          xTransactionData.balance := -1;
         end
         else
-          OPR := TTransactionData.Empty;
-        FillOperationResumeToJSONObject(OPR, Obj);
+          xTransactionData := TTransactionData.Empty;
+        FillOperationResumeToJSONObject(xTransactionData, xJsonObject);
       end;
       Result := true;
     finally
-      OperationsHashTree.Free;
+      xTransactionHashTree.Free;
     end;
   end;
 
@@ -1296,30 +1296,30 @@ var
   begin
     jsonobj.GetAsVariant('account').Value := Account.AccountNumber;
     jsonobj.GetAsVariant('enc_pubkey').Value := TCrypto.ToHexaString(Account.accountInfo.AccountKey.ToRawString);
-    jsonobj.GetAsVariant('balance').Value := ToJSONCurrency(Account.balance);
-    jsonobj.GetAsVariant('n_operation').Value := Account.n_operation;
-    jsonobj.GetAsVariant('updated_b').Value := Account.updated_block;
-    case Account.accountInfo.state of
+    jsonobj.GetAsVariant('balance').Value := ToJSONCurrency(Account.Balance);
+    jsonobj.GetAsVariant('n_operation').Value := Account.NumberOfTransactions;
+    jsonobj.GetAsVariant('updated_b').Value := Account.UpdatedBlock;
+    case Account.accountInfo.State of
       as_Normal:
         jsonobj.GetAsVariant('state').Value := 'normal';
       as_ForSale:
         begin
           jsonobj.GetAsVariant('state').Value := 'listed';
-          jsonobj.GetAsVariant('locked_until_block').Value := Account.accountInfo.locked_until_block;
-          jsonobj.GetAsVariant('price').Value := Account.accountInfo.price;
-          jsonobj.GetAsVariant('seller_account').Value := Account.accountInfo.account_to_pay;
-          jsonobj.GetAsVariant('private_sale').Value := (Account.accountInfo.new_publicKey.EC_OpenSSL_NID <> 0);
-          if not(Account.accountInfo.new_publicKey.EC_OpenSSL_NID <> 0) then
+          jsonobj.GetAsVariant('locked_until_block').Value := Account.accountInfo.LockedUntilBlock;
+          jsonobj.GetAsVariant('price').Value := Account.accountInfo.Price;
+          jsonobj.GetAsVariant('seller_account').Value := Account.accountInfo.AccountToPay;
+          jsonobj.GetAsVariant('private_sale').Value := (Account.accountInfo.NewPublicKey.EC_OpenSSL_NID <> 0);
+          if not(Account.accountInfo.NewPublicKey.EC_OpenSSL_NID <> 0) then
           begin
             jsonobj.GetAsVariant('new_enc_pubkey').Value :=
-              TCrypto.ToHexaString(Account.accountInfo.new_publicKey.ToRawString);
+              TCrypto.ToHexaString(Account.accountInfo.NewPublicKey.ToRawString);
           end;
         end
     else
       raise Exception.Create('ERROR DEV 20170425-1');
     end;
-    jsonobj.GetAsVariant('name').Value := Account.name;
-    jsonobj.GetAsVariant('type').Value := Account.account_type;
+    jsonobj.GetAsVariant('name').Value := Account.Name;
+    jsonobj.GetAsVariant('type').Value := Account.AccountType;
   end;
 
   procedure FillPublicKeyObject(const PubKey: TAccountKey; jsonobj: TPCJSONObject);
@@ -1422,7 +1422,7 @@ var
     ansistr: AnsiString;
     auxpubkey: TAccountKey;
   begin
-    PubKey := CT_Account_NUL.accountInfo.AccountKey;
+    PubKey := TAccount.Empty.AccountInfo.AccountKey;
     errortxt := '';
     Result := false;
     if (params.IndexOfName(prefix + 'b58_pubkey') >= 0) then
@@ -1470,7 +1470,7 @@ var
   // "seller_account" is the account to pay (seller account)
   // "new_b58_pubkey" or "new_enc_pubke" is the future public key for this sale (private sale), otherwise is open and everybody can buy
   var
-    opSale: TOpListAccountForSale;
+    opSale: TListAccountForSaleTransaction;
     account_signer, account_target, seller_account: cardinal;
     locked_until_block: cardinal;
     price, fee: Int64;
@@ -1538,7 +1538,7 @@ var
       OperationsHashTree.AddTransactionToHashTree(opSale);
       Result := true;
     finally
-      opSale.Free;
+//      opSale.Free;
     end;
   end;
 
@@ -1585,7 +1585,7 @@ var
   // "seller_account" is the account to pay
   // "new_b58_pubkey" or "new_enc_pubke" is the future public key for this sale (private sale), otherwise is open and everybody can buy
   var
-    opDelist: TOpDelistAccountForSale;
+    opDelist: TDelistAccountTransaction;
     account_signer, account_target: cardinal;
     fee: Int64;
   begin
@@ -1620,7 +1620,7 @@ var
       OperationsHashTree.AddTransactionToHashTree(opDelist);
       Result := true;
     finally
-      opDelist.Free;
+//      opDelist.Free;
     end;
   end;
 
@@ -1629,7 +1629,7 @@ var
   function CreateOperationChangeAccountInfo(account_signer, account_last_n_operation, account_target: cardinal;
     const account_signer_pubkey: TAccountKey; changePubKey: Boolean; const new_account_pubkey: TAccountKey;
     changeName: Boolean; const new_name: TRawBytes; changeType: Boolean; new_type: Word; fee: UInt64;
-    RawPayload: TRawBytes; const Payload_method, EncodePwd: AnsiString): TOpChangeAccountInfo;
+    RawPayload: TRawBytes; const Payload_method, EncodePwd: AnsiString): TChangeAccountInfoTransaction;
   // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
   var
     i: integer;
@@ -1686,7 +1686,7 @@ var
     end
     else
       f_raw := '';
-    Result := TOpChangeAccountInfo.CreateChangeAccountInfo(account_signer, account_last_n_operation + 1, account_target,
+    Result := TChangeAccountInfoTransaction.CreateChangeAccountInfo(account_signer, account_last_n_operation + 1, account_target,
       TRPCServer.Instance.WalletKeys.Key[i].PrivateKey, changePubKey, new_account_pubkey, changeName, new_name,
       changeType, new_type, fee, f_raw);
     if not Result.HasValidSignature then
@@ -1707,7 +1707,7 @@ var
   // "new_name" is the new account name
   // "new_type" is the new account type
   var
-    opChangeInfo: TOpChangeAccountInfo;
+    opChangeInfo: TChangeAccountInfoTransaction;
     account_signer, account_target: cardinal;
     fee: Int64;
     ChangeKey, changeName, changeType: Boolean;
@@ -1790,7 +1790,7 @@ var
       OperationsHashTree.AddTransactionToHashTree(opChangeInfo);
       Result := true;
     finally
-      opChangeInfo.Free;
+//      opChangeInfo.Free;
     end;
   end;
 
@@ -1937,7 +1937,7 @@ var
       OperationsHashTree.AddTransactionToHashTree(opBuy);
       Result := true;
     finally
-      opBuy.Free;
+//      opBuy.Free;
     end;
   end;
 
@@ -1982,7 +1982,7 @@ var
     errors: AnsiString;
     c_account: cardinal;
   begin
-    FNode.OperationSequenceLock.Acquire; // Use lock to prevent N_Operation race-condition on concurrent invocations
+    FNode.SequenceLock.Acquire; // Use lock to prevent N_Operation race-condition on concurrent invocations
     try
       Result := false;
       OperationsHashTree := TTransactionHashTree.Create;
@@ -2000,7 +2000,7 @@ var
           ErrorDesc := 'Invalid account_signer ' + params.AsString('account_signer', '');
           exit;
         end;
-        account_signer := FNode.Operations.AccountTransaction.Account(c_account);
+        account_signer := FNode.TransactionStorage.AccountTransaction.Account(c_account);
         if (params.IndexOfName('account_target') < 0) then
         begin
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
@@ -2014,7 +2014,7 @@ var
           ErrorDesc := 'Invalid account_target ' + params.AsString('account_target', '');
           exit;
         end;
-        account_target := FNode.Operations.AccountTransaction.Account(c_account);
+        account_target := FNode.TransactionStorage.AccountTransaction.Account(c_account);
         if (not TAccountKey.EqualAccountKeys(account_signer.accountInfo.AccountKey,
           account_target.accountInfo.AccountKey)) then
         begin
@@ -2023,10 +2023,10 @@ var
           exit;
         end;
         if not SignListAccountForSaleEx(params, OperationsHashTree, account_signer.accountInfo.AccountKey,
-          account_signer.n_operation) then
+          account_signer.NumberOfTransactions) then
           exit;
-        opt := OperationsHashTree.GetOperation(0);
-        if not FNode.AddOperation(nil, opt, errors) then
+        opt := OperationsHashTree.GetTransaction(0);
+        if not FNode.AddTransaction(nil, opt, errors) then
         begin
           ErrorNum := CT_RPC_ErrNum_InternalError;
           ErrorDesc := errors;
@@ -2040,7 +2040,7 @@ var
         OperationsHashTree.Free;
       end;
     finally
-      FNode.OperationSequenceLock.Release;
+      FNode.SequenceLock.Release;
     end;
   end;
 
@@ -2053,7 +2053,7 @@ var
     errors: AnsiString;
     c_account: cardinal;
   begin
-    FNode.OperationSequenceLock.Acquire; // Use lock to prevent N_Operation race-condition on concurrent invocations
+    FNode.SequenceLock.Acquire; // Use lock to prevent N_Operation race-condition on concurrent invocations
     try
       Result := false;
       OperationsHashTree := TTransactionHashTree.Create;
@@ -2071,7 +2071,7 @@ var
           ErrorDesc := 'Invalid account_signer ' + params.AsString('account_signer', '');
           exit;
         end;
-        account_signer := FNode.Operations.AccountTransaction.Account(c_account);
+        account_signer := FNode.TransactionStorage.AccountTransaction.Account(c_account);
         if (params.IndexOfName('account_target') < 0) then
         begin
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
@@ -2085,7 +2085,7 @@ var
           ErrorDesc := 'Invalid account_target ' + params.AsString('account_target', '');
           exit;
         end;
-        account_target := FNode.Operations.AccountTransaction.Account(c_account);
+        account_target := FNode.TransactionStorage.AccountTransaction.Account(c_account);
         if (not TAccountKey.EqualAccountKeys(account_signer.accountInfo.AccountKey,
           account_target.accountInfo.AccountKey)) then
         begin
@@ -2094,10 +2094,10 @@ var
           exit;
         end;
         if not SignDelistAccountForSaleEx(params, OperationsHashTree, account_signer.accountInfo.AccountKey,
-          account_signer.n_operation) then
+          account_signer.NumberOfTransactions) then
           exit;
-        opt := OperationsHashTree.GetOperation(0);
-        if not FNode.AddOperation(nil, opt, errors) then
+        opt := OperationsHashTree.GetTransaction(0);
+        if not FNode.AddTransaction(nil, opt, errors) then
         begin
           ErrorNum := CT_RPC_ErrNum_InternalError;
           ErrorDesc := errors;
@@ -2111,7 +2111,7 @@ var
         OperationsHashTree.Free;
       end;
     finally
-      FNode.OperationSequenceLock.Acquire;
+      FNode.SequenceLock.Acquire;
     end;
   end;
 
@@ -2124,7 +2124,7 @@ var
     errors: AnsiString;
     c_account: cardinal;
   begin
-    FNode.OperationSequenceLock.Acquire; // Use lock to prevent N_Operation race-condition on concurrent invocations
+    FNode.SequenceLock.Acquire; // Use lock to prevent N_Operation race-condition on concurrent invocations
     try
       Result := false;
       OperationsHashTree := TTransactionHashTree.Create;
@@ -2142,12 +2142,12 @@ var
           ErrorDesc := 'Invalid account ' + params.AsString('buyer_account', '');
           exit;
         end;
-        buyer_account := FNode.Operations.AccountTransaction.Account(c_account);
+        buyer_account := FNode.TransactionStorage.AccountTransaction.Account(c_account);
         if not SignBuyAccountEx(params, OperationsHashTree, buyer_account.accountInfo.AccountKey,
-          buyer_account.n_operation) then
+          buyer_account.NumberOfTransactions) then
           exit;
-        opt := OperationsHashTree.GetOperation(0);
-        if not FNode.AddOperation(nil, opt, errors) then
+        opt := OperationsHashTree.GetTransaction(0);
+        if not FNode.AddTransaction(nil, opt, errors) then
         begin
           ErrorNum := CT_RPC_ErrNum_InternalError;
           ErrorDesc := errors;
@@ -2161,7 +2161,7 @@ var
         OperationsHashTree.Free;
       end;
     finally
-      FNode.OperationSequenceLock.Release;
+      FNode.SequenceLock.Release;
     end;
   end;
 
@@ -2174,7 +2174,7 @@ var
     errors: AnsiString;
     c_account: cardinal;
   begin
-    FNode.OperationSequenceLock.Acquire; // Use lock to prevent N_Operation race-condition on concurrent invocations
+    FNode.SequenceLock.Acquire; // Use lock to prevent N_Operation race-condition on concurrent invocations
     try
       Result := false;
       OperationsHashTree := TTransactionHashTree.Create;
@@ -2192,7 +2192,7 @@ var
           ErrorDesc := 'Invalid account_signer ' + params.AsString('account_signer', '');
           exit;
         end;
-        account_signer := FNode.Operations.AccountTransaction.Account(c_account);
+        account_signer := FNode.TransactionStorage.AccountTransaction.Account(c_account);
         if (params.IndexOfName('account_target') < 0) then
         begin
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
@@ -2206,7 +2206,7 @@ var
           ErrorDesc := 'Invalid account_target ' + params.AsString('account_target', '');
           exit;
         end;
-        account_target := FNode.Operations.AccountTransaction.Account(c_account);
+        account_target := FNode.TransactionStorage.AccountTransaction.Account(c_account);
         if (not TAccountKey.EqualAccountKeys(account_signer.accountInfo.AccountKey,
           account_target.accountInfo.AccountKey)) then
         begin
@@ -2215,10 +2215,10 @@ var
           exit;
         end;
         if not SignChangeAccountInfoEx(params, OperationsHashTree, account_signer.accountInfo.AccountKey,
-          account_signer.n_operation) then
+          account_signer.NumberOfTransactions) then
           exit;
-        opt := OperationsHashTree.GetOperation(0);
-        if not FNode.AddOperation(nil, opt, errors) then
+        opt := OperationsHashTree.GetTransaction(0);
+        if not FNode.AddTransaction(nil, opt, errors) then
         begin
           ErrorNum := CT_RPC_ErrNum_InternalError;
           ErrorDesc := errors;
@@ -2232,7 +2232,7 @@ var
         OperationsHashTree.Free;
       end;
     finally
-      FNode.OperationSequenceLock.Release;
+      FNode.SequenceLock.Release;
     end;
   end;
 
@@ -2285,8 +2285,8 @@ var
       accountNumber := FNode.BlockManager.AccountStorage.FindAccountByName(accountName);
       if accountNumber >= 0 then
       begin
-        Account := FNode.Operations.AccountTransaction.Account(accountNumber);
-        if (accountType = -1) or (integer(Account.account_type) = accountType) then
+        Account := FNode.TransactionStorage.AccountTransaction.Account(accountNumber);
+        if (accountType = -1) or (integer(Account.AccountType) = accountType) then
           FillAccountObject(Account, output.GetAsObject(output.Count));
       end;
     end
@@ -2294,8 +2294,8 @@ var
     begin
       for i := start to FNode.BlockManager.AccountsCount - 1 do
       begin
-        Account := FNode.Operations.AccountTransaction.Account(i);
-        if Account.accountInfo.state = as_ForSale then
+        Account := FNode.TransactionStorage.AccountTransaction.Account(i);
+        if Account.accountInfo.State = as_ForSale then
         begin
           // Found a match
           FillAccountObject(Account, output.GetAsObject(output.Count));
@@ -2308,7 +2308,7 @@ var
     begin
       for i := start to FNode.BlockManager.AccountsCount - 1 do
       begin
-        Account := FNode.Operations.AccountTransaction.Account(i);
+        Account := FNode.TransactionStorage.AccountTransaction.Account(i);
         if TAccountKey.EqualAccountKeys(Account.accountInfo.AccountKey, PubKey) then
         begin
           // Found a match
@@ -2324,8 +2324,8 @@ var
       // Search by type
       for i := start to FNode.BlockManager.AccountsCount - 1 do
       begin
-        Account := FNode.Operations.AccountTransaction.Account(i);
-        if (accountType = -1) or (integer(Account.account_type) = accountType) then
+        Account := FNode.TransactionStorage.AccountTransaction.Account(i);
+        if (accountType = -1) or (integer(Account.AccountType) = accountType) then
         begin
           // Found a match
           FillAccountObject(Account, output.GetAsObject(output.Count));
@@ -2394,7 +2394,7 @@ begin
   begin
     // Param "block" contains block number (0..getblockcount-1)
     // Returns JSON object with block information
-    c := params.GetAsVariant('block').AsCardinal(CT_MaxBlock);
+    c := params.GetAsVariant('block').AsCardinal(cMaxBlocks);
     if (c >= 0) and (c < FNode.BlockManager.BlocksCount) then
     begin
       Result := GetBlock(c, GetResultObject);
@@ -2402,7 +2402,7 @@ begin
     else
     begin
       ErrorNum := CT_RPC_ErrNum_InvalidBlock;
-      if (c = CT_MaxBlock) then
+      if (c = cMaxBlocks) then
         ErrorDesc := 'Need block param'
       else
         ErrorDesc := 'Block not found: ' + Inttostr(c);
@@ -2426,8 +2426,8 @@ begin
     end
     else
     begin
-      c := params.GetAsVariant('start').AsCardinal(CT_MaxBlock);
-      c2 := params.GetAsVariant('end').AsCardinal(CT_MaxBlock);
+      c := params.GetAsVariant('start').AsCardinal(cMaxBlocks);
+      c2 := params.GetAsVariant('end').AsCardinal(cMaxBlocks);
       i := params.AsInteger('max', 0);
       if (c < FNode.BlockManager.BlocksCount) and (i > 0) and (i <= 1000) then
       begin
@@ -2453,7 +2453,7 @@ begin
       ErrorNum := CT_RPC_ErrNum_InvalidBlock;
       if (c > c2) then
         ErrorDesc := 'Block start > block end'
-      else if (c = CT_MaxBlock) or (c2 = CT_MaxBlock) then
+      else if (c = cMaxBlocks) or (c2 = cMaxBlocks) then
         ErrorDesc := 'Need param "last" or "start" and "end"/"max"'
       else if (c2 >= FNode.BlockManager.BlocksCount) then
         ErrorDesc := 'Block higher or equal to getblockccount: ' + Inttostr(c2)
@@ -2472,7 +2472,7 @@ begin
     // Param "block" contains block. Null = Pending operation
     // Param "opblock" contains operation inside a block: (0..getblock.operations-1)
     // Returns a JSON object with operation values as "Operation resume format"
-    c := params.GetAsVariant('block').AsCardinal(CT_MaxBlock);
+    c := params.GetAsVariant('block').AsCardinal(cMaxBlocks);
     if (c >= 0) and (c < FNode.BlockManager.BlocksCount) then
     begin
       pcops := TBlock.Create(nil);
@@ -2491,7 +2491,7 @@ begin
             Inttostr(pcops.Count);
           exit;
         end;
-        if pcops.Operation[i].GetTransactionData(c, pcops.Operation[i].SignerAccount, OPR) then
+        if pcops.Transaction[i].GetTransactionData(c, pcops.Transaction[i].SignerAccount, OPR) then
         begin
           OPR.NOpInsideBlock := i;
           OPR.time := pcops.BlockHeader.timestamp;
@@ -2505,7 +2505,7 @@ begin
     end
     else
     begin
-      if (c = CT_MaxBlock) then
+      if (c = cMaxBlocks) then
         ErrorDesc := 'Need block param'
       else
         ErrorDesc := 'Block not found: ' + Inttostr(c);
@@ -2516,7 +2516,7 @@ begin
   begin
     // Param "block" contains block
     // Returns a JSON array with items as "Operation resume format"
-    c := params.GetAsVariant('block').AsCardinal(CT_MaxBlock);
+    c := params.GetAsVariant('block').AsCardinal(cMaxBlocks);
     if (c >= 0) and (c < FNode.BlockManager.BlocksCount) then
     begin
       pcops := TBlock.Create(nil);
@@ -2534,7 +2534,7 @@ begin
         begin
           if (i >= j) then
           begin
-            if pcops.Operation[i].GetTransactionData(c, pcops.Operation[i].SignerAccount, OPR) then
+            if pcops.Transaction[i].GetTransactionData(c, pcops.Transaction[i].SignerAccount, OPR) then
             begin
               OPR.NOpInsideBlock := i;
               OPR.time := pcops.BlockHeader.timestamp;
@@ -2552,7 +2552,7 @@ begin
     end
     else
     begin
-      if (c = CT_MaxBlock) then
+      if (c = cMaxBlocks) then
         ErrorDesc := 'Need block param'
       else
         ErrorDesc := 'Block not found: ' + Inttostr(c);
@@ -2565,7 +2565,7 @@ begin
     // Param "account" contains account number
     // Param "depht" (optional or "deep") contains max blocks deep to search (Default: 100)
     // Param "start" and "max" contains starting index and max operations respectively
-    c := params.GetAsVariant('account').AsCardinal(CT_MaxAccount);
+    c := params.GetAsVariant('account').AsCardinal(cMaxAccountNumber);
     if ((c >= 0) and (c < FNode.BlockManager.AccountsCount)) then
     begin
       if (params.IndexOfName('depth') >= 0) then
@@ -2577,7 +2577,7 @@ begin
     else
     begin
       ErrorNum := CT_RPC_ErrNum_InvalidAccount;
-      if (c = CT_MaxAccount) then
+      if (c = cMaxAccountNumber) then
         ErrorDesc := 'Need account param'
       else
         ErrorDesc := 'Account not found: ' + Inttostr(c);
@@ -2588,17 +2588,17 @@ begin
     // Returns all the operations pending to be included in a block in "Operation resume format" as an array
     // Create result
     GetResultArray;
-    for i := FNode.Operations.Count - 1 downto 0 do
+    for i := FNode.TransactionStorage.Count - 1 downto 0 do
     begin
-      if not FNode.Operations.Operation[i].GetTransactionData(0, FNode.Operations.Operation[i].SignerAccount, OPR) then
+      if not FNode.TransactionStorage.Transaction[i].GetTransactionData(0, FNode.TransactionStorage.Transaction[i].SignerAccount, OPR) then
       begin
         ErrorNum := CT_RPC_ErrNum_InternalError;
         ErrorDesc := 'Error converting data';
         exit;
       end;
       OPR.NOpInsideBlock := i;
-      OPR.balance := FNode.Operations.AccountTransaction.Account(FNode.Operations.Operation[i].SignerAccount).balance;
-      FillOperationResumeToJSONObject(OPR, GetResultArray.GetAsObject(FNode.Operations.Count - 1 - i));
+      OPR.balance := FNode.TransactionStorage.AccountTransaction.Account(FNode.TransactionStorage.Transaction[i].SignerAccount).Balance;
+      FillOperationResumeToJSONObject(OPR, GetResultArray.GetAsObject(FNode.TransactionStorage.Count - 1 - i));
     end;
     Result := true;
   end
@@ -2614,13 +2614,13 @@ begin
     end;
     pcops := TBlock.Create(nil);
     try
-      if not FNode.FindOperation(pcops, r, c, i) then
+      if not FNode.FindTransaction(pcops, r, c, i) then
       begin
         ErrorNum := CT_RPC_ErrNum_NotFound;
         ErrorDesc := 'ophash not found: "' + params.AsString('ophash', '') + '"';
         exit;
       end;
-      if not pcops.Operation[i].GetTransactionData(c, pcops.Operation[i].SignerAccount, OPR) then
+      if not pcops.Transaction[i].GetTransactionData(c, pcops.Transaction[i].SignerAccount, OPR) then
       begin
         ErrorNum := CT_RPC_ErrNum_InternalError;
         ErrorDesc := 'Error 20161026-1';
@@ -2647,7 +2647,7 @@ begin
       ErrorDesc := 'Wallet is password protected. Unlock first';
       exit;
     end;
-    Result := OpSendTo(params.AsCardinal('sender', CT_MaxAccount), params.AsCardinal('target', CT_MaxAccount),
+    Result := OpSendTo(params.AsCardinal('sender', cMaxAccountNumber), params.AsCardinal('target', cMaxAccountNumber),
       ToMicroCoins(params.AsDouble('amount', 0)), ToMicroCoins(params.AsDouble('fee', 0)),
       TCrypto.HexaToRaw(params.AsString('payload', '')), params.AsString('payload_method', 'dest'),
       params.AsString('pwd', ''));
@@ -2679,8 +2679,8 @@ begin
       ErrorNum := CT_RPC_ErrNum_InvalidPubKey;
       exit;
     end;
-    Result := SignOpSendTo(params.AsString('rawoperations', ''), params.AsCardinal('sender', CT_MaxAccount),
-      params.AsCardinal('target', CT_MaxAccount), senderpubkey, destpubkey, params.AsCardinal('last_n_operation', 0),
+    Result := SignOpSendTo(params.AsString('rawoperations', ''), params.AsCardinal('sender', cMaxAccountNumber),
+      params.AsCardinal('target', cMaxAccountNumber), senderpubkey, destpubkey, params.AsCardinal('last_n_operation', 0),
       ToMicroCoins(params.AsDouble('amount', 0)), ToMicroCoins(params.AsDouble('fee', 0)),
       TCrypto.HexaToRaw(params.AsString('payload', '')), params.AsString('payload_method', 'dest'),
       params.AsString('pwd', ''));
@@ -2704,10 +2704,10 @@ begin
       ErrorDesc := 'Need "account" param';
       exit;
     end;
-    c := params.AsCardinal('account', CT_MaxAccount);
+    c := params.AsCardinal('account', cMaxAccountNumber);
     if params.IndexOfName('account_signer') >= 0 then
     begin
-      c2 := params.AsCardinal('account_signer', CT_MaxAccount);
+      c2 := params.AsCardinal('account_signer', cMaxAccountNumber);
     end
     else
       c2 := c;
@@ -2772,10 +2772,10 @@ begin
       ErrorDesc := 'Need "account" param';
       exit;
     end;
-    c := params.AsCardinal('account', CT_MaxAccount);
+    c := params.AsCardinal('account', cMaxAccountNumber);
     if params.IndexOfName('account_signer') >= 0 then
     begin
-      c2 := params.AsCardinal('account_signer', CT_MaxAccount);
+      c2 := params.AsCardinal('account_signer', cMaxAccountNumber);
     end
     else
       c2 := c;
@@ -2873,9 +2873,9 @@ begin
     GetResultObject.GetAsVariant('port').Value := FNode.NetServer.Port;
     GetResultObject.GetAsVariant('locked').Value := not TRPCServer.Instance.WalletKeys.IsValidPassword;
     GetResultObject.GetAsVariant('timestamp').Value := UnivDateTimeToUnix(DateTime2UnivDateTime(now));
-    GetResultObject.GetAsVariant('version').Value := CT_ClientAppVersion;
-    GetResultObject.GetAsObject('netprotocol').GetAsVariant('ver').Value := CT_NetProtocol_Version;
-    GetResultObject.GetAsObject('netprotocol').GetAsVariant('ver_a').Value := CT_NetProtocol_Available;
+    GetResultObject.GetAsVariant('version').Value := ClientAppVersion;
+    GetResultObject.GetAsObject('netprotocol').GetAsVariant('ver').Value := cNetProtocol_Version;
+    GetResultObject.GetAsObject('netprotocol').GetAsVariant('ver_a').Value := cNetProtocol_Available;
     GetResultObject.GetAsVariant('blocks').Value := FNode.BlockManager.BlocksCount;
     GetResultObject.GetAsVariant('sbh').Value :=
       TCrypto.ToHexaString(FNode.BlockManager.LastBlock.initial_safe_box_hash);
@@ -3020,7 +3020,7 @@ begin
     end;
     ecpkey := TECPrivateKey.Create;
     try
-      ecpkey.GenerateRandomPrivateKey(params.AsInteger('ec_nid', CT_Default_EC_OpenSSL_NID));
+      ecpkey.GenerateRandomPrivateKey(params.AsInteger('ec_nid', cDefault_EC_OpenSSL_NID));
       TRPCServer.Instance.WalletKeys.AddPrivateKey(params.AsString('name', DateTimeToStr(now)), ecpkey);
       FillPublicKeyObject(ecpkey.PublicKey, GetResultObject);
       Result := true;

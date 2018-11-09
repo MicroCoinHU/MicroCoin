@@ -120,7 +120,7 @@ begin
     else
     begin
       P := l[l.count - 1];
-      if (FNodeNotifyEvents.Node.Operations.OperationsHashTree.HashTree <> P^.OperationsComp.OperationsHashTree.HashTree)
+      if (FNodeNotifyEvents.Node.TransactionStorage.TransactionHashTree.HashTree <> P^.OperationsComp.TransactionHashTree.HashTree)
       then
       begin
         doAdd := (P^.SentDateTime + EncodeTime(0, 0, CT_WAIT_SECONDS_BEFORE_SEND_NEW_JOB, 0)) < Now;
@@ -230,7 +230,7 @@ begin
   NetTcpIpClientClass := TJSONRPCTcpIpClient;
   FNodeNotifyEvents := TNodeNotifyEvents.Create(nil);
   FNodeNotifyEvents.OnBlocksChanged := OnNodeNewBlock;
-  FNodeNotifyEvents.OnOperationsChanged := OnNodeOperationsChanged;
+  FNodeNotifyEvents.OnTransactionsChanged := OnNodeOperationsChanged;
   FNodeNotifyEvents.Node := TNode.Node;
   FMinerOperations := TBlock.Create(FNodeNotifyEvents.Node.BlockManager);
   FMinerAccountKey := CT_TECDSA_Public_Nul;
@@ -249,7 +249,7 @@ begin
   FreeAndNil(FPoolThread);
   FNodeNotifyEvents.Node := nil;
   FNodeNotifyEvents.OnBlocksChanged := nil;
-  FNodeNotifyEvents.OnOperationsChanged := nil;
+  FNodeNotifyEvents.OnTransactionsChanged := nil;
   FreeAndNil(FMinerOperations);
   FreeAndNil(FNodeNotifyEvents);
   ClearPoolJobs;
@@ -307,7 +307,7 @@ begin
       response_result.GetAsVariant('initial_sbh').Value :=
         TCrypto.ToHexaString(FNodeNotifyEvents.Node.BlockManager.LastBlockFound.BlockHeader.initial_safe_box_hash);
       response_result.GetAsVariant('operations_hash').Value :=
-        TCrypto.ToHexaString(FNodeNotifyEvents.Node.BlockManager.LastBlockFound.BlockHeader.operations_hash);
+        TCrypto.ToHexaString(FNodeNotifyEvents.Node.BlockManager.LastBlockFound.BlockHeader.transactionHash);
       response_result.GetAsVariant('pow').Value :=
         TCrypto.ToHexaString(FNodeNotifyEvents.Node.BlockManager.LastBlockFound.BlockHeader.proof_of_work);
       Client.SendJSONRPCResponse(response_result, id_value);
@@ -352,72 +352,72 @@ var
 
 var
   i, j: Integer;
-  MasterOp: TBlock;
-  Op: ITransaction;
+  xMaster: TBlock;
+  xBlock: ITransaction;
 var
   errors: AnsiString;
 begin
-  MasterOp := FNodeNotifyEvents.Node.Operations;
-  MasterOp.Lock;
+  xMaster := FNodeNotifyEvents.Node.TransactionStorage;
+  xMaster.Lock;
   try
     FMinerOperations.Lock;
     try
       tree := TTransactionHashTree.Create;
       try
-        if (not(TBlock.EqualsOperationBlock(FMinerOperations.BlockHeader, MasterOp.BlockHeader))) then
+        if (not(TBlock.Equals(FMinerOperations.BlockHeader, xMaster.BlockHeader))) then
         begin
           FMinerOperations.Clear(true);
-          if MasterOp.count > 0 then
+          if xMaster.count > 0 then
           begin
             // First round: Select with fee > 0
             i := 0;
-            while (tree.OperationsCount < MaxOperationsPerBlock) and
-              (i < MasterOp.OperationsHashTree.OperationsCount) do
+            while (tree.TransactionCount < MaxOperationsPerBlock) and
+              (i < xMaster.TransactionHashTree.TransactionCount) do
             begin
-              Op := MasterOp.OperationsHashTree.GetOperation(i);
-              if Op.fee > 0 then
+              xBlock := xMaster.TransactionHashTree.GetTransaction(i);
+              if xBlock.fee > 0 then
               begin
-                doAdd(Op, false);
+                doAdd(xBlock, false);
               end;
               inc(i);
             end;
             // Second round: Allow fee = 0
             j := 0;
             i := 0;
-            while (tree.OperationsCount < MaxOperationsPerBlock) and (i < MasterOp.OperationsHashTree.OperationsCount)
+            while (tree.TransactionCount < MaxOperationsPerBlock) and (i < xMaster.TransactionHashTree.TransactionCount)
               and (j < MaxZeroFeeOperationsPerBlock) do
             begin
-              Op := MasterOp.OperationsHashTree.GetOperation(i);
-              if Op.fee = 0 then
+              xBlock := xMaster.TransactionHashTree.GetTransaction(i);
+              if xBlock.fee = 0 then
               begin
-                doAdd(Op, true);
+                doAdd(xBlock, true);
                 inc(j);
               end;
               inc(i);
             end;
             // Add operations:
             i := FMinerOperations.AddTransactions(tree, errors);
-            if (i <> tree.OperationsCount) or (i <> MasterOp.OperationsHashTree.OperationsCount) then
+            if (i <> tree.TransactionCount) or (i <> xMaster.TransactionHashTree.TransactionCount) then
             begin
               TLog.NewLog(ltDebug, ClassName,
                 Format('Cannot add all operations! Master:%d Selected:%d Added:%d - Errors: %s',
-                [MasterOp.OperationsHashTree.OperationsCount, tree.OperationsCount, i, errors]));
+                [xMaster.TransactionHashTree.TransactionCount, tree.TransactionCount, i, errors]));
             end;
           end
           else
           begin
-            FMinerOperations.CopyFrom(MasterOp);
+            FMinerOperations.CopyFrom(xMaster);
           end;
           //
           TLog.NewLog(ltInfo, ClassName, Format('New miner operations:%d Hash:%s %s',
-            [FMinerOperations.OperationsHashTree.OperationsCount,
-            TCrypto.ToHexaString(FMinerOperations.OperationsHashTree.HashTree),
-            TCrypto.ToHexaString(FMinerOperations.BlockHeader.operations_hash)]));
+            [FMinerOperations.TransactionHashTree.TransactionCount,
+            TCrypto.ToHexaString(FMinerOperations.TransactionHashTree.HashTree),
+            TCrypto.ToHexaString(FMinerOperations.BlockHeader.transactionHash)]));
         end
         else
         begin
           TLog.NewLog(ltDebug, ClassName, Format('No need to change Miner buffer. Operations:%d',
-            [FMinerOperations.OperationsHashTree.OperationsCount]));
+            [FMinerOperations.TransactionHashTree.TransactionCount]));
         end;
       finally
         tree.Free;
@@ -426,7 +426,7 @@ begin
       FMinerOperations.Unlock;
     end;
   finally
-    MasterOp.Unlock;
+    xMaster.Unlock;
   end;
 end;
 
@@ -488,7 +488,7 @@ begin
           P^.OperationsComp.timestamp := _timestamp;
           P^.OperationsComp.nonce := _nOnce;
           _targetPoW := FNodeNotifyEvents.Node.BlockManager.AccountStorage.GetActualTargetHash
-            (P^.OperationsComp.BlockHeader.protocol_version = CT_PROTOCOL_2);
+            (P^.OperationsComp.BlockHeader.protocol_version = cPROTOCOL_2);
           if (P^.OperationsComp.BlockHeader.proof_of_work <= _targetPoW) then
           begin
             // Candidate!

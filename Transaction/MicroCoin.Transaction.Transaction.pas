@@ -67,14 +67,14 @@ type
     function GetDestinationAccount: Int64; virtual;
     function GetSellerAccount: Int64; virtual;
     function GetNumberOfTransactions: Cardinal; virtual; abstract;
-    function GetOpType: Byte; virtual; abstract;
+    function GetTransactionType: Byte; virtual; abstract;
     function GetTag: Integer;
     procedure SetTag(Value: Integer);
 
   public
     constructor Create; virtual;
     procedure InitializeData; virtual;
-    function GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes; virtual;
+    function GetBuffer(UseProtocolV2: Boolean): TRawBytes; virtual;
     function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean; virtual; abstract;
     procedure AffectedAccounts(list: TList); virtual; abstract;
     function GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal;
@@ -113,7 +113,7 @@ type
     property SellerAccount: Int64 read GetSellerAccount;
     property NumberOfTransactions: Cardinal read GetNumberOfTransactions;
     property Tag: Integer read Ftag write Ftag;
-    property OpType: Byte read GetOpType;
+    property TransactionType: Byte read GetTransactionType;
   end;
 
 implementation
@@ -124,7 +124,7 @@ begin
   InitializeData;
 end;
 
-function TTransaction.GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes;
+function TTransaction.GetBuffer(UseProtocolV2: Boolean): TRawBytes;
 var
   ms: TMemoryStream;
 begin
@@ -216,7 +216,6 @@ function TTransaction.TransactionHash_OLD(Block: Cardinal): TRawBytes;
 var
   ms: TMemoryStream;
   _a, _o: Cardinal;
-  s: AnsiString;
 begin
   ms := TMemoryStream.Create;
   try
@@ -228,12 +227,10 @@ begin
     // BUG IN PREVIOUS VERSIONS: (1.5.5 and prior)
     // Function DoRipeMD160 returned a 40 bytes value, because data was converted in hexa string!
     // So, here we used only first 20 bytes, and WHERE HEXA values, so only 16 diff values per 2 byte!
-    ms.WriteBuffer(TCrypto.DoRipeMD160_HEXASTRING(GetBufferForOpHash(false))[1], 20);
+    ms.WriteBuffer(TCrypto.DoRipeMD160_HEXASTRING(GetBuffer(false))[1], 20);
     SetLength(Result, ms.Size);
     ms.Position := 0;
     ms.Read(Result[1], ms.Size);
-    s := TCrypto.ToHexaString(Result);
-    s := '';
   finally
     ms.Free;
   end;
@@ -269,7 +266,7 @@ begin
     _o := GetNumberOfTransactions;
     ms.Write(_a, 4); // Save Account (4 bytes)
     ms.Write(_o, 4); // Save N_Operation (4 bytes)
-    ms.WriteBuffer(TCrypto.DoRipeMD160AsRaw(GetBufferForOpHash(true))[1], 20);
+    ms.WriteBuffer(TCrypto.DoRipeMD160AsRaw(GetBuffer(true))[1], 20);
     // Calling GetBufferForOpHash(TRUE) is the same than data used for Sha256
     SetLength(Result, ms.Size);
     ms.Position := 0;
@@ -352,7 +349,7 @@ function TTransaction.Sha256: TRawBytes;
 begin
   if FBufferedSha256 = '' then
   begin
-    FBufferedSha256 := TCrypto.DoSha256(GetBufferForOpHash(true));
+    FBufferedSha256 := TCrypto.DoSha256(GetBuffer(true));
   end;
   Result := FBufferedSha256;
 end;

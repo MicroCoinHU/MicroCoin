@@ -22,8 +22,8 @@ type
 
   TNotifyNewBlockThread = class(TPCThread)
     FNetConnection: TNetConnection;
-    FSanitizedOperationsHashTree: TTransactionHashTree;
-    FNewBlockOperations: TBlock;
+    FSanitizedHashTree: TTransactionHashTree;
+    FNewBlockTransactions: TBlock;
   protected
     procedure BCExecute; override;
   public
@@ -47,17 +47,17 @@ begin
         exit;
       TLog.NewLog(ltdebug, Classname, 'Sending new block found to ' + FNetConnection.Client.ClientRemoteAddr);
       DebugStep := 'Sending';
-      FNetConnection.Send_NewBlockFound(FNewBlockOperations);
+      FNetConnection.Send_NewBlockFound(FNewBlockTransactions);
       DebugStep := 'Checking connected again';
       if not FNetConnection.Connected then
         exit;
       DebugStep := 'Need send opreations?';
-      if FSanitizedOperationsHashTree.OperationsCount > 0 then
+      if FSanitizedHashTree.TransactionCount > 0 then
       begin
-        DebugStep := 'Sending ' + IntToStr(FSanitizedOperationsHashTree.OperationsCount) + ' sanitized operations';
-        TLog.NewLog(ltdebug, Classname, 'Sending ' + IntToStr(FSanitizedOperationsHashTree.OperationsCount) +
+        DebugStep := 'Sending ' + IntToStr(FSanitizedHashTree.TransactionCount) + ' sanitized operations';
+        TLog.NewLog(ltdebug, Classname, 'Sending ' + IntToStr(FSanitizedHashTree.TransactionCount) +
           ' sanitized operations to ' + FNetConnection.ClientRemoteAddr);
-        TNotifyTransactionThread.Create(FNetConnection, FSanitizedOperationsHashTree);
+        TNotifyTransactionThread.Create(FNetConnection, FSanitizedHashTree);
       end;
       DebugStep := 'Unlocking';
     finally
@@ -71,18 +71,18 @@ constructor TNotifyNewBlockThread.Create(NetConnection: TNetConnection; MakeACop
   MakeACopyOfSanitizedOperationsHashTree: TTransactionHashTree);
 begin
   FNetConnection := NetConnection;
-  FSanitizedOperationsHashTree := TTransactionHashTree.Create;
-  FSanitizedOperationsHashTree.CopyFromHashTree(MakeACopyOfSanitizedOperationsHashTree);
-  FNewBlockOperations := TBlock.Create(nil);
-  FNewBlockOperations.CopyFrom(MakeACopyOfNewBlockOperations);
+  FSanitizedHashTree := TTransactionHashTree.Create;
+  FSanitizedHashTree.CopyFromHashTree(MakeACopyOfSanitizedOperationsHashTree);
+  FNewBlockTransactions := TBlock.Create(nil);
+  FNewBlockTransactions.CopyFrom(MakeACopyOfNewBlockOperations);
   inherited Create(false);
   FreeOnTerminate := true;
 end;
 
 destructor TNotifyNewBlockThread.Destroy;
 begin
-  FreeAndNil(FSanitizedOperationsHashTree);
-  FreeAndNil(FNewBlockOperations);
+  FreeAndNil(FSanitizedHashTree);
+  FreeAndNil(FNewBlockTransactions);
   inherited;
 end;
 

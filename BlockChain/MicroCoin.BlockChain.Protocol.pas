@@ -51,10 +51,10 @@ begin
   { Important: Note that a -500 is the same that divide by 2 (-100%), and
     1000 is the same that multiply by 2 (+100%), so we limit increase
     in a limit [-500..+1000] for a complete (CT_CalcNewTargetBlocksAverage DIV 2) round }
-  if CT_CalcNewTargetBlocksAverage > 1 then
+  if cDifficultyCalcBlocks > 1 then
   begin
-    factor1000Min := (-500) div (CT_CalcNewTargetBlocksAverage div 2);
-    factor1000Max := (1000) div (CT_CalcNewTargetBlocksAverage div 2);
+    factor1000Min := (-500) div (cDifficultyCalcBlocks div 2);
+    factor1000Max := (1000) div (cDifficultyCalcBlocks div 2);
   end
   else
   begin
@@ -122,14 +122,12 @@ begin
   ms := TMemoryStream.Create;
   try
     ms.WriteBuffer(operationBlock.initial_safe_box_hash[1], length(operationBlock.initial_safe_box_hash));
-    ms.WriteBuffer(operationBlock.operations_hash[1], length(operationBlock.operations_hash));
+    ms.WriteBuffer(operationBlock.transactionHash[1], length(operationBlock.transactionHash));
     // Note about fee: Fee is stored in 8 bytes, but only digest first 4 low bytes
     ms.Write(operationBlock.fee, 4);
     SetLength(Part3, ms.Size);
     ms.Position := 0;
     ms.ReadBuffer(Part3[1], ms.Size);
-    s := TCrypto.ToHexaString(operationBlock.operations_hash);
-    s := '';
   finally
     ms.Free;
   end;
@@ -154,7 +152,7 @@ begin
     ms.WriteBuffer(operationBlock.block_payload[1], length(operationBlock.block_payload));
     // Part 3
     ms.WriteBuffer(operationBlock.initial_safe_box_hash[1], length(operationBlock.initial_safe_box_hash));
-    ms.WriteBuffer(operationBlock.operations_hash[1], length(operationBlock.operations_hash));
+    ms.WriteBuffer(operationBlock.transactionHash[1], length(operationBlock.transactionHash));
     // Note about fee: Fee is stored in 8 bytes (Int64), but only digest first 4 low bytes
     ms.Write(operationBlock.fee, 4);
     ms.Write(operationBlock.timestamp, 4);
@@ -169,14 +167,14 @@ class function TMicroCoinProtocol.GetRewardForNewLine(line_index: Cardinal): UIn
 var
   n, i: Cardinal;
 begin
-  n := (line_index + 1) div CT_NewLineRewardDecrease;
-  Result := CT_FirstReward;
+  n := (line_index + 1) div cDecreaseReward;
+  Result := cInitialBlockReward;
   for i := 1 to n do
   begin
     Result := Result div 2;
   end;
-  if (Result < CT_MinReward) then
-    Result := CT_MinReward;
+  if (Result < cMinimumReward) then
+    Result := cMinimumReward;
 end;
 
 class function TMicroCoinProtocol.TargetFromCompact(encoded: Cardinal): TRawBytes;
@@ -211,7 +209,7 @@ begin
     Note that is not exactly the same than expected due to compacted format
   }
   nbits := encoded shr 24;
-  i := CT_MinCompactTarget shr 24;
+  i := cMinimumDifficulty shr 24;
   if nbits < i then
     nbits := i; // min nbits
   if nbits > 231 then
@@ -270,10 +268,10 @@ begin
       bn2.RShift(1);
       inc(nbits);
     end;
-    i := CT_MinCompactTarget shr 24;
+    i := cMinimumDifficulty shr 24;
     if (nbits < i) then
     begin
-      Result := CT_MinCompactTarget;
+      Result := cMinimumDifficulty;
       exit;
     end;
     bn.RShift((256 - 25) - nbits);

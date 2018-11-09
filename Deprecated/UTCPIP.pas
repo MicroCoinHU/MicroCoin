@@ -716,7 +716,7 @@ constructor TNetTcpIpServer.Create;
 begin
   FNetTcpIpClientClass := TNetTcpIpClient;
   FTcpIpServer := Nil;
-  FMaxConnections := CT_MaxClientsConnected;
+  FMaxConnections := cMaximumClients;
   {$IFDEF DelphiSockets}
   FTcpIpServer := TTcpServer.Create(Nil);
   FTcpIpServer.OnAccept := OnTcpServerAccept;

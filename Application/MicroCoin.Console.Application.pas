@@ -214,7 +214,7 @@ begin
   TNode.Node.BlockManager.StorageClass := TFileStorage;
   TFileStorage(TNode.Node.BlockManager.Storage).DatabaseFolder := TFolderHelper.GetMicroCoinDataFolder + PathDelim + 'Data';
 
-  TNode.Node.BlockManager.DiskRestoreFromTransactions(CT_MaxBlock);
+  TNode.Node.BlockManager.DiskRestoreFromTransactions(cMaxBlocks);
 
   FWalletKeys.AccountStorage := TNode.Node.BlockManager.AccountStorage;
 
@@ -237,7 +237,7 @@ var
 begin
   i := FSettings.MinerServerPort;
   if (i < 0) then
-    i := CT_JSONRPCMinerServer_Port;
+    i := cMinerServerPort;
   if (i > 0) then
   begin
     Port := i;
@@ -260,7 +260,7 @@ begin
         // New key
         ECPK := TECPrivateKey.Create;
         try
-          ECPK.GenerateRandomPrivateKey(CT_Default_EC_OpenSSL_NID);
+          ECPK.GenerateRandomPrivateKey(cDefault_EC_OpenSSL_NID);
           FWalletKeys.AddPrivateKey('RANDOM NEW BY DAEMON ' + formatDateTime('yyyy-mm-dd hh:nn:dd', now), ECPK);
           pubkey := ECPK.PublicKey;
           FSettings.PublicKey := pubkey.AccountPublicKeyExport();
@@ -311,9 +311,9 @@ begin
   Port := FSettings.RPCPort;
   if (Port <= 0) then
   begin
-    Port := CT_JSONRPC_Port;
+    Port := cJsonRPCPort;
   end;
-  FRPC := TRPCServer.Create;
+  FRPC := TRPCServer.Instance;
   FRPC.WalletKeys := FWalletKeys;
   FRPC.Port := Port;
   FRPC.Active := true;

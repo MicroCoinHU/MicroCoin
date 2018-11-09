@@ -43,6 +43,7 @@ type
   TRPCPluginManager = class
   strict private
     class var FHandlers: {$IFDEF USE_GENERICS}TDictionary<string, THandler>{$ELSE}TStringList{$endif};
+    class var FWrappers : TInterfaceList;
   public
     class constructor Create;
     class destructor Destroy;
@@ -61,41 +62,46 @@ begin
   {$else}
   FHandlers := TStringList.Create;
   {$endif}
+  FWrappers := TInterfaceList.Create;
 end;
 
 class destructor TRPCPluginManager.Destroy;
 begin
+  FWrappers.Clear;
+  FWrappers.Free;
+  FWrappers := nil;
   FHandlers.Clear;
   FreeAndNil(FHandlers);
 end;
 
 class function TRPCPluginManager.GetHandler(AMethod: string): THandler;
 var
-  index : integer;
-  hanlerWrapper : IHandlerWrapper;
+  xIndex : integer;
+  xHandlerWrapper : IHandlerWrapper;
 begin
   Result := nil;
   {$IFDEF USE_GENERICS}
     FHandlers.TryGetValue(AMethod, Result);
   {$ELSE}
-    index := FHandlers.IndexOf(AMethod);
-    if index >-1
+    xIndex := FHandlers.IndexOf(AMethod);
+    if xIndex >-1
     then begin
-     if Supports(FHandlers.Objects[index], IHandlerWrapper, hanlerWrapper)
-     then Result := hanlerWrapper.Handler;
+     if Supports(FHandlers.Objects[xIndex], IHandlerWrapper, xHandlerWrapper)
+     then Result := xHandlerWrapper.Handler;
     end;
   {$endif}
 end;
 
 class procedure TRPCPluginManager.RegisterHandler(AMethod: string; AHandler: THandler);
 var
-  handlerWrapper : IHandlerWrapper;
+  xHandlerWrapper : IHandlerWrapper;
 begin
   {$IFDEF USE_GENERICS}
     FHandlers.AddOrSetValue(LowerCase(AMethod), AHandler);
   {$ELSE}
-    handlerWrapper := THandlerWrapper.Create(AHandler);
-    FHandlers.AddObject(LowerCase(AMethod), TObject(handlerWrapper));
+    xHandlerWrapper := THandlerWrapper.Create(AHandler);
+    FHandlers.AddObject(LowerCase(AMethod), xHandlerWrapper as TObject);
+    FWrappers.Add(xHandlerWrapper);
   {$ENDIF}
 end;
 

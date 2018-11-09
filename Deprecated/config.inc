@@ -38,9 +38,15 @@
   Don't touch more code, it will addapt based on your preferences
   ******************************************************************** }
 
-{$IFDEF TESTNET}{$IFDEF PRODUCTION}
-{$Message Fatal 'You must select ONLY ONE option: PRODUCTION or TESTNET'}
-{$ENDIF}{$ELSE}{$DEFINE PRODUCTION}{$ENDIF}
+{$IFDEF TESTNET}
+  {$IFDEF PRODUCTION}
+    {$Message Fatal 'You must select ONLY ONE option: PRODUCTION or TESTNET'}
+  {$ENDIF}
+{$ELSE}
+  {$IFNDEF DEVNET}
+    {$DEFINE PRODUCTION}
+  {$ENDIF}
+{$ENDIF}
 
 {$IFNDEF OPTIONS_BY_DEFAULT}{$IFNDEF DelphiSockets_OpenSSLv10}{$IFNDEF Synapse_OpenSSLv10}{$IFNDEF Synapse_OpenSSLv11}
 {$Message 'Fatal You must select ONE option!'}
@@ -89,7 +95,9 @@
     {$ENDIF}
   {$ENDIF}
 {$ENDIF}
+
 {$ifdef OpenSSL11}
   {$undef OpenSSL11}
 {$endif}
+
 {$define OpenSSL10}

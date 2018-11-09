@@ -41,7 +41,7 @@ type
     FPendingNotificationsList: TPCThreadList;
     FThreadSafeNodeNotifyEvent: TThreadSafeNodeNotifyEvent;
     FOnBlocksChanged: TNotifyEvent;
-    FOnOperationsChanged: TNotifyEvent;
+    FOnTransactionsChanged: TNotifyEvent;
     FMessages: TStringList;
     FOnNodeMessageEvent: TNodeMessageEvent;
     procedure Notification(AComponent: TComponent; Operation: TOperation); override;
@@ -55,7 +55,7 @@ type
 
     property Node: TNode read FNode write SetNode;
     property OnBlocksChanged: TNotifyEvent read FOnBlocksChanged write FOnBlocksChanged;
-    property OnOperationsChanged: TNotifyEvent read FOnOperationsChanged write FOnOperationsChanged;
+    property OnTransactionsChanged: TNotifyEvent read FOnTransactionsChanged write FOnTransactionsChanged;
     property OnNodeMessageEvent: TNodeMessageEvent read FOnNodeMessageEvent write FOnNodeMessageEvent;
     property Messages: TStringList read FMessages;
   end;
@@ -65,7 +65,7 @@ implementation
 constructor TNodeNotifyEvents.Create(AOwner: TComponent);
 begin
   inherited;
-  FOnOperationsChanged := nil;
+  FOnTransactionsChanged := nil;
   FOnBlocksChanged := nil;
   FOnNodeMessageEvent := nil;
   FMessages := TStringList.Create;
@@ -161,8 +161,8 @@ begin
     begin
       FNotifyOperationsChanged := false;
       DebugStep := 'Notify OnOperationsChanged';
-      if Assigned(FNodeNotifyEvents) and (Assigned(FNodeNotifyEvents.FOnOperationsChanged)) then
-        FNodeNotifyEvents.FOnOperationsChanged(FNodeNotifyEvents);
+      if Assigned(FNodeNotifyEvents) and (Assigned(FNodeNotifyEvents.FOnTransactionsChanged)) then
+        FNodeNotifyEvents.FOnTransactionsChanged(FNodeNotifyEvents);
     end;
     if FNodeNotifyEvents.FMessages.Count > 0 then
     begin

@@ -87,7 +87,7 @@ end;
 
 function TMicroCoinIniFileSettings.GetMaxConnections: integer;
 begin
-  Result := FIniFile.ReadInteger(GENERAL, 'MaxConnections', CT_MaxClientsConnected);
+  Result := FIniFile.ReadInteger(GENERAL, 'MaxConnections', cMaximumClients);
   if not FIniFile.ValueExists(GENERAL, 'MaxConnections')
   then FIniFile.WriteInteger(GENERAL, 'MaxConnections', Result);
 end;
@@ -122,14 +122,14 @@ end;
 
 function TMicroCoinIniFileSettings.GetMinerServerPort: integer;
 begin
-  Result := FIniFile.ReadInteger(MINER, 'MinerServerPort', CT_JSONRPCMinerServer_Port);
+  Result := FIniFile.ReadInteger(MINER, 'MinerServerPort', cMinerServerPort);
   if not FIniFile.ValueExists(MINER, 'MinerServerPort')
   then FIniFile.WriteInteger(MINER, 'MinerServerPort', Result);
 end;
 
 function TMicroCoinIniFileSettings.GetPort: integer;
 begin
-  Result := FIniFile.ReadInteger(GENERAL, 'Port', CT_NetServer_Port);
+  Result := FIniFile.ReadInteger(GENERAL, 'Port', cNetServerPort);
   if not FIniFile.ValueExists(GENERAL, 'Port')
   then FIniFile.WriteInteger(GENERAL, 'Port', Result);
 end;
@@ -143,7 +143,7 @@ end;
 
 function TMicroCoinIniFileSettings.GetRPCPort: integer;
 begin
-  Result := FIniFile.ReadInteger(RPC, 'RPCPort', CT_JSONRPC_Port);
+  Result := FIniFile.ReadInteger(RPC, 'RPCPort', cJsonRPCPort);
   if not FIniFile.ValueExists(RPC, 'RPCPort')
   then FIniFile.WriteInteger(RPC, 'RPCPort', Result);
 end;

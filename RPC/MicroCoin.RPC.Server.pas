@@ -57,6 +57,8 @@ type
     procedure SetLogFileName(const Value: AnsiString);
     function GetLogFileName: AnsiString;
     procedure SetValidIPs(const Value: AnsiString);
+    function GetWalletKeys: TKeyManager;
+    procedure SetWalletKeys(const Value: TKeyManager);
   strict private
     procedure OnNodeNewOperation(Sender: TObject);
     constructor Create;
@@ -71,7 +73,7 @@ type
 
     property Port: Word read FPort write FPort;
     property Active: Boolean read FActive write SetActive;
-    property WalletKeys: TKeyManager read FWalletKeys write FWalletKeys;
+    property WalletKeys: TKeyManager read GetWalletKeys write SetWalletKeys;
     //
     property JSON20Strict: Boolean read FJSON20Strict write FJSON20Strict;
     property IniFileName: AnsiString read FIniFileName write SetIniFileName;
@@ -109,39 +111,44 @@ begin
   Result := FCallsCounter;
 end;
 
+function TRPCServer.GetWalletKeys: TKeyManager;
+begin
+  Result := FWalletKeys;
+end;
+
 procedure TRPCServer.OnNodeNewOperation(Sender: TObject);
 var
   i, j: Integer;
-  Op: ITransaction;
-  OPR: TTransactionData;
+  xTransaction: ITransaction;
+  xTransactionData: TTransactionData;
   an: cardinal;
-  ToAccount: string;
-  Amount: string;
-  FromAccount: string;
-  Payload: string;
-  HTTP: THTTPSend;
-  Decrypted: string;
-  WalletKey: TWalletKey;
-  Result: Boolean;
-  from: string;
-  ini: TIniFile;
-  Proxy: string;
-  stream: TMemoryStream;
+  xToAccount: string;
+  xAmount: string;
+  xFromAccount: string;
+  xPayload: string;
+  xHTTP: THTTPSend;
+  xDecrypted: string;
+  xWalletKey: TWalletKey;
+  xResult: Boolean;
+  xfrom: string;
+  xini: TIniFile;
+  xProxy: string;
+  xStream: TMemoryStream;
   a: string;
   sp: pchar;
-  fee: string;
-  ophash: string;
-  balance: string;
+  xFee: string;
+  xTransactionHash: string;
+  xBalance: string;
 begin
 
-  ini := TIniFile.Create('microcoin.ini');
+  xini := TIniFile.Create('microcoin.ini');
 
-  Proxy := ini.ReadString('Events', 'Transaction', '');
-  FreeAndNil(ini);
-  if Proxy = '' then
+  xProxy := xini.ReadString('Events', 'Transaction', '');
+  FreeAndNil(xini);
+  if xProxy = '' then
     exit;
   { Script := TPSScript.Create(nil); }
-  for i := 0 to TNodeNotifyEvents(Sender).Node.Operations.Count - 1 do
+  for i := 0 to TNodeNotifyEvents(Sender).Node.TransactionStorage.Count - 1 do
   begin
     {
       Script.AddRegisteredVariable('FromAccount', 'btString');
@@ -152,20 +159,20 @@ begin
       Script.AddRegisteredVariable('OpHash', 'btString');
       Script.AddRegisteredVariable('Payload', 'btString');
     }
-    Op := TNodeNotifyEvents(Sender).Node.Operations.Operation[i];
-    Op := TNodeNotifyEvents(Sender).Node.Operations.OperationsHashTree.GetOperation(i);
-    Op.GetTransactionData(0, Op.SignerAccount, OPR);
-    an := OPR.DestAccount;
-    FromAccount := TAccount.AccountNumberToAccountTxtNumber(OPR.AffectedAccount);
-    ToAccount := TAccount.AccountNumberToAccountTxtNumber(OPR.DestAccount);
-    Amount := TCurrencyUtils.CurrencyToString(OPR.Amount * -1);
-    fee := TCurrencyUtils.CurrencyToString(OPR.fee);
-    balance := TCurrencyUtils.CurrencyToString(OPR.balance);
-    ophash := TCrypto.ToHexaString(OPR.OperationHash);
-    if TCrypto.IsHumanReadable(OPR.OriginalPayload) then
-      Payload := OPR.OriginalPayload
+    xTransaction := TNodeNotifyEvents(Sender).Node.TransactionStorage.Transaction[i];
+    xTransaction := TNodeNotifyEvents(Sender).Node.TransactionStorage.TransactionHashTree.GetTransaction(i);
+    xTransaction.GetTransactionData(0, xTransaction.SignerAccount, xTransactionData);
+    an := xTransactionData.DestAccount;
+    xFromAccount := TAccount.AccountNumberToString(xTransactionData.AffectedAccount);
+    xToAccount := TAccount.AccountNumberToString(xTransactionData.DestAccount);
+    xAmount := TCurrencyUtils.CurrencyToString(xTransactionData.Amount * -1);
+    xFee := TCurrencyUtils.CurrencyToString(xTransactionData.fee);
+    xBalance := TCurrencyUtils.CurrencyToString(xTransactionData.balance);
+    xTransactionHash := TCrypto.ToHexaString(xTransactionData.OperationHash);
+    if TCrypto.IsHumanReadable(xTransactionData.OriginalPayload) then
+      xPayload := xTransactionData.OriginalPayload
     else
-      Payload := '';
+      xPayload := '';
     {
       Script.AddRegisteredVariable('FromAccount', 'btString');
       Script.AddRegisteredVariable('ToAccount', 'btString');
@@ -179,38 +186,38 @@ begin
       Script.Execute;
     }
     try
-      stream := TMemoryStream.Create;
-      HTTP := THTTPSend.Create;
+      xStream := TMemoryStream.Create;
+      xHTTP := THTTPSend.Create;
       try
         with TPCJSONObject.Create do
         begin
-          GetAsVariant('from').Value := from;
-          GetAsVariant('to').Value := ToAccount;
-          GetAsVariant('amount').Value := Amount;
-          GetAsVariant('fee').Value := fee;
-          GetAsVariant('balance').Value := balance;
-          GetAsVariant('ophash').Value := ophash;
-          GetAsVariant('payload').Value := Payload;
+          GetAsVariant('from').Value := xfrom;
+          GetAsVariant('to').Value := xToAccount;
+          GetAsVariant('amount').Value := xAmount;
+          GetAsVariant('fee').Value := xFee;
+          GetAsVariant('balance').Value := xBalance;
+          GetAsVariant('ophash').Value := xTransactionHash;
+          GetAsVariant('payload').Value := xPayload;
           a := ToJSON(false);
           Free;
         end;
-        WriteStrToStream(HTTP.Document, a);
-        HTTP.MimeType := 'application/json';
-        HTTP.Protocol := '1.1';
-        Result := HTTP.HTTPMethod('POST', Proxy);
-        if Result then
+        WriteStrToStream(xHTTP.Document, a);
+        xHTTP.MimeType := 'application/json';
+        xHTTP.Protocol := '1.1';
+        xResult := xHTTP.HTTPMethod('POST', xProxy);
+        if xResult then
         begin
-          stream.CopyFrom(HTTP.Document, 0);
-          stream.Position := 0;
-          sp := StrAlloc(stream.size);
-          stream.Read(sp^, stream.size);
+          xStream.CopyFrom(xHTTP.Document, 0);
+          xStream.Position := 0;
+          sp := StrAlloc(xStream.size);
+          xStream.Read(sp^, xStream.size);
           a := StrPas(sp);
         end;
       finally
-        HTTP.Free;
+        xHTTP.Free;
       end;
     finally
-      stream.Free;
+      xStream.Free;
     end;
   end;
 end;
@@ -276,6 +283,11 @@ begin
     TLog.NewLog(ltupdate, Classname, 'Updated RPC Server valid IPs to: ' + FValidIPs)
 end;
 
+procedure TRPCServer.SetWalletKeys(const Value: TKeyManager);
+begin
+  FWalletKeys := Value;
+end;
+
 function TRPCServer.IsValidClientIP(const clientIp: string; clientPort: Word): Boolean;
 begin
   if FValidIPs = '' then
@@ -289,6 +301,8 @@ end;
 constructor TRPCServer.Create;
 begin
   inherited;
+  if Assigned(FInstance)
+  then raise Exception.Create('Multiple instance');
   FActive := false;
   FRPCLog := nil;
   FIniFile := nil;
@@ -296,11 +310,12 @@ begin
   FJSON20Strict := true;
   FWalletKeys := nil;
   FRPCServerThread := nil;
-  FPort := CT_JSONRPC_Port;
+  FPort := cJsonRPCPort;
   FCallsCounter := 0;
   FValidIPs := '127.0.0.1;localhost'; // New Build 1.5 - By default, only localhost can access to RPC
   FNodeNotifyEvents := TNodeNotifyEvents.Create(nil);
-  FNodeNotifyEvents.OnOperationsChanged := OnNodeNewOperation;
+  FNodeNotifyEvents.OnTransactionsChanged := OnNodeNewOperation;
+  FInstance := self;
 end;
 
 destructor TRPCServer.Destroy;

@@ -48,7 +48,7 @@ type
 
     function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean;
 
-    function GetBufferForOpHash(UseProtocolV2: Boolean): TRawBytes;
+    function GetBuffer(UseProtocolV2: Boolean): TRawBytes;
 
     function GetAmount: Int64;
     function GetFee: UInt64;
@@ -57,7 +57,7 @@ type
     function GetDestinationAccount: Int64;
     function GetSellerAccount: Int64;
     function GetNumberOfTransactions: Cardinal;
-    function GetOpType: byte;
+    function GetTransactionType: byte;
 
     function Get_Previous_Signer_updated_block: Cardinal;
     function Get_Previous_Destination_updated_block: Cardinal;
@@ -96,7 +96,7 @@ type
     property DestinationAccount: Int64 read GetDestinationAccount;
     property SellerAccount: Int64 read GetSellerAccount;
     property NumberOfTransactions: Cardinal read GetNumberOfTransactions;
-    property OpType: byte read GetOpType;
+    property TransactionType: byte read GetTransactionType;
     property Tag: Integer read GetTag write SetTag;
 
   end;

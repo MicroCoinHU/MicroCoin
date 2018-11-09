@@ -102,11 +102,15 @@ end;
 
 class function TFolderHelper.GetMicroCoinDataFolder: string;
 begin
-  {$IFDEF TESTNET}
+{$IFDEF TESTNET}
   Result := GetAppDataFolder+PathDelim+'MicroCoin_TESTNET';
+{$ELSE}
+  {$IFDEF DEVNET}
+  Result := GetAppDataFolder+PathDelim+'MicroCoin_DEVNET';
   {$ELSE}
   Result := GetAppDataFolder+PathDelim+'MicroCoin';
   {$ENDIF}
+{$ENDIF}
 end;
 
 class function TFolderHelper.GetTFileVersionInfo(Const FileName: String): TFileVersionInfo;

@@ -402,20 +402,18 @@ var
   i: Integer;
   P: PWalletKey;
 begin
-  if FWalletPassword = Value then
-    exit;
+  if FWalletPassword = Value
+  then exit;
   FWalletPassword := Value;
-  for i := 0 to FSearchableKeys.Count - 1 do
-  begin
+  for i := 0 to FSearchableKeys.Count - 1
+  do begin
     P := FSearchableKeys[i];
-    if Assigned(P^.PrivateKey) then
-    begin
+    if Assigned(P^.PrivateKey)
+    then begin
       P^.CryptedKey := TAESComp.EVP_Encrypt_AES256(TCrypto.PrivateKey2Hexa(P^.PrivateKey), FWalletPassword);
-    end
-    else
-    begin
-      if FIsValidPassword then
-      begin
+    end else begin
+      if FIsValidPassword
+      then begin
         TLog.NewLog(lterror, ClassName, Format('Fatal error: Private key not found %d/%d',
           [i + 1, FSearchableKeys.Count]));
       end;

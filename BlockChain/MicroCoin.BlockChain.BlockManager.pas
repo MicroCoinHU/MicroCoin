@@ -71,7 +71,9 @@ type
 
   TBlockManager = class(TBlockManagerBase)
   private
-    FStorage: TStorage;
+    class var FStorage: TStorage;
+    class var FStorageClass: TStorageClass;
+  private
     FAccountStorage: TAccountStorage;
     FLastBlockCache: TBlock;
     FLastBlockHeader: TBlockHeader;
@@ -81,10 +83,9 @@ type
     FOnLog: TBlockManagerLog;
     FAccountStorageLock: TPCCriticalSection;
     FNotifyList: TList;
-    FStorageClass: TStorageClass;
     FStopped : boolean;
     function GetStorage: TStorage;
-    procedure SetStorageClass(const value: TStorageClass);
+    class procedure SetStorageClass(const value: TStorageClass); static;
   protected
     function GetAccountStorage: TAccountStorage; override;
     function GetBlocksCount: Cardinal; override;
@@ -109,7 +110,7 @@ type
 
     property LastBlock: TBlockHeader read GetLastBlockHeader;
     property Storage: TStorage read GetStorage;
-    property StorageClass: TStorageClass read FStorageClass write SetStorageClass;
+    class property StorageClass: TStorageClass read FStorageClass write SetStorageClass;
     property LastBlockFound: TBlock read FLastBlockCache;
     property UpgradingToV2: Boolean read FUpgradingToV2;
     property AccountStorage: TAccountStorage read GetAccountStorage;
@@ -143,7 +144,7 @@ begin
     Result := false;
     errors := '';
     try
-      if not ABlock.ValidateOperationBlock(errors) then
+      if not ABlock.ValidateBlock(errors) then
       begin
         exit;
       end;
@@ -227,7 +228,7 @@ procedure TBlockManager.Clear;
 begin
   AccountStorage.Clear;
   FLastBlockHeader := TBlock.GetFirstBlock;
-  FLastBlockHeader.initial_safe_box_hash := TCrypto.DoSha256(CT_Genesis_Magic_String_For_Old_Block_Hash);
+  FLastBlockHeader.initial_safe_box_hash := TCrypto.DoSha256(cGenesisBlockMagic);
   // Genesis hash
   FLastBlockCache.Clear(true);
   NewLog(nil, ltupdate, 'Clear cache and account storage');
@@ -237,7 +238,6 @@ constructor TBlockManager.Create(AOwner: TComponent);
 begin
   inherited;
   FStorage := nil;
-  FStorageClass := nil;
   FAccountStorageLock := TPCCriticalSection.Create('TBlockManager_LOCKSTORAGE');
   FIsRestoringFromFile := false;
   FOnLog := nil;
@@ -303,7 +303,7 @@ begin
         n := Storage.LastBlock;
       Storage.RestoreAccountStorage(n);
       // Restore last blockchain
-      if (BlocksCount > 0) and (AccountStorage.CurrentProtocol = CT_PROTOCOL_1) then
+      if (BlocksCount > 0) and (AccountStorage.CurrentProtocol = cPROTOCOL_1) then
       begin
         if not Storage.LoadBlockChainBlock(FLastBlockCache, BlocksCount - 1) then
         begin
@@ -337,10 +337,14 @@ begin
 {$IFDEF TESTNET}
                 Storage.SaveAccountStorage;
 {$ELSE}
-                if (BlocksCount mod (CT_BankToDiskEveryNBlocks * 10)) = 0 then
+  {$IFDEF DEVNET}
+                Storage.SaveAccountStorage;
+  {$ELSE}
+                if (BlocksCount mod (cSaveAccountStorageOnBlocks*10)) = 0 then
                 begin
                   Storage.SaveAccountStorage;
                 end;
+  {$ENDIF}
 {$ENDIF}
               end;
             end
@@ -434,7 +438,7 @@ begin
   begin
     if not Assigned(FStorageClass) then
       raise Exception.Create('StorageClass not defined');
-    FStorage := FStorageClass.Create(Self);
+    FStorage := FStorageClass.Create;
     FStorage.BlockManager := Self;
   end;
   Result := FStorage;
@@ -450,8 +454,8 @@ begin
       CurrentProcess := 'Migrating to version 2 format'
     else if not FIsLoadingBlocks
          then CurrentProcess := Format('Loading checkpoint blocks %d/%d',[BlocksCount, Storage.LastBlock])
-         else CurrentProcess := Format('Loading blockchain %d%%',
-         [Round(100*(BlocksCount mod 100) / Max(1, (Storage.LastBlock) mod 100)) ])
+         else CurrentProcess := 'Loading blocks'; // Format('Loading blockchain %d%%',
+//         [Round(100*(BlocksCount mod 100) / Max(1, (Storage.LastBlock) mod 100)) ])
   end
   else
     Result := true;
@@ -490,7 +494,7 @@ begin
       else
       begin
         FLastBlockHeader := TBlock.GetFirstBlock;
-        FLastBlockHeader.initial_safe_box_hash := TCrypto.DoSha256(CT_Genesis_Magic_String_For_Old_Block_Hash);
+        FLastBlockHeader.initial_safe_box_hash := TCrypto.DoSha256(cGenesisBlockMagic);
         // Genesis hash
       end;
     finally
@@ -538,7 +542,7 @@ begin
     FOnLog(Self, ABlock, Logtype, Logtxt);
 end;
 
-procedure TBlockManager.SetStorageClass(const value: TStorageClass);
+class procedure TBlockManager.SetStorageClass(const value: TStorageClass);
 begin
   if FStorageClass = value then
     exit;
