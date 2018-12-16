@@ -185,8 +185,8 @@ Const
 
 implementation
 
-{$IFDEF WINDOWS}
-uses SysUtils;
+{$IFNDEF FPC}
+uses SysUtils, Windows;
 
 procedure GetBuildInfo(var V1, V2, V3, V4: word);
 var

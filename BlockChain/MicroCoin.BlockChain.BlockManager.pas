@@ -128,6 +128,11 @@ uses
   {StdCtrls,}
   UTime, UConst;
 
+resourcestring
+  StrMigratingToVersion = 'Migrating to version 2 format';
+  StrLoadingCheckpointBlocks = 'Loading checkpoint blocks %d/%d';
+  StrLoadingBlocks = 'Loading blocks';
+
 function TBlockManager.AccountsCount: Cardinal;
 begin
   Result := FAccountStorage.AccountsCount;
@@ -451,10 +456,10 @@ begin
   if FIsRestoringFromFile then
   begin
     if FUpgradingToV2 then
-      CurrentProcess := 'Migrating to version 2 format'
+      CurrentProcess := StrMigratingToVersion
     else if not FIsLoadingBlocks
-         then CurrentProcess := Format('Loading checkpoint blocks %d/%d',[BlocksCount, Storage.LastBlock])
-         else CurrentProcess := 'Loading blocks'; // Format('Loading blockchain %d%%',
+         then CurrentProcess := Format(StrLoadingCheckpointBlocks,[BlocksCount, Storage.LastBlock])
+         else CurrentProcess := StrLoadingBlocks; // Format('Loading blockchain %d%%',
 //         [Round(100*(BlocksCount mod 100) / Max(1, (Storage.LastBlock) mod 100)) ])
   end
   else
