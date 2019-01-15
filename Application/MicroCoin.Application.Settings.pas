@@ -73,6 +73,7 @@ type
     apJSONRPCEnabled = 'JSONRPCEnabled';
     apJSONRPCAllowedIPs = 'JSONRPCAllowedIPs';
     apNotifyOnNewTransaction = 'NotifyNewTransaction';
+    apIgnoreOldBlocks = 'IgnoreOldBlocks';
   strict private
     FAppSettings: TAppSettings;
     FName: AnsiString;

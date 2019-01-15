@@ -54,6 +54,7 @@ type
     procedure ClearStream;
     procedure GrowStreamUntilPos(Stream: TStream; newPos: Int64; DeleteDataStartingAtCurrentPos: Boolean);
   protected
+    procedure Remove(const Dir: string);
     procedure SetReadOnly(const Value: Boolean); override;
     procedure SetOrphan(const Value: TOrphan); override;
     procedure DoDeleteBlockChainBlocks(StartingDeleteBlock: Cardinal); override;
@@ -74,6 +75,7 @@ type
   public
     constructor Create; override;
     destructor Destroy; override;
+    procedure CleanUp;
     class function GetCheckpointingFileName(const BaseDataFolder: AnsiString; Block: Cardinal): AnsiString;
     procedure CopyConfiguration(const CopyFrom: TStorage); override;
     procedure SetBlockChainFile(BlockChainFileName: AnsiString);
@@ -195,6 +197,7 @@ begin
   FStreamFirstBlockNumber := 0;
   FStreamLastBlockNumber := -1;
   FStorageLock := TPCCriticalSection.Create('TFileStorage_StorageLock');
+//  Remove(TFolderHelper.GetMicroCoinDataFolder + PathDelim + 'Data');
   FDatabaseFolder := TFolderHelper.GetMicroCoinDataFolder + PathDelim + 'Data';
 end;
 
@@ -204,6 +207,32 @@ begin
   ClearStream;
   FreeAndNil(FStorageLock);
 end;
+
+procedure TFileStorage.Remove(const Dir: string);
+var
+  Result: TSearchRec;
+begin
+  if not DirectoryExists(Dir) then exit;
+  if FindFirst(Dir + '\*', faAnyFile, Result) = 0 then
+  begin
+    Try
+      repeat
+        if (Result.Attr and faDirectory) = faDirectory then
+        begin
+          if (Result.Name <> '.') and (Result.Name <> '..') then
+            Remove(Dir + '\' + Result.Name)
+        end
+        else if not DeleteFile(Dir + '\' + Result.Name) then
+          RaiseLastOSError;
+      until FindNext(Result) <> 0;
+    Finally
+      FindClose(Result);
+    End;
+  end;
+  if not RemoveDir(Dir) then
+    RaiseLastOSError;
+end;
+
 
 procedure TFileStorage.DoDeleteBlockChainBlocks(StartingDeleteBlock: Cardinal);
 var
@@ -532,16 +561,12 @@ begin
     SaveAccountStorage;
 end;
 
-const
-  cAccountSorageBackupCount = 10;
-
 class function TFileStorage.GetCheckpointingFileName(const BaseDataFolder: AnsiString; Block: Cardinal)
   : AnsiString;
 begin
   Result := '';
-  if not ForceDirectories(BaseDataFolder) then
-    exit;
-  // We will store checkpointing
+  if not ForceDirectories(BaseDataFolder)
+  then exit;
   Result := BaseDataFolder + PathDelim + 'checkpoint' +
     IntToStr((Block div cSaveAccountStorageOnBlocks) mod cAccountSorageBackupCount) + '.safebox';
 end;
@@ -1105,6 +1130,28 @@ var
 begin
   HasUpgradedToVersion2 := SysUtils.FindFirst(GetFolder(Orphan) + PathDelim + '*.safebox', faArchive, searchRec) = 0;
   FindClose(searchRec);
+end;
+
+procedure TFileStorage.CleanUp;
+var
+  Dir : string;
+  Result : TSearchRec;
+begin
+  Dir := FDatabaseFolder;
+  if FindFirst(Dir + '\*', faDirectory, Result) = 0 then
+  begin
+    Try
+      repeat
+        if (Result.Attr and faDirectory) = faDirectory then
+        begin
+          if (Result.Name <> '.') and (Result.Name <> '..') then
+            Remove(Dir + '\' + Result.Name)
+        end;
+      until FindNext(Result) <> 0;
+    Finally
+      FindClose(Result);
+    End;
+  end;
 end;
 
 procedure TFileStorage.CleanupVersion1Data;

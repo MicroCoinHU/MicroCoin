@@ -95,6 +95,8 @@ Const
 
   cSaveAccountStorageOnBlocks = {$IFDEF PRODUCTION}100{$ELSE}10{$ENDIF};
 
+  cAccountSorageBackupCount = 10;
+
   cNID_secp256k1 = 714;
   cNID_secp384r1 = 715;
   cNID_sect283k1 = 729;

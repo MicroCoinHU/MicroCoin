@@ -69,6 +69,9 @@ type
     FNetworkAdjustedTime: TNetworkAdjustedTime;
     class var FLock : TCriticalSection;
     class var FInstance: TConnectionManager;
+    class var FIgnoreOldBlocks: boolean;
+    class var FStatus: integer;
+    class var FOperation: integer;
     procedure SetMaxNodeServersAddressesBuffer(AValue: Integer);
     procedure SetNetConnectionsActive(const Value: Boolean);
     function GetOnNetConnectionsUpdated: TNotifyEvent;
@@ -154,6 +157,9 @@ type
     class property Instance: TConnectionManager read GetInstance;
     class property NodeServersAddresses: TPCThreadList read FNodeServersAddresses;
     class property Destroying : boolean read FDestroying;
+    class property IgnoreOldBlocks : boolean read FIgnoreOldBlocks write FIgnoreOldBlocks;
+    class property Operation : integer read FOperation write FOperation;
+    class property Status : integer read FStatus write FStatus;
   end;
 
   TNetClientsDestroyThread = class(TPCThread)
@@ -1331,6 +1337,8 @@ type
         // Will obtain chunks of 10000 blocks each
         for i := 0 to x_blockcount div 10000 do
         begin
+          FOperation := 1;
+          FStatus := ((100*i) div (x_blockcount div 10000));
           xReceiveChunk := TMemoryStream.Create;
           if (not DownloadAccountStorageChunk(x_blockcount, xBlockHeader.initial_safe_box_hash, (i * 10000), ((i + 1) * 10000) - 1,
             xReceiveChunk, xAccountStorageHeader, xErrors)) then
@@ -1349,6 +1357,8 @@ type
           xChunk1.CopyFrom(xChunks[0].ChunkStream, 0);
           for i := 1 to high(xChunks) do
           begin
+            FOperation := 2;
+            FStatus := ((i*100) div high(xChunks));
             xReceiveData.Size := 0;
             xChunk1.Position := 0;
             xChunks[i].ChunkStream.Position := 0;
@@ -1376,8 +1386,11 @@ type
         TNode.Node.BlockManager.AccountStorage.StartThreadSafe;
         try
           xReceiveData.Position := 0;
+          FOperation := 3;
+          FStatus := 0;
           if TNode.Node.BlockManager.LoadAccountsFromStream(xReceiveData, true, xErrors) then
           begin
+            FOperation := 0;
             TLog.NewLog(ltInfo, Classname, 'Received new safebox!');
             if not AIsMyBlockchainValid then
             begin
@@ -1428,8 +1441,11 @@ begin
       TLog.NewLog(ltdebug, CT_LogSender, 'I have no blocks');
       if Connection.RemoteOperationBlock.protocol_version >= cPROTOCOL_2 then
       begin
+        if IgnoreOldBlocks then begin
+          DownloadAccountStorage(true);
+        end else begin
          Connection.Send_GetBlocks(0, 10, rid);
-        //DownloadSafeBox(false);
+        end;
       end
       else
       begin
@@ -2020,4 +2036,7 @@ begin
   end;
 end;
 
+initialization
+  TConnectionManager.Status := 0;
+  TConnectionManager.Operation := 0;
 end.
