@@ -88,6 +88,8 @@ type
 
 implementation
 
+uses MicroCoin.Common.Stream;
+
 const
   CT_TOpTransactionData_NUL: TTransferMoneyTransaction.TTransferMoneyTransactionData = (SenderAccount: 0; NumberOfTransactions: 0; TargetAccount: 0; Amount: 0; Fee: 0;
     Payload: ''; PublicKey: (EC_OpenSSL_NID: 0; x: ''; y: ''); Signature: (r: ''; s: ''); TransactionStyle: Transaction;
@@ -489,16 +491,16 @@ begin
   Stream.Read(FData.TargetAccount, Sizeof(FData.TargetAccount));
   Stream.Read(FData.Amount, Sizeof(FData.Amount));
   Stream.Read(FData.Fee, Sizeof(FData.Fee));
-  if TStreamOp.ReadAnsiString(Stream, FData.Payload) < 0
+  if Stream.ReadAnsiString(FData.Payload) < 0
   then exit;
 
   if Stream.Read(FData.PublicKey.EC_OpenSSL_NID, Sizeof(FData.PublicKey.EC_OpenSSL_NID)) < 0
   then exit;
 
-  if TStreamOp.ReadAnsiString(Stream, FData.PublicKey.x) < 0
+  if Stream.ReadAnsiString(FData.PublicKey.x) < 0
   then exit;
 
-  if TStreamOp.ReadAnsiString(Stream, FData.PublicKey.y) < 0
+  if Stream.ReadAnsiString(FData.PublicKey.y) < 0
   then exit;
 
   if ((LoadExtendedData) or (self is TBuyAccountTransaction)) then
@@ -524,15 +526,15 @@ begin
       Stream.Read(FData.SellerAccount, Sizeof(FData.SellerAccount));
       if Stream.Read(FData.NewAccountKey.EC_OpenSSL_NID, Sizeof(FData.NewAccountKey.EC_OpenSSL_NID)) < 0 then
         Exit;
-      if TStreamOp.ReadAnsiString(Stream, FData.NewAccountKey.x) < 0 then
+      if Stream.ReadAnsiString(FData.NewAccountKey.x) < 0 then
         Exit;
-      if TStreamOp.ReadAnsiString(Stream, FData.NewAccountKey.y) < 0 then
+      if Stream.ReadAnsiString(FData.NewAccountKey.y) < 0 then
         Exit;
     end;
   end;
-  if TStreamOp.ReadAnsiString(Stream, FData.Signature.r) < 0 then
+  if Stream.ReadAnsiString(FData.Signature.r) < 0 then
     Exit;
-  if TStreamOp.ReadAnsiString(Stream, FData.Signature.s) < 0 then
+  if Stream.ReadAnsiString(FData.Signature.s) < 0 then
     Exit;
   Result := true;
 end;
@@ -566,10 +568,10 @@ begin
   Stream.Write(FData.TargetAccount, Sizeof(FData.TargetAccount));
   Stream.Write(FData.Amount, Sizeof(FData.Amount));
   Stream.Write(FData.Fee, Sizeof(FData.Fee));
-  TStreamOp.WriteAnsiString(Stream, FData.Payload);
+  Stream.WriteAnsiString(FData.Payload);
   Stream.Write(FData.PublicKey.EC_OpenSSL_NID, Sizeof(FData.PublicKey.EC_OpenSSL_NID));
-  TStreamOp.WriteAnsiString(Stream, FData.PublicKey.x);
-  TStreamOp.WriteAnsiString(Stream, FData.PublicKey.y);
+  Stream.WriteAnsiString(FData.PublicKey.x);
+  Stream.WriteAnsiString(FData.PublicKey.y);
   if ((SaveExtendedData) or (self is TBuyAccountTransaction)) then
   begin
     case FData.TransactionStyle of
@@ -588,12 +590,12 @@ begin
       Stream.Write(FData.AccountPrice, Sizeof(FData.AccountPrice));
       Stream.Write(FData.SellerAccount, Sizeof(FData.SellerAccount));
       Stream.Write(FData.NewAccountKey.EC_OpenSSL_NID, Sizeof(FData.NewAccountKey.EC_OpenSSL_NID));
-      TStreamOp.WriteAnsiString(Stream, FData.NewAccountKey.x);
-      TStreamOp.WriteAnsiString(Stream, FData.NewAccountKey.y);
+      Stream.WriteAnsiString(FData.NewAccountKey.x);
+      Stream.WriteAnsiString(FData.NewAccountKey.y);
     end;
   end;
-  TStreamOp.WriteAnsiString(Stream, FData.Signature.r);
-  TStreamOp.WriteAnsiString(Stream, FData.Signature.s);
+  Stream.WriteAnsiString(FData.Signature.r);
+  Stream.WriteAnsiString(FData.Signature.s);
   Result := true;
 end;
 

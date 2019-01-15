@@ -98,6 +98,8 @@ type
 
 implementation
 
+uses MicroCoin.Common.Stream;
+
 function TBlock.AddTransaction(AExecute: Boolean; ATransaction: ITransaction; var RErrors: AnsiString): Boolean;
 begin
   Lock;
@@ -462,7 +464,7 @@ begin
     if AStream.Read(FBlockHeader.Block, Sizeof(FBlockHeader.Block)) < 0 then
       exit;
 
-    if TStreamOp.ReadAnsiString(AStream, m) < 0 then
+    if AStream.ReadAnsiString(m) < 0 then
       exit;
     FBlockHeader.account_key := TAccountKey.FromRawString(m);
     if AStream.Read(FBlockHeader.reward, Sizeof(FBlockHeader.reward)) < 0 then
@@ -475,13 +477,13 @@ begin
       exit;
     if AStream.Read(FBlockHeader.nonce, Sizeof(FBlockHeader.nonce)) < 0 then
       exit;
-    if TStreamOp.ReadAnsiString(AStream, FBlockHeader.block_payload) < 0 then
+    if AStream.ReadAnsiString(FBlockHeader.block_payload) < 0 then
       exit;
-    if TStreamOp.ReadAnsiString(AStream, FBlockHeader.initial_safe_box_hash) < 0 then
+    if AStream.ReadAnsiString(FBlockHeader.initial_safe_box_hash) < 0 then
       exit;
-    if TStreamOp.ReadAnsiString(AStream, FBlockHeader.transactionHash) < 0 then
+    if AStream.ReadAnsiString(FBlockHeader.transactionHash) < 0 then
       exit;
-    if TStreamOp.ReadAnsiString(AStream, FBlockHeader.proof_of_work) < 0 then
+    if AStream.ReadAnsiString(FBlockHeader.proof_of_work) < 0 then
       exit;
     if FIsOnlyBlock then
     begin
@@ -658,16 +660,16 @@ begin
     //
     AStream.Write(FBlockHeader.Block, Sizeof(FBlockHeader.Block));
     //
-    TStreamOp.WriteAnsiString(AStream, FBlockHeader.account_key.ToRawString);
+    AStream.WriteAnsiString(FBlockHeader.account_key.ToRawString);
     AStream.Write(FBlockHeader.reward, Sizeof(FBlockHeader.reward));
     AStream.Write(FBlockHeader.Fee, Sizeof(FBlockHeader.Fee));
     AStream.Write(FBlockHeader.timestamp, Sizeof(FBlockHeader.timestamp));
     AStream.Write(FBlockHeader.compact_target, Sizeof(FBlockHeader.compact_target));
     AStream.Write(FBlockHeader.nonce, Sizeof(FBlockHeader.nonce));
-    TStreamOp.WriteAnsiString(AStream, FBlockHeader.block_payload);
-    TStreamOp.WriteAnsiString(AStream, FBlockHeader.initial_safe_box_hash);
-    TStreamOp.WriteAnsiString(AStream, FBlockHeader.transactionHash);
-    TStreamOp.WriteAnsiString(AStream, FBlockHeader.proof_of_work);
+    AStream.WriteAnsiString(BlockHeader.block_payload);
+    AStream.WriteAnsiString(FBlockHeader.initial_safe_box_hash);
+    AStream.WriteAnsiString(FBlockHeader.transactionHash);
+    AStream.WriteAnsiString(FBlockHeader.proof_of_work);
     { Basic size calculation:
       protocols : 2 words = 4 bytes
       block : 4 bytes
@@ -699,16 +701,16 @@ begin
   //
   Stream.Write(ABlockHeader.Block, Sizeof(ABlockHeader.Block));
   //
-  TStreamOp.WriteAnsiString(Stream, ABlockHeader.account_key.ToRawString);
+  Stream.WriteAnsiString(ABlockHeader.account_key.ToRawString);
   Stream.Write(ABlockHeader.reward, Sizeof(ABlockHeader.reward));
   Stream.Write(ABlockHeader.Fee, Sizeof(ABlockHeader.Fee));
   Stream.Write(ABlockHeader.timestamp, Sizeof(ABlockHeader.timestamp));
   Stream.Write(ABlockHeader.compact_target, Sizeof(ABlockHeader.compact_target));
   Stream.Write(ABlockHeader.nonce, Sizeof(ABlockHeader.nonce));
-  TStreamOp.WriteAnsiString(Stream, ABlockHeader.block_payload);
-  TStreamOp.WriteAnsiString(Stream, ABlockHeader.initial_safe_box_hash);
-  TStreamOp.WriteAnsiString(Stream, ABlockHeader.transactionHash);
-  TStreamOp.WriteAnsiString(Stream, ABlockHeader.proof_of_work);
+  Stream.WriteAnsiString(ABlockHeader.block_payload);
+  Stream.WriteAnsiString(ABlockHeader.initial_safe_box_hash);
+  Stream.WriteAnsiString(ABlockHeader.transactionHash);
+  Stream.WriteAnsiString(ABlockHeader.proof_of_work);
   Result := true;
 end;
 

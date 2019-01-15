@@ -99,6 +99,8 @@ type
 
 implementation
 
+uses MicroCoin.Common.Stream;
+
 const
   CT_TOpChangeAccountInfoData_NUL: TChangeAccountInfoTransaction.TChangeAccountInfoTransactionData = (SignerAccount: 0; TargetAccount: 0; NumberOfTransactions: 0;
     Fee: 0; Payload: ''; PublicKey: (EC_OpenSSL_NID: 0; x: ''; y: ''); ChangeType: [];
@@ -119,8 +121,8 @@ begin
   Stream.Write(FData.TargetAccount, Sizeof(FData.TargetAccount));
   Stream.Write(FData.NumberOfTransactions, Sizeof(FData.NumberOfTransactions));
   Stream.Write(FData.Fee, Sizeof(FData.Fee));
-  TStreamOp.WriteAnsiString(Stream, FData.Payload);
-  TStreamOp.WriteAccountKey(Stream, FData.PublicKey);
+  Stream.WriteAnsiString(FData.Payload);
+  Stream.WriteAccountKey(FData.PublicKey);
   b := 0;
   if (public_key in FData.ChangeType) then
     b := b or $01;
@@ -129,11 +131,11 @@ begin
   if (account_type in FData.ChangeType) then
     b := b or $04;
   Stream.Write(b, Sizeof(b));
-  TStreamOp.WriteAccountKey(Stream, FData.NewAccountKey);
-  TStreamOp.WriteAnsiString(Stream, FData.NewName);
+  Stream.WriteAccountKey(FData.NewAccountKey);
+  Stream.WriteAnsiString(FData.NewName);
   Stream.Write(FData.NewType, Sizeof(FData.NewType));
-  TStreamOp.WriteAnsiString(Stream, FData.Signature.r);
-  TStreamOp.WriteAnsiString(Stream, FData.Signature.s);
+  Stream.WriteAnsiString(FData.Signature.r);
+  Stream.WriteAnsiString(FData.Signature.s);
   Result := true;
 end;
 
@@ -148,9 +150,9 @@ begin
   Stream.Read(FData.TargetAccount, Sizeof(FData.TargetAccount));
   Stream.Read(FData.NumberOfTransactions, Sizeof(FData.NumberOfTransactions));
   Stream.Read(FData.Fee, Sizeof(FData.Fee));
-  if TStreamOp.ReadAnsiString(Stream, FData.Payload) < 0 then
+  if Stream.ReadAnsiString(FData.Payload) < 0 then
     exit;
-  if TStreamOp.ReadAccountKey(Stream, FData.PublicKey) < 0 then
+  if Stream.ReadAccountKey(FData.PublicKey) < 0 then
     exit;
   Stream.Read(b, Sizeof(b));
   FData.ChangeType := [];
@@ -163,14 +165,14 @@ begin
   // Check
   if (b and $F8) <> 0 then
     exit;
-  if TStreamOp.ReadAccountKey(Stream, FData.NewAccountKey) < 0 then
+  if Stream.ReadAccountKey(FData.NewAccountKey) < 0 then
     exit;
-  if TStreamOp.ReadAnsiString(Stream, FData.NewName) < 0 then
+  if Stream.ReadAnsiString(FData.NewName) < 0 then
     exit;
   Stream.Read(FData.NewType, Sizeof(FData.NewType));
-  if TStreamOp.ReadAnsiString(Stream, FData.Signature.r) < 0 then
+  if Stream.ReadAnsiString(FData.Signature.r) < 0 then
     exit;
-  if TStreamOp.ReadAnsiString(Stream, FData.Signature.s) < 0 then
+  if Stream.ReadAnsiString(FData.Signature.s) < 0 then
     exit;
   Result := true;
 end;
@@ -186,8 +188,8 @@ begin
     Stream.Write(ATransactionData.TargetAccount, Sizeof(ATransactionData.TargetAccount));
     Stream.Write(ATransactionData.NumberOfTransactions, Sizeof(ATransactionData.NumberOfTransactions));
     Stream.Write(ATransactionData.Fee, Sizeof(ATransactionData.Fee));
-    TStreamOp.WriteAnsiString(Stream, ATransactionData.Payload);
-    TStreamOp.WriteAccountKey(Stream, ATransactionData.PublicKey);
+    Stream.WriteAnsiString(ATransactionData.Payload);
+    Stream.WriteAccountKey(ATransactionData.PublicKey);
     b := 0;
     if (public_key in ATransactionData.ChangeType) then
       b := b or $01;
@@ -196,8 +198,8 @@ begin
     if (account_type in ATransactionData.ChangeType) then
       b := b or $04;
     Stream.Write(b, Sizeof(b));
-    TStreamOp.WriteAccountKey(Stream, ATransactionData.NewAccountKey);
-    TStreamOp.WriteAnsiString(Stream, ATransactionData.NewName);
+    Stream.WriteAccountKey(ATransactionData.NewAccountKey);
+    Stream.WriteAnsiString(ATransactionData.NewName);
     Stream.Write(ATransactionData.NewType, Sizeof(ATransactionData.NewType));
     Stream.Position := 0;
     setlength(Result, Stream.Size);
@@ -320,7 +322,7 @@ begin
   begin
     if (FData.NewName <> '') then
     begin
-      if not TAccountStorage.AccountNameIsValid(FData.NewName, errors) then
+      if not TAccountStorage.IsValidAccountName(FData.NewName, errors) then
         exit;
     end;
   end

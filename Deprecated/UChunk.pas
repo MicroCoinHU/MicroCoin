@@ -38,6 +38,8 @@ type
 
 implementation
 
+uses MicroCoin.Common.Stream;
+
 { TPCChunk }
 
 class function TPCChunk.SaveChunkFromAccountStorage(AAccountStorageStream, ADestinationStream : TStream; AFromBlock, AToBlock: Cardinal; var RErrors : AnsiString) : Boolean;
@@ -60,10 +62,13 @@ begin
   //   - Compressed data using ZLib
   initialSbPos :=AAccountStorageStream.Position;
   Try
-    If Not TAccountStorage.LoadHeaderFromStream(AAccountStorageStream,sbHeader) then begin
-      RErrors := 'SafeBoxStream is not a valid SafeBox!';
-      exit;
-    end;
+     try
+      sbHeader := TAccountStorageHeader.LoadFromStream(AAccountStorageStream);
+     except on e:Exception do begin
+        RErrors := 'SafeBoxStream is not a valid SafeBox!';
+        exit;
+      end;
+     end;
     If (sbHeader.StartBlock>AFromBlock) Or (sbHeader.EndBlock<AToBlock) Or (AFromBlock>AToBlock) then begin
       RErrors := Format('Cannot save a chunk from %d to %d on a stream with %d to %d!',[AFromBlock,AToBlock,sbHeader.StartBlock,sbHeader.EndBlock]);
       exit;
@@ -71,7 +76,7 @@ begin
     TLog.NewLog(ltDebug,ClassName,Format('Saving safebox chunk from %d to %d (current blockscount: %d)',[AFromBlock,AToBlock,sbHeader.BlocksCount]));
 
     // Header:
-    TStreamOp.WriteAnsiString(ADestinationStream,CT_AccountChunkIdentificator);
+    ADestinationStream.WriteAnsiString(CT_AccountChunkIdentificator);
     ADestinationStream.Write(cAccountStorageVersion,SizeOf(cAccountStorageVersion));
     //
     auxStream := TMemoryStream.Create;
@@ -119,10 +124,10 @@ var s : AnsiString;
   destInitialPos, auxPos : Int64;
 begin
   Result := false;
-  AAccountStorageHeader := CT_AccountStorageHeader_NUL;
+  AAccountStorageHeader := TAccountStorageHeader.Empty;
   // Header:
   RErrors := 'Invalid stream header';
-  TStreamOp.ReadAnsiString(AChunk,s);
+  AChunk.ReadAnsiString(s);
   If (s<>CT_AccountChunkIdentificator) then begin
     exit;
   end;
@@ -159,9 +164,12 @@ begin
 
   auxPos := ADestinationStream.Position;
   ADestinationStream.Position:=destInitialPos;
-  If Not TAccountStorage.LoadHeaderFromStream(ADestinationStream,AAccountStorageHeader) then begin
-    RErrors:= 'Invalid extracted stream!';
-    exit;
+  try
+    AAccountStorageHeader := TAccountStorageHeader.LoadFromStream(ADestinationStream);
+  except on e:Exception do begin
+      RErrors:= 'Invalid extracted stream!';
+      exit;
+    end;
   end;
   ADestinationStream.Position:=auxPos;
   Result := true;

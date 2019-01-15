@@ -181,6 +181,8 @@ const
 
 implementation
 
+uses MicroCoin.Common.Stream;
+
 function TAccountInfo.IsValid(var RErrors: AnsiString): Boolean;
 var
   s: AnsiString;
@@ -232,11 +234,11 @@ begin
           w := cAccountInfo_ForSale;
           ms.Write(w, Sizeof(w));
           //
-          TStreamOp.WriteAccountKey(ms, AccountKey);
+          ms.WriteAccountKey(AccountKey);
           ms.Write(LockedUntilBlock, Sizeof(LockedUntilBlock));
           ms.Write(Price, Sizeof(Price));
           ms.Write(AccountToPay, Sizeof(AccountToPay));
-          TStreamOp.WriteAccountKey(ms, NewPublicKey);
+          ms.WriteAccountKey(NewPublicKey);
           SetLength(RDestination, ms.Size);
           ms.Position := 0;
           ms.Read(RDestination[1], ms.Size);
@@ -301,11 +303,11 @@ begin
         end;
       cAccountInfo_ForSale:
         begin
-          TStreamOp.ReadAccountKey(ms, dest.AccountKey);
+          ms.ReadAccountKey(dest.AccountKey);
           ms.Read(dest.LockedUntilBlock, Sizeof(dest.LockedUntilBlock));
           ms.Read(dest.Price, Sizeof(dest.Price));
           ms.Read(dest.AccountToPay, Sizeof(dest.AccountToPay));
-          TStreamOp.ReadAccountKey(ms, dest.NewPublicKey);
+          ms.ReadAccountKey(dest.NewPublicKey);
           dest.State := as_ForSale;
         end;
     else
@@ -461,7 +463,7 @@ begin
   if AStream.Read(RAccount.AccountNumber, 4) < 4
   then exit;
 
-  if TStreamOp.ReadAnsiString(AStream, s) < 0
+  if AStream.ReadAnsiString(s) < 0
   then exit;
 
   if s=''
@@ -469,7 +471,7 @@ begin
   else xIsExtendedAccount := false;
 
   if xIsExtendedAccount
-  then if TStreamOp.ReadAnsiString(AStream, s) < 0
+  then if AStream.ReadAnsiString(s) < 0
        then exit;
 
   RAccount.AccountInfo := TAccountInfo.FromRawString(s);
@@ -482,7 +484,7 @@ begin
   then exit;
   if ACurrentProtocol >= cPROTOCOL_2 then
   begin
-    if TStreamOp.ReadAnsiString(AStream, RAccount.Name) < 0 then
+    if AStream.ReadAnsiString(RAccount.Name) < 0 then
       exit;
     if AStream.Read(RAccount.AccountType, 2) < 2 then
       exit;

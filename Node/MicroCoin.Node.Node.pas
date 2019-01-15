@@ -896,7 +896,7 @@ begin
     exit;
   if AStartTransaction > AEndTransaction then
     exit;
-  acc := BlockManager.AccountStorage.Account(AAccountNumber);
+  acc := BlockManager.AccountStorage.Accounts[AAccountNumber];
   if (acc.UpdatedBlock > 0) or (acc.AccountNumber = 0) then
     DoGetFromBlock(acc.UpdatedBlock, acc.Balance, AMaxDepth, 0);
 end;
@@ -945,8 +945,8 @@ begin
       FTransactionStorage.Unlock;
     end;
     // block=0 and not found... start searching at block updated by account updated_block
-    RBlock := BlockManager.AccountStorage.Account(Account).UpdatedBlock;
-    if BlockManager.AccountStorage.Account(Account).NumberOfTransactions < n_operation then
+    RBlock := BlockManager.AccountStorage.Accounts[Account].UpdatedBlock;
+    if BlockManager.AccountStorage.Accounts[Account].NumberOfTransactions < n_operation then
       exit; // n_operation is greater than found in safebox
   end;
   if (RBlock = 0) or (RBlock >= BlockManager.BlocksCount) then

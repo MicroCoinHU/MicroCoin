@@ -75,6 +75,8 @@ type
 
 implementation
 
+uses MicroCoin.Common.Stream;
+
 const
   CT_TOpChangeKeyData_NUL: TChangeKeyTransaction.ChangeKeyTransactionData = (SignerAccount: 0; TargetAccount: 0; NumberOfTransactions: 0; Fee: 0;
     Payload: ''; PublicKey: (EC_OpenSSL_NID: 0; x: ''; y: ''); NewAccountKey: (EC_OpenSSL_NID: 0; x: ''; y: '');
@@ -358,20 +360,20 @@ begin
     raise Exception.Create('ERROR DEV 20170530-1');
   Stream.Read(FData.NumberOfTransactions, Sizeof(FData.NumberOfTransactions));
   Stream.Read(FData.Fee, Sizeof(FData.Fee));
-  if TStreamOp.ReadAnsiString(Stream, FData.Payload) < 0 then
+  if Stream.ReadAnsiString(FData.Payload) < 0 then
     Exit;
   if Stream.Read(FData.PublicKey.EC_OpenSSL_NID, Sizeof(FData.PublicKey.EC_OpenSSL_NID)) < 0 then
     Exit;
-  if TStreamOp.ReadAnsiString(Stream, FData.PublicKey.x) < 0 then
+  if Stream.ReadAnsiString(FData.PublicKey.x) < 0 then
     Exit;
-  if TStreamOp.ReadAnsiString(Stream, FData.PublicKey.y) < 0 then
+  if Stream.ReadAnsiString(FData.PublicKey.y) < 0 then
     Exit;
-  if TStreamOp.ReadAnsiString(Stream, s) < 0 then
+  if Stream.ReadAnsiString(s) < 0 then
     Exit;
   FData.NewAccountKey := TAccountKey.FromRawString(s);
-  if TStreamOp.ReadAnsiString(Stream, FData.Signature.r) < 0 then
+  if Stream.ReadAnsiString(FData.Signature.r) < 0 then
     Exit;
-  if TStreamOp.ReadAnsiString(Stream, FData.Signature.s) < 0 then
+  if Stream.ReadAnsiString(FData.Signature.s) < 0 then
     Exit;
   Result := true;
 end;
@@ -412,13 +414,13 @@ begin
     raise Exception.Create('ERROR DEV 20170530-3');
   Stream.Write(FData.NumberOfTransactions, Sizeof(FData.NumberOfTransactions));
   Stream.Write(FData.Fee, Sizeof(FData.Fee));
-  TStreamOp.WriteAnsiString(Stream, FData.Payload);
+  Stream.WriteAnsiString(FData.Payload);
   Stream.Write(FData.PublicKey.EC_OpenSSL_NID, Sizeof(FData.PublicKey.EC_OpenSSL_NID));
-  TStreamOp.WriteAnsiString(Stream, FData.PublicKey.x);
-  TStreamOp.WriteAnsiString(Stream, FData.PublicKey.y);
-  TStreamOp.WriteAnsiString(Stream, FData.NewAccountKey.ToRawString);
-  TStreamOp.WriteAnsiString(Stream, FData.Signature.r);
-  TStreamOp.WriteAnsiString(Stream, FData.Signature.s);
+  Stream.WriteAnsiString(FData.PublicKey.x);
+  Stream.WriteAnsiString(FData.PublicKey.y);
+  Stream.WriteAnsiString(FData.NewAccountKey.ToRawString);
+  Stream.WriteAnsiString(FData.Signature.r);
+  Stream.WriteAnsiString(FData.Signature.s);
   Result := true;
 end;
 

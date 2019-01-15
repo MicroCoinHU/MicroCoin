@@ -133,7 +133,7 @@ type
 implementation
 
 uses
-  Variants, SysUtils;
+  Variants, SysUtils, MicroCoin.Common.Stream;
 
 const
   cAppParamsFileMagic = 'TAppParams';
@@ -232,7 +232,7 @@ var
   i64: Int64;
 begin
   Result := false;
-  if TStreamOp.ReadAnsiString(AStream, FName) < 0 then
+  if AStream.ReadAnsiString(FName) < 0 then
     exit;
   AStream.Read(xByteSettingType, 1);
   if (xByteSettingType >= Integer(low(xSettingsType))) and (xByteSettingType <= Integer(high(xSettingsType)))
@@ -247,7 +247,7 @@ begin
     case xSettingsType of
       stString:
         begin
-          if TStreamOp.ReadAnsiString(AStream, s) < 0 then
+          if AStream.ReadAnsiString(s) < 0 then
             exit;
           FValue := s;
         end;
@@ -280,7 +280,7 @@ begin
         end;
       stStream:
         begin
-          if TStreamOp.ReadAnsiString(AStream, s) < 0 then
+          if AStream.ReadAnsiString(s) < 0 then
             exit;
           FValue := s;
         end
@@ -298,7 +298,7 @@ var
   c: Cardinal;
   i64: Int64;
 begin
-  TStreamOp.WriteAnsiString(AStream, FName);
+  AStream.WriteAnsiString(FName);
   b := Byte(FType);
   AStream.Write(b, 1);
   if IsNull then
@@ -313,7 +313,7 @@ begin
     case FType of
       stString:
         begin
-          TStreamOp.WriteAnsiString(AStream, VarToStr(FValue));
+          AStream.WriteAnsiString(VarToStr(FValue));
         end;
       stInteger:
         begin
@@ -340,7 +340,7 @@ begin
         end;
       stStream:
         begin
-          TStreamOp.WriteAnsiString(AStream, VarToStrDef(FValue, ''));
+          AStream.WriteAnsiString(VarToStrDef(FValue, ''));
         end
     else
       raise Exception.Create('Development error 20160613-2');
@@ -542,7 +542,7 @@ var
 begin
   Result := false;
   InternalClear;
-  if TStreamOp.ReadAnsiString(AStream, s) < 0 then
+  if AStream.ReadAnsiString(s) < 0 then
     exit;
   if s <> cAppParamsFileMagic then
     raise Exception.Create('Invalid file type');
@@ -579,7 +579,7 @@ var
   i: Integer;
 begin
   s := cAppParamsFileMagic;
-  TStreamOp.WriteAnsiString(AStream, s);
+  AStream.WriteAnsiString(s);
   i := FSettings.Count;
   AStream.Write(i, sizeof(i));
   for i := 0 to FSettings.Count - 1 do

@@ -40,10 +40,12 @@ type
 
 implementation
 
+uses MicroCoin.Common.Stream;
+
 procedure TBlockHeader.SaveToStream(const stream: TStream);
 begin
   stream.Write(block, Sizeof(block));
-  TStreamOp.WriteAccountKey(stream, account_key);
+  stream.WriteAccountKey(account_key);
   stream.Write(reward, Sizeof(reward));
   stream.Write(fee, Sizeof(fee));
   stream.Write(protocol_version, Sizeof(protocol_version));
@@ -51,10 +53,10 @@ begin
   stream.Write(timestamp, Sizeof(timestamp));
   stream.Write(compact_target, Sizeof(compact_target));
   stream.Write(nonce, Sizeof(nonce));
-  TStreamOp.WriteAnsiString(stream, block_payload);
-  TStreamOp.WriteAnsiString(stream, initial_safe_box_hash);
-  TStreamOp.WriteAnsiString(stream, transactionHash);
-  TStreamOp.WriteAnsiString(stream, proof_of_work);
+  stream.WriteAnsiString(block_payload);
+  stream.WriteAnsiString(initial_safe_box_hash);
+  stream.WriteAnsiString(transactionHash);
+  stream.WriteAnsiString(proof_of_work);
 end;
 
 class function TBlockHeader.Empty: TBlockHeader;
@@ -80,7 +82,7 @@ begin
   ABlockHeader := TBlockHeader.Empty;
   if stream.Read(ABlockHeader.block, Sizeof(ABlockHeader.block)) < Sizeof(ABlockHeader.block)
   then exit;
-  TStreamOp.ReadAccountKey(stream, ABlockHeader.account_key);
+  stream.ReadAccountKey(ABlockHeader.account_key);
   stream.Read(ABlockHeader.reward, Sizeof(ABlockHeader.reward));
   stream.Read(ABlockHeader.fee, Sizeof(ABlockHeader.fee));
   stream.Read(ABlockHeader.protocol_version, Sizeof(ABlockHeader.protocol_version));
@@ -88,13 +90,13 @@ begin
   stream.Read(ABlockHeader.timestamp, Sizeof(ABlockHeader.timestamp));
   stream.Read(ABlockHeader.compact_target, Sizeof(ABlockHeader.compact_target));
   stream.Read(ABlockHeader.nonce, Sizeof(ABlockHeader.nonce));
-  if TStreamOp.ReadAnsiString(stream, ABlockHeader.block_payload) < 0
+  if stream.ReadAnsiString(ABlockHeader.block_payload) < 0
   then exit;
-  if TStreamOp.ReadAnsiString(stream, ABlockHeader.initial_safe_box_hash) < 0
+  if stream.ReadAnsiString(ABlockHeader.initial_safe_box_hash) < 0
   then exit;
-  if TStreamOp.ReadAnsiString(stream, ABlockHeader.transactionHash) < 0
+  if stream.ReadAnsiString(ABlockHeader.transactionHash) < 0
   then exit;
-  if TStreamOp.ReadAnsiString(stream, ABlockHeader.proof_of_work) < 0
+  if stream.ReadAnsiString(ABlockHeader.proof_of_work) < 0
   then exit;
   Result := true;
 end;

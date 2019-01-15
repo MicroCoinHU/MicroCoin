@@ -75,6 +75,8 @@ type
 
 implementation
 
+uses MicroCoin.Common.Stream;
+
 { TCreateSubAccountTransaction }
 
 procedure TCreateSubAccountTransaction.AffectedAccounts(list: TList);
@@ -242,16 +244,16 @@ begin
     Stream.Write(ATransaction.NumberOfTransactions, Sizeof(ATransaction.NumberOfTransactions));
     Stream.Write(ATransaction.Fee, Sizeof(ATransaction.Fee));
 
-    if TStreamOp.WriteAnsiString(Stream, ATransaction.Payload) < 0
+    if Stream.WriteAnsiString(ATransaction.Payload) < 0
     then exit;
 
-    if TStreamOp.WriteAccountKey(Stream, ATransaction.PublicKey) < 0
+    if Stream.WriteAccountKey(ATransaction.PublicKey) < 0
     then exit;
 
-    if TStreamOp.WriteAnsiString(Stream, ATransaction.Signature.r) < 0
+    if Stream.WriteAnsiString(ATransaction.Signature.r) < 0
     then exit;
 
-    if TStreamOp.WriteAnsiString(Stream, ATransaction.Signature.s) < 0
+    if Stream.WriteAnsiString(ATransaction.Signature.s) < 0
     then exit;
 
     Stream.Write(ATransaction.Balance, SizeOf(ATransaction.Balance));
@@ -334,16 +336,16 @@ begin
   Stream.Read(FData.NumberOfTransactions, Sizeof(FData.NumberOfTransactions));
   Stream.Read(FData.Fee, Sizeof(FData.Fee));
 
-  if TStreamOp.ReadAnsiString(Stream, FData.Payload) < 0
+  if Stream.ReadAnsiString(FData.Payload) < 0
   then exit;
 
-  if TStreamOp.ReadAccountKey(Stream, FData.PublicKey) < 0
+  if Stream.ReadAccountKey(FData.PublicKey) < 0
   then exit;
 
-  if TStreamOp.ReadAnsiString(Stream, FData.Signature.r) < 0
+  if Stream.ReadAnsiString(FData.Signature.r) < 0
   then exit;
 
-  if TStreamOp.ReadAnsiString(Stream, FData.Signature.s) < 0
+  if Stream.ReadAnsiString(FData.Signature.s) < 0
   then exit;
 
   Stream.Read(FData.Balance, SizeOf(FData.Balance));
@@ -362,16 +364,16 @@ begin
   Stream.Write(FData.NumberOfTransactions, Sizeof(FData.NumberOfTransactions));
   Stream.Write(FData.Fee, Sizeof(FData.Fee));
 
-  if TStreamOp.WriteAnsiString(Stream, FData.Payload) < 0
+  if Stream.WriteAnsiString(FData.Payload) < 0
   then exit;
 
-  if TStreamOp.WriteAccountKey(Stream, FData.PublicKey) < 0
+  if Stream.WriteAccountKey(FData.PublicKey) < 0
   then exit;
 
-  if TStreamOp.WriteAnsiString(Stream, FData.Signature.r) < 0
+  if Stream.WriteAnsiString(FData.Signature.r) < 0
   then exit;
 
-  if TStreamOp.WriteAnsiString(Stream, FData.Signature.s) < 0
+  if Stream.WriteAnsiString(FData.Signature.s) < 0
   then exit;
 
   Stream.Write(FData.Balance, SizeOf(FData.Balance));

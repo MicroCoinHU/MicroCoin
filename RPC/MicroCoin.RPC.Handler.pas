@@ -378,7 +378,7 @@ var
         Result := false;
         exit;
       end;
-      ob := FNode.BlockManager.AccountStorage.Block(nBlock).BlockHeader;
+      ob := FNode.BlockManager.AccountStorage.Blocks[nBlock].BlockHeader;
 
       jsonObject.GetAsVariant('block').Value := ob.Block;
       jsonObject.GetAsVariant('enc_pubkey').Value := TCrypto.ToHexaString(ob.account_key.ToRawString);
@@ -2261,7 +2261,7 @@ var
     // Validate Parameters
     if accountName <> '' then
     begin
-      if not FNode.BlockManager.AccountStorage.AccountNameIsValid(accountName, errors2) then
+      if not FNode.BlockManager.AccountStorage.IsValidAccountName(accountName, errors2) then
       begin
         ErrorNum := CT_RPC_ErrNum_InvalidAccountName;
         ErrorDesc := errors;

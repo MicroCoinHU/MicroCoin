@@ -211,7 +211,7 @@ begin
   inherited;
   if TAccount.ParseAccountNumber(Text, xAccNumber)
   then begin
-    FAccount := TNode.Node.TransactionStorage.BlockManager.AccountStorage.Account(xAccNumber);
+    FAccount := TNode.Node.TransactionStorage.BlockManager.AccountStorage.Accounts[xAccNumber];
   end;
 end;
 

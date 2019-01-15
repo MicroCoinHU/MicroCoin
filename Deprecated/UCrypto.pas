@@ -133,7 +133,7 @@ Const
 implementation
 
 uses
-  ULog, UConst, MicroCoin.Account.AccountKey;
+  ULog, UConst, MicroCoin.Account.AccountKey,MicroCoin.Common.Stream;
 
 Var _initialized : Boolean = false;
 
@@ -168,7 +168,7 @@ begin
     ms.Write(FEC_OpenSSL_NID,sizeof(FEC_OpenSSL_NID));
     SetLength(aux,BN_num_bytes(EC_KEY_get0_private_key(FPrivateKey)));
     BN_bn2bin(EC_KEY_get0_private_key(FPrivateKey),@aux[1]);
-    TStreamOp.WriteAnsiString(ms,aux);
+    ms.WriteAnsiString(aux);
     SetLength(Result,ms.Size);
     ms.Position := 0;
     ms.Read(Result[1],ms.Size);
@@ -227,7 +227,7 @@ begin
     ms.WriteBuffer(raw[1],length(raw));
     ms.Position := 0;
     if ms.Read(ECID,sizeof(ECID))<>sizeof(ECID) then exit;
-    If TStreamOp.ReadAnsiString(ms,aux)<0 then exit;
+    If ms.ReadAnsiString(aux)<0 then exit;
     BNx := BN_bin2bn(PAnsiChar(aux),length(aux),nil);
     if assigned(BNx) then begin
       try

@@ -133,7 +133,7 @@ implementation
 uses UTime, MicroCoin.Net.ConnectionManager, UConst, UCrypto,
   UECIES,
   UChunk, MicroCoin.Net.Client, {$IFDEF MSWINDOWS} Windows, {$ENDIF} MicroCoin.Transaction.Base,
-  MicroCoin.Net.Utils,
+  MicroCoin.Net.Utils, MicroCoin.Common.Stream,
   MicroCoin.Transaction.Manager, MicroCoin.Node.Node, MicroCoin.Account.Storage;
 
 function TNetConnectionBase.ClientRemoteAddr: AnsiString;
@@ -782,7 +782,7 @@ var
 begin
   buffer := TMemoryStream.Create;
   try
-    TStreamOp.WriteAnsiString(buffer, error_text);
+    buffer.WriteAnsiString(error_text);
     Send(NetTranferType, operation, error_code, request_id, buffer);
   finally
     buffer.Free;

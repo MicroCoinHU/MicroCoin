@@ -171,7 +171,7 @@ begin
         exit;
       end;
 
-      newBlock := AccountStorage.Block(AccountStorage.BlocksCount - 1);
+      newBlock := AccountStorage.Blocks[AccountStorage.BlocksCount - 1];
 
       // Initialize values
       FLastBlockHeader := ABlock.BlockHeader;
@@ -387,13 +387,13 @@ var
 begin
   if BlocksCount > BackBlocks then
   begin
-    ts1 := AccountStorage.Block(BlocksCount - 1).BlockHeader.timestamp;
-    ts2 := AccountStorage.Block(BlocksCount - BackBlocks - 1).BlockHeader.timestamp;
+    ts1 := AccountStorage.Blocks[BlocksCount - 1].BlockHeader.timestamp;
+    ts2 := AccountStorage.Blocks[BlocksCount - BackBlocks - 1].BlockHeader.timestamp;
   end
   else if (BlocksCount > 1) then
   begin
-    ts1 := AccountStorage.Block(BlocksCount - 1).BlockHeader.timestamp;
-    ts2 := AccountStorage.Block(0).BlockHeader.timestamp;
+    ts1 := AccountStorage.Blocks[BlocksCount - 1].BlockHeader.timestamp;
+    ts2 := AccountStorage.Blocks[0].BlockHeader.timestamp;
     BackBlocks := BlocksCount - 1;
   end
   else
@@ -420,13 +420,13 @@ begin
   end;
   if FromBlock > BackBlocks then
   begin
-    ts1 := AccountStorage.Block(FromBlock - 1).BlockHeader.timestamp;
-    ts2 := AccountStorage.Block(FromBlock - BackBlocks - 1).BlockHeader.timestamp;
+    ts1 := AccountStorage.Blocks[FromBlock - 1].BlockHeader.timestamp;
+    ts2 := AccountStorage.Blocks[FromBlock - BackBlocks - 1].BlockHeader.timestamp;
   end
   else if (FromBlock > 1) then
   begin
-    ts1 := AccountStorage.Block(FromBlock - 1).BlockHeader.timestamp;
-    ts2 := AccountStorage.Block(0).BlockHeader.timestamp;
+    ts1 := AccountStorage.Blocks[FromBlock - 1].BlockHeader.timestamp;
+    ts2 := AccountStorage.Blocks[0].BlockHeader.timestamp;
     BackBlocks := FromBlock - 1;
   end
   else
@@ -495,7 +495,7 @@ begin
       if not Result then
         exit;
       if AccountStorage.BlocksCount > 0 then
-        FLastBlockHeader := AccountStorage.Block(AccountStorage.BlocksCount - 1).BlockHeader
+        FLastBlockHeader := AccountStorage.Blocks[AccountStorage.BlocksCount - 1].BlockHeader
       else
       begin
         FLastBlockHeader := TBlock.GetFirstBlock;

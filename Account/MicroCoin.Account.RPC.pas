@@ -181,7 +181,7 @@ begin
   // Validate Parameters
   if accountName <> '' then
   begin
-    if not TNode.Node.BlockManager.AccountStorage.AccountNameIsValid(accountName, errors2) then
+    if not TNode.Node.BlockManager.AccountStorage.IsValidAccountName(accountName, errors2) then
     begin
       Result.ErrorCode := CT_RPC_ErrNum_InvalidAccountName;
       Result.ErrorMessage := errors;

@@ -94,6 +94,8 @@ type
 
 implementation
 
+uses MicroCoin.Common.Stream;
+
 const
   CT_TOpListAccountData_NUL: TListAccountTransaction.TListAccountTransactionData = (SignerAccount: 0; TargetAccount: 0; TransactionType: lat_Unknown;
     NumberOfTransactions: 0; AccountPrice: 0; AccountToPay: 0; Fee: 0; Payload: '';
@@ -363,21 +365,21 @@ begin
     Stream.Read(FData.AccountToPay, Sizeof(FData.AccountToPay));
     if Stream.Read(FData.PublicKey.EC_OpenSSL_NID, Sizeof(FData.PublicKey.EC_OpenSSL_NID)) < 0 then
       exit;
-    if TStreamOp.ReadAnsiString(Stream, FData.PublicKey.x) < 0 then
+    if Stream.ReadAnsiString(FData.PublicKey.x) < 0 then
       exit;
-    if TStreamOp.ReadAnsiString(Stream, FData.PublicKey.y) < 0 then
+    if Stream.ReadAnsiString(FData.PublicKey.y) < 0 then
       exit;
-    if TStreamOp.ReadAnsiString(Stream, s) < 0 then
+    if Stream.ReadAnsiString(s) < 0 then
       exit;
     FData.NewPublicKey := TAccountKey.FromRawString(s);
     Stream.Read(FData.LockedUntilBlock, Sizeof(FData.LockedUntilBlock));
   end;
   Stream.Read(FData.Fee, Sizeof(FData.Fee));
-  if TStreamOp.ReadAnsiString(Stream, FData.Payload) < 0 then
+  if Stream.ReadAnsiString(FData.Payload) < 0 then
     exit;
-  if TStreamOp.ReadAnsiString(Stream, FData.Signature.r) < 0 then
+  if Stream.ReadAnsiString(FData.Signature.r) < 0 then
     exit;
-  if TStreamOp.ReadAnsiString(Stream, FData.Signature.s) < 0 then
+  if Stream.ReadAnsiString(FData.Signature.s) < 0 then
     exit;
   Result := true;
 end;
@@ -423,15 +425,15 @@ begin
     Stream.Write(FData.AccountPrice, Sizeof(FData.AccountPrice));
     Stream.Write(FData.AccountToPay, Sizeof(FData.AccountToPay));
     Stream.Write(FData.PublicKey.EC_OpenSSL_NID, Sizeof(FData.PublicKey.EC_OpenSSL_NID));
-    TStreamOp.WriteAnsiString(Stream, FData.PublicKey.x);
-    TStreamOp.WriteAnsiString(Stream, FData.PublicKey.y);
-    TStreamOp.WriteAnsiString(Stream, FData.NewPublicKey.ToRawString);
+    Stream.WriteAnsiString(FData.PublicKey.x);
+    Stream.WriteAnsiString(FData.PublicKey.y);
+    Stream.WriteAnsiString(FData.NewPublicKey.ToRawString);
     Stream.Write(FData.LockedUntilBlock, Sizeof(FData.LockedUntilBlock));
   end;
   Stream.Write(FData.Fee, Sizeof(FData.Fee));
-  TStreamOp.WriteAnsiString(Stream, FData.Payload);
-  TStreamOp.WriteAnsiString(Stream, FData.Signature.r);
-  TStreamOp.WriteAnsiString(Stream, FData.Signature.s);
+  Stream.WriteAnsiString(FData.Payload);
+  Stream.WriteAnsiString(FData.Signature.r);
+  Stream.WriteAnsiString(FData.Signature.s);
   Result := true;
 end;
 

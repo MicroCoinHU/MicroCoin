@@ -102,7 +102,7 @@ type
 implementation
 
 uses UTime, MicroCoin.Net.ConnectionManager, UConst, UCrypto,
-  UECIES,
+  UECIES, MicroCoin.Common.Stream,
   UChunk, MicroCoin.Net.Client,{$IFDEF MSWINDOWS} Windows,{$ENDIF} MicroCoin.Transaction.Base,
   MicroCoin.Net.Utils,
   MicroCoin.Transaction.Manager, MicroCoin.Node.Node, MicroCoin.Account.Storage;
@@ -340,7 +340,7 @@ begin
             // Is not a valid entry????
             // Perhaps an orphan blockchain: Me or Client!
             TLog.NewLog(ltInfo, Classname, 'Distinct operation block found! My:' +
-              TBlock.BlockToString(TNode.Node.BlockManager.AccountStorage.Block(TNode.Node.BlockManager.BlocksCount - 1)
+              TBlock.BlockToString(TNode.Node.BlockManager.AccountStorage.Blocks[TNode.Node.BlockManager.BlocksCount - 1]
               .BlockHeader) + ' remote:' + TBlock.BlockToString(xBlock.BlockHeader) + ' Errors: ' + xErrors);
           end;
         end
@@ -426,7 +426,7 @@ begin
       b := b_start;
       total_b := 0;
       repeat
-        ob := TNode.Node.BlockManager.AccountStorage.Block(b).BlockHeader;
+        ob := TNode.Node.BlockManager.AccountStorage.Blocks[b].BlockHeader;
         if TBlock.SaveBlockToStream(ob, msops) then
         begin
           blocksstr := blocksstr + Inttostr(b) + ',';
@@ -486,7 +486,7 @@ begin
     If not valid will disconnect
   }
   DataBuffer.Read(xBlockCount, SizeOf(xBlockCount));
-  TStreamOp.ReadAnsiString(DataBuffer, xAccountStorageHash);
+  DataBuffer.ReadAnsiString(xAccountStorageHash);
   DataBuffer.Read(xFrom, SizeOf(xFrom));
   DataBuffer.Read(xTo, SizeOf(xTo));
   //
@@ -501,7 +501,8 @@ begin
         exit;
       end;
       antPos := xAccountStorageStream.Position;
-      TAccountStorage.LoadHeaderFromStream(xAccountStorageStream, xAccountStorageHeader);
+      // TODO: exception
+      xAccountStorageHeader := TAccountStorageHeader.LoadFromStream(xAccountStorageStream);
       if xAccountStorageHeader.AccountStorageHash <> xAccountStorageHash then
       begin
         DisconnectInvalidClient(false, Format('Invalid safeboxhash on GetSafeBox request (Real:%s > Requested:%s)',
@@ -547,7 +548,7 @@ begin
       DisconnectInvalidClient(false, 'Invalid data on buffer: ' + TConnectionManager.HeaderDataToText(HeaderData));
       exit;
     end;
-    if TStreamOp.ReadAnsiString(DataBuffer, RawAccountKey) < 0 then
+    if DataBuffer.ReadAnsiString(RawAccountKey) < 0 then
     begin
       DisconnectInvalidClient(false, 'Invalid data on buffer. No Public key: ' + TConnectionManager.HeaderDataToText
         (HeaderData));
@@ -560,8 +561,8 @@ begin
         ' errors: ' + errors);
       exit;
     end;
-    if DataBuffer.Read(connection_ts, 4) < 4 then
-    begin
+    if DataBuffer.Read(connection_ts, 4) < 4
+    then begin
       DisconnectInvalidClient(false, 'Invalid data on buffer. No TS: ' + TConnectionManager.HeaderDataToText
         (HeaderData));
       exit;
@@ -606,13 +607,13 @@ begin
         for i := 1 to c do
         begin
           nsa := CT_TNodeServerAddress_NUL;
-          TStreamOp.ReadAnsiString(DataBuffer, nsa.ip);
+          DataBuffer.ReadAnsiString(nsa.ip);
           DataBuffer.Read(nsa.port, 2);
           DataBuffer.Read(nsa.last_connection_by_server, 4);
           if (nsa.last_connection_by_server > 0) and (i <= cMAX_NODESERVERS_ON_HELLO) then // Protect massive data
             TConnectionManager.Instance.AddServer(nsa);
         end;
-        if TStreamOp.ReadAnsiString(DataBuffer, other_version) >= 0 then
+        if DataBuffer.ReadAnsiString(other_version) >= 0 then
         begin
           // Captures version
           ClientAppVersion := other_version;
@@ -686,7 +687,7 @@ begin
       errors := 'Not autosend';
       exit;
     end;
-    if TStreamOp.ReadAnsiString(DataBuffer, messagecrypted) < 0 then
+    if DataBuffer.ReadAnsiString(messagecrypted) < 0 then
     begin
       errors := 'Invalid message data';
       exit;
@@ -969,7 +970,7 @@ begin
     // Save active server port (2 bytes). 0 = No active server port
     data.Write(w, 2);
     // Save My connection public key
-    TStreamOp.WriteAnsiString(data, TConnectionManager.Instance.NodePrivateKey.PublicKey.ToRawString);
+    data.WriteAnsiString(TConnectionManager.Instance.NodePrivateKey.PublicKey.ToRawString);
     // Save my Unix timestamp (4 bytes)
     currunixtimestamp := UnivDateTimeToUnix(DateTime2UnivDateTime(now));
     data.Write(currunixtimestamp, 4);
@@ -981,12 +982,12 @@ begin
     for i := 0 to high(nsarr) do
     begin
       nsa := nsarr[i];
-      TStreamOp.WriteAnsiString(data, nsa.ip);
+      data.WriteAnsiString(nsa.ip);
       data.Write(nsa.port, 2);
       data.Write(nsa.last_connection, 4);
     end;
     // Send client version
-    TStreamOp.WriteAnsiString(data, UConst.ClientAppVersion{$IFDEF LINUX} + ' Linux'{$ELSE} + ' Windows'{$ENDIF}{$IFDEF FPC}{$IFDEF LCL} + ' '{$ELSE} + ' '{$ENDIF}{$ELSE}+' '{$ENDIF}{$IFDEF DEBUG}+' Debug'{$ELSE}+''{$ENDIF}{$IFDEF CONSOLE}+' daemon'{$ENDIF});
+    data.WriteAnsiString(UConst.ClientAppVersion{$IFDEF LINUX} + ' Linux'{$ELSE} + ' Windows'{$ENDIF}{$IFDEF FPC}{$IFDEF LCL} + ' '{$ELSE} + ' '{$ENDIF}{$ELSE}+' '{$ENDIF}{$IFDEF DEBUG}+' Debug'{$ELSE}+''{$ENDIF}{$IFDEF CONSOLE}+' daemon'{$ENDIF});
     // Build 1.5 send accumulated work
     data.Write(TNode.Node.BlockManager.AccountStorage.WorkSum, SizeOf(TNode.Node.BlockManager.AccountStorage.WorkSum));
     //
@@ -1010,7 +1011,7 @@ begin
   try
     // Cypher message:
     cyp := ECIESEncrypt(FClientPublicKey, TheMessage);
-    TStreamOp.WriteAnsiString(data, cyp);
+    data.WriteAnsiString(cyp);
     Send(ntp_autosend, cNetOp_Message, 0, 0, data);
     Result := true;
   finally

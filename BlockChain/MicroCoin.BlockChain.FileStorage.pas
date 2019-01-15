@@ -721,13 +721,18 @@ var
   fs: TFileStream;
 begin
   Result := false;
-  AAccountStorageHeader := CT_AccountStorageHeader_NUL;
+  AAccountStorageHeader := TAccountStorageHeader.Empty;
   if not FileExists(AFilename) then
     exit;
   fs := TFileStream.Create(AFilename, fmOpenRead);
   try
     fs.Position := 0;
-    Result := BlockManager.AccountStorage.LoadHeaderFromStream(fs, AAccountStorageHeader);
+    try
+      AAccountStorageHeader := TAccountStorageHeader.LoadFromStream(fs);
+      Result := true;
+    except on e:Exception do
+      result := false;
+    end;
   finally
     fs.Free;
   end;

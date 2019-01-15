@@ -11,7 +11,7 @@ unit MicroCoin.Net.ConnectionManager;
 }
 
 {$ifdef FPC}
-{$mode delphi}
+  {$mode delphi}
 {$endif}
 
 interface
@@ -177,7 +177,7 @@ implementation
 uses MicroCoin.Node.Node, MicroCoin.Net.Utils,
   MicroCoin.Account.AccountKey, MicroCoin.BlockChain.Block,
   MicroCoin.Transaction.TransactionList, MicroCoin.Account.Storage,
-  UChunk,
+  UChunk, MicroCoin.Common.Stream,
   MicroCoin.Net.Client, MicroCoin.Net.Discovery, MicroCoin.Transaction.Hashtree;
 
 function SortNodeServerAddress(Item1, Item2: Pointer): Integer;
@@ -853,7 +853,7 @@ begin
       HeaderData.IsError := HeaderData.ErrorCode <> 0;
       if HeaderData.IsError then
       begin
-        TStreamOp.ReadAnsiString(DataBuffer, HeaderData.ErrorText);
+        DataBuffer.ReadAnsiString(HeaderData.ErrorText);
       end;
     end
     else
@@ -861,7 +861,7 @@ begin
       HeaderData.IsError := HeaderData.ErrorCode <> 0;
       if HeaderData.IsError then
       begin
-        TStreamOp.ReadAnsiString(DataBuffer, HeaderData.ErrorText);
+        DataBuffer.ReadAnsiString(HeaderData.ErrorText);
       end;
     end;
     if (HeaderData.IsError) then
@@ -921,6 +921,8 @@ begin
   end;
 end;
 
+// TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+// Spaghetti code
 procedure TConnectionManager.GetNewBlockChainFromClient(Connection: TNetConnection; const why: string);
 const
   CT_LogSender = 'GetNewBlockChainFromClient';
@@ -1044,7 +1046,7 @@ const
           end;
           ant_nblock := auxBlock.Block;
           //
-          sbBlock := TNode.Node.BlockManager.AccountStorage.Block(auxBlock.Block).Blockheader;
+          sbBlock := TNode.Node.BlockManager.AccountStorage.Blocks[auxBlock.Block].Blockheader;
           if TBlock.Equals(sbBlock, auxBlock) then
           begin
             distinctmin := auxBlock.Block;
@@ -1257,7 +1259,7 @@ const
     ReceiveData := TMemoryStream.Create;
     try
       SendData.Write(ABlockscount, SizeOf(ABlockscount)); // 4 bytes for blockcount
-      TStreamOp.WriteAnsiString(SendData, AHeader);
+      SendData.WriteAnsiString(AHeader);
       SendData.Write(AFromBlock, SizeOf(AFromBlock));
       c := AToblock;
       if (c >= ABlockscount) then

@@ -65,18 +65,12 @@ type
     function Equals(other: TAccountKey) : boolean; inline;
   end;
 
-  TStreamOp = class
-  public
-    class function WriteAnsiString(Stream: TStream; const value: AnsiString): Integer; overload;
-    class function ReadAnsiString(Stream: TStream; var value: AnsiString): Integer; overload;
-    class function WriteAccountKey(Stream: TStream; const value: TAccountKey): Integer;
-    class function ReadAccountKey(Stream: TStream; var value: TAccountKey): Integer;
-  end;
-
 const
   CT_Base58: AnsiString = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 
 implementation
+
+uses MicroCoin.Common.Stream;
 
 class procedure TAccountKeyHelper.ValidsEC_OpenSSL_NID(list: TList);
 begin
@@ -122,7 +116,7 @@ var
 begin
   s := TMemoryStream.Create;
   try
-    TStreamOp.WriteAccountKey(s, self);
+    s.WriteAccountKey(self);
     SetLength(dest, s.Size);
     s.Position := 0;
     s.Read(dest[1], s.Size);
@@ -153,7 +147,7 @@ begin
     try
       ms.WriteBuffer(rawaccstr[1], length(rawaccstr));
       ms.Position := 0;
-      TStreamOp.ReadAccountKey(ms, dest);
+      ms.ReadAccountKey(dest);
     finally
       ms.Free;
     end;
@@ -338,80 +332,6 @@ end;
 function TAccountKeyHelper.Equals(other: TAccountKey): boolean;
 begin
   Result := TAccountKey.EqualAccountKeys(self, other);
-end;
-
-class function TStreamOp.ReadAccountKey(Stream: TStream; var value: TAccountKey): Integer;
-begin
-  if Stream.Size - Stream.Position < 2 then
-  begin
-    value := CT_TECDSA_Public_Nul;
-    Result := -1;
-    exit;
-  end;
-  Stream.Read(value.EC_OpenSSL_NID, SizeOf(value.EC_OpenSSL_NID));
-  if (ReadAnsiString(Stream, value.x) <= 0) then
-  begin
-    value := CT_TECDSA_Public_Nul;
-    exit;
-  end;
-  if (ReadAnsiString(Stream, value.y) <= 0) then
-  begin
-    value := CT_TECDSA_Public_Nul;
-    exit;
-  end;
-  Result := value.EC_OpenSSL_NID;
-end;
-
-class function TStreamOp.ReadAnsiString(Stream: TStream; var value: AnsiString): Integer;
-var
-  l: Word;
-  s: array of AnsiChar;
-begin
-  if Stream.Size - Stream.Position < 2 then
-  begin
-    value := '';
-    Result := -1;
-    exit;
-  end;
-  Stream.Read(l, 2);
-  if Stream.Size - Stream.Position < l then
-  begin
-    Stream.Position := Stream.Position - 2; // Go back!
-    value := '';
-    Result := -1;
-    exit;
-  end;
-  SetLength(s, l);
-  Stream.ReadBuffer(s[0], l);
-  value := '';
-  SetString(value, PAnsiChar(@s[0]), Length(s));
-  SetLength(s, 0);
-  Finalize(s);
-  Result := l + 2;
-end;
-
-class function TStreamOp.WriteAccountKey(Stream: TStream; const value: TAccountKey): Integer;
-begin
-  Result := Stream.Write(value.EC_OpenSSL_NID, SizeOf(value.EC_OpenSSL_NID));
-  Result := Result + WriteAnsiString(Stream, value.x);
-  Result := Result + WriteAnsiString(Stream, value.y);
-end;
-
-class function TStreamOp.WriteAnsiString(Stream: TStream; const value: AnsiString): Integer;
-var
-  l: Word;
-begin
-  if (length(value) > (256 * 256)) then
-  begin
-    TLog.NewLog(lterror, Classname, 'Invalid stream size! ' + inttostr(length(value)));
-    raise Exception.Create('Invalid stream size! ' + inttostr(length(value)));
-  end;
-
-  l := length(value);
-  Stream.Write(l, 2);
-  if (l > 0) then
-    Stream.WriteBuffer(value[1], length(value));
-  Result := l + 2;
 end;
 
 end.

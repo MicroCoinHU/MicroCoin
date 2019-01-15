@@ -91,7 +91,7 @@ begin
   end
   else
   begin
-    Result := FreezedAccountStorage.Account(AAccountNumber);
+    Result := FreezedAccountStorage.Accounts[AAccountNumber];
   end;
 end;
 
@@ -241,7 +241,7 @@ begin
     for i := 0 to FOrderedList.Count - 1 do
     begin
       Pa := FOrderedList.GetPointer(i);
-      FreezedAccounts.SetAccount(Pa^.AccountNumber, Pa^.AccountInfo, Pa^.Name, Pa^.AccountType, Pa^.Balance,
+      FreezedAccounts.UpdateAccount(Pa^.AccountNumber, Pa^.AccountInfo, Pa^.Name, Pa^.AccountType, Pa^.Balance,
         Pa^.NumberOfTransactions{$IFDEF EXTENDEDACCOUNT}, Pa^.SubAccounts, Pa^.ExtraData{$ENDIF});
     end;
     //
@@ -332,7 +332,7 @@ begin
   then begin
     Result := FOrderedList.GetPointer(i)
   end else begin
-    i := FOrderedList.Add(FreezedAccountStorage.Account(AAccountNumber));
+    i := FOrderedList.Add(FreezedAccountStorage.Accounts[AAccountNumber]);
     Result := FOrderedList.GetPointer(i);
   end;
 end;
@@ -503,7 +503,7 @@ begin
     // NEW NAME CHANGE CHECK:
     if (ANewName <> '') then
     begin
-      if not FFreezedAccounts.AccountNameIsValid(ANewName, RErrors) then
+      if not FFreezedAccounts.IsValidAccountName(ANewName, RErrors) then
       begin
         RErrors := 'Invalid account name "' + ANewName + '" length:' + inttostr(length(ANewName)) + ': ' + RErrors;
         exit;

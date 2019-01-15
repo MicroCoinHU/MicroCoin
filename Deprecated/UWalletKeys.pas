@@ -78,7 +78,7 @@ const
 
 implementation
 
-uses SysUtils, UConst, ULog, UAES;
+uses SysUtils, UConst, ULog, UAES, MicroCoin.Common.Stream;
 
 const
   CT_PrivateKeyFile_Magic = 'TWalletKeys';
@@ -294,7 +294,7 @@ begin
   try
     if Stream.Size - Stream.Position > 0 then
     begin
-      TStreamOp.ReadAnsiString(Stream, s);
+      Stream.ReadAnsiString(s);
       if not AnsiSameStr(s, CT_PrivateKeyFile_Magic) then
         raise Exception.Create('Invalid ' + ClassName + ' stream');
       // Read version:
@@ -309,11 +309,11 @@ begin
       for i := 0 to L - 1 do
       begin
         wk := CT_TWalletKey_NUL;
-        TStreamOp.ReadAnsiString(Stream, wk.Name);
+        Stream.ReadAnsiString(wk.Name);
         Stream.Read(wk.AccountKey.EC_OpenSSL_NID, sizeof(wk.AccountKey.EC_OpenSSL_NID));
-        TStreamOp.ReadAnsiString(Stream, wk.AccountKey.x);
-        TStreamOp.ReadAnsiString(Stream, wk.AccountKey.y);
-        TStreamOp.ReadAnsiString(Stream, wk.CryptedKey);
+        Stream.ReadAnsiString(wk.AccountKey.x);
+        Stream.ReadAnsiString(wk.AccountKey.y);
+        Stream.ReadAnsiString(wk.CryptedKey);
         wk.PrivateKey := nil;
         j := AddPublicKey(wk.Name, wk.AccountKey);
         P := PWalletKey(FSearchableKeys[j]);
@@ -350,7 +350,7 @@ begin
     exit;
   Stream.Size := 0;
   Stream.Position := 0;
-  TStreamOp.WriteAnsiString(Stream, CT_PrivateKeyFile_Magic);
+  Stream.WriteAnsiString(CT_PrivateKeyFile_Magic);
   i := CT_PrivateKeyFile_Version;
   Stream.Write(i, 4);
   i := FSearchableKeys.Count;
@@ -358,11 +358,11 @@ begin
   for i := 0 to FSearchableKeys.Count - 1 do
   begin
     P := FSearchableKeys[i];
-    TStreamOp.WriteAnsiString(Stream, P^.Name);
+    Stream.WriteAnsiString(P^.Name);
     Stream.Write(P^.AccountKey.EC_OpenSSL_NID, sizeof(P^.AccountKey.EC_OpenSSL_NID));
-    TStreamOp.WriteAnsiString(Stream, P^.AccountKey.x);
-    TStreamOp.WriteAnsiString(Stream, P^.AccountKey.y);
-    TStreamOp.WriteAnsiString(Stream, P^.CryptedKey);
+    Stream.WriteAnsiString(P^.AccountKey.x);
+    Stream.WriteAnsiString(P^.AccountKey.y);
+    Stream.WriteAnsiString(P^.CryptedKey);
   end;
 end;
 
