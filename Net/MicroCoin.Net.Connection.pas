@@ -173,7 +173,7 @@ begin
     try
       if DoDisconnect then
       begin
-        DisconnectInvalidClient(false, errors + ' > ' + TConnectionManager.HeaderDataToText(HeaderData) + ' BuffSize: '
+        DisconnectInvalidClient(false, errors + ' > ' + HeaderData.ToString + ' BuffSize: '
           + Inttostr(DataBuffer.Size));
       end
       else
@@ -254,7 +254,7 @@ begin
           end
           else
           begin
-            SendError(ntp_response, HeaderData.Operation, HeaderData.RequestId, cNetError_InternalServerError,
+            Send_Error(ntp_response, HeaderData.Operation, HeaderData.RequestId, cNetError_InternalServerError,
               'Operations of block:' + Inttostr(b) + ' not found');
             exit;
           end;
@@ -281,7 +281,7 @@ begin
   finally
     if xDoDisconnect then
     begin
-      DisconnectInvalidClient(false, xErrors + ' > ' + TConnectionManager.HeaderDataToText(HeaderData) + ' BuffSize: ' +
+      DisconnectInvalidClient(false, xErrors + ' > ' + (HeaderData.ToString) + ' BuffSize: ' +
         Inttostr(DataBuffer.Size));
     end;
   end;
@@ -366,7 +366,7 @@ begin
   finally
     if xDoDisconnect then
     begin
-      DisconnectInvalidClient(false, xErrors + ' > ' + TConnectionManager.HeaderDataToText(HeaderData) + ' BuffSize: ' +
+      DisconnectInvalidClient(false, xErrors + ' > ' + (HeaderData.ToString) + ' BuffSize: ' +
         Inttostr(DataBuffer.Size));
     end;
   end;
@@ -413,7 +413,7 @@ begin
       if b_end < b_start then
       begin
         errors := 'Block:' + Inttostr(b_end) + ' not found';
-        SendError(ntp_response, HeaderData.Operation, HeaderData.RequestId, cNetError_InternalServerError, errors);
+        Send_Error(ntp_response, HeaderData.Operation, HeaderData.RequestId, cNetError_InternalServerError, errors);
         exit;
       end;
     end;
@@ -436,7 +436,7 @@ begin
         else
         begin
           errors := 'ERROR DEV 20170522-1 block:' + Inttostr(b);
-          SendError(ntp_response, HeaderData.Operation, HeaderData.RequestId, cNetError_InternalServerError, errors);
+          Send_Error(ntp_response, HeaderData.Operation, HeaderData.RequestId, cNetError_InternalServerError, errors);
           exit;
         end;
       until (b > b_end);
@@ -456,7 +456,7 @@ begin
   finally
     if DoDisconnect then
     begin
-      DisconnectInvalidClient(false, errors + ' > ' + TConnectionManager.HeaderDataToText(HeaderData) + ' BuffSize: ' +
+      DisconnectInvalidClient(false, errors + ' > ' + (HeaderData.ToString) + ' BuffSize: ' +
         Inttostr(DataBuffer.Size));
     end;
   end;
@@ -496,7 +496,7 @@ begin
     try
       if not Assigned(xAccountStorageStream) then
       begin
-        SendError(ntp_response, HeaderData.Operation, cNetError_AccountStorageNotFound, HeaderData.RequestId,
+        Send_Error(ntp_response, HeaderData.Operation, cNetError_AccountStorageNotFound, HeaderData.RequestId,
           Format('Safebox for block %d not found', [xBlockCount]));
         exit;
       end;
@@ -545,26 +545,24 @@ begin
     DataBuffer.Position := 0;
     if DataBuffer.Read(connection_has_a_server, 2) < 2 then
     begin
-      DisconnectInvalidClient(false, 'Invalid data on buffer: ' + TConnectionManager.HeaderDataToText(HeaderData));
+      DisconnectInvalidClient(false, 'Invalid data on buffer: ' + (HeaderData.ToString));
       exit;
     end;
     if DataBuffer.ReadAnsiString(RawAccountKey) < 0 then
     begin
-      DisconnectInvalidClient(false, 'Invalid data on buffer. No Public key: ' + TConnectionManager.HeaderDataToText
-        (HeaderData));
+      DisconnectInvalidClient(false, 'Invalid data on buffer. No Public key: ' + (HeaderData.ToString));
       exit;
     end;
     FClientPublicKey := TAccountKey.FromRawString(RawAccountKey);
     if not FClientPublicKey.IsValidAccountKey(errors) then
     begin
-      DisconnectInvalidClient(false, 'Invalid Public key: ' + TConnectionManager.HeaderDataToText(HeaderData) +
+      DisconnectInvalidClient(false, 'Invalid Public key: ' + (HeaderData.ToString) +
         ' errors: ' + errors);
       exit;
     end;
     if DataBuffer.Read(connection_ts, 4) < 4
     then begin
-      DisconnectInvalidClient(false, 'Invalid data on buffer. No TS: ' + TConnectionManager.HeaderDataToText
-        (HeaderData));
+      DisconnectInvalidClient(false, 'Invalid data on buffer. No TS: ' + (HeaderData.ToString));
       exit;
     end;
     FTimestampDiff := Integer(Int64(connection_ts) -
@@ -660,7 +658,7 @@ begin
       end
       else
       begin
-        DisconnectInvalidClient(false, 'Invalid header type > ' + TConnectionManager.HeaderDataToText(HeaderData));
+        DisconnectInvalidClient(false, 'Invalid header type > ' + (HeaderData.ToString));
       end;
     end
     else
@@ -717,7 +715,7 @@ begin
   finally
     if DoDisconnect then
     begin
-      DisconnectInvalidClient(false, errors + ' > ' + TConnectionManager.HeaderDataToText(HeaderData) + ' BuffSize: ' +
+      DisconnectInvalidClient(false, errors + ' > ' + (HeaderData.ToString) + ' BuffSize: ' +
         Inttostr(DataBuffer.Size));
     end;
   end;
@@ -811,7 +809,7 @@ begin
   finally
     if xDoDisconnect then
     begin
-      DisconnectInvalidClient(false, xErrors + ' > ' + TConnectionManager.HeaderDataToText(HeaderData) + ' BuffSize: ' +
+      DisconnectInvalidClient(false, xErrors + ' > ' + (HeaderData.ToString) + ' BuffSize: ' +
         Inttostr(DataBuffer.Size));
     end;
   end;

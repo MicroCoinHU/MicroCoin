@@ -20,8 +20,9 @@ unit UConst;
 
 
 interface
-{$IFDEF WINDOWS}
-uses Windows;
+
+{$IFNDEF LINUX}
+uses Windows, Winapi.ShlObj;
 {$ENDIF}
 
 {$I config.inc}
@@ -37,8 +38,16 @@ type
 var
   ClientAppVersion : AnsiString = {$IFDEF PRODUCTION}'1.3.2'{$ELSE}{$IFDEF TESTNET}'TESTNET 1.3.2'{$ELSE}'DEVNET 1.3.2'{$ENDIF}{$ENDIF};
 
-Const
+const
 
+
+  cCoinName = 'MicroCoin';
+
+  cPathPrefix = {$IFDEF TESTNET}'_TESTNET'{$ENDIF}
+                {$IFDEF DEVNET}'_DEVNET'{$ENDIF}
+                {$IFDEF PRODUCTION}''{$ENDIF};
+
+  cDataFolder = cCoinName+cPathPrefix;
 
   cGenesisBlockMagic : AnsiString = '(c) Peter Nemeth - Okes rendben okes';
 
@@ -185,11 +194,33 @@ Const
   CT_BLOCK_EXTENDED_ACCOUNT_DATA = $FFFFFFFF;
   {$ENDIF}
 
+function MicroCoinDataFolder: string;
+
 implementation
 
-{$IFNDEF FPC}
-uses SysUtils, Windows;
+uses SysUtils;
 
+function MicroCoinDataFolder: string;
+var
+  FolderPath: array[0 .. MAX_PATH] of Char;
+  xPath : string;
+begin
+  {$IFDEF FPC}
+    {$IFDEF LINUX}
+      xPath := GetEnvironmentVariable('HOME');
+    {$ELSE}
+      xPath := GetEnvironmentVariable('APPDATA');
+    {$ENDIF}
+  {$ELSE}
+      SHGetFolderPath(0, CSIDL_APPDATA, 0, 0, @FolderPath);
+      xPath := FolderPath;
+  {$ENDIF}
+  Result := xPath + PathDelim + cDataFolder;
+  xPath := '';
+end;
+
+
+{$IFNDEF FPC}
 procedure GetBuildInfo(var V1, V2, V3, V4: word);
 var
   VerInfoSize, VerValueSize, Dummy: DWORD;

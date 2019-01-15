@@ -1,14 +1,36 @@
+{==============================================================================|
+| MicroCoin                                                                    |
+| Copyright (c) 2018 MicroCoin Developers                                      |
+|==============================================================================|
+| Permission is hereby granted, free of charge, to any person obtaining a copy |
+| of this software and associated documentation files (the "Software"), to     |
+| deal in the Software without restriction, including without limitation the   |
+| rights to use, copy, modify, merge, publish, distribute, sublicense, and/or  |
+| sell opies of the Software, and to permit persons to whom the Software is    |
+| furnished to do so, subject to the following conditions:                     |
+|                                                                              |
+| The above copyright notice and this permission notice shall be included in   |
+| all copies or substantial portions of the Software.                          |
+|------------------------------------------------------------------------------|
+| THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR   |
+| IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,     |
+| FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE  |
+| AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER       |
+| LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING      |
+| FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER          |
+| DEALINGS IN THE SOFTWARE.                                                    |
+|==============================================================================|
+| This unit contains portions from PascalCoin                                  |
+| Copyright (c) Albert Molina 2016 - 2018                                      |
+|                                                                              |
+| Distributed under the MIT software license, see the accompanying file        |
+| LICENSE or visit http://www.opensource.org/licenses/mit-license.php.         |
+|==============================================================================|
+| File:       MicroCoin.Net.ConnectionManager.pas                              |
+| Created at: 2018-09-14                                                       |
+| Purpose:    Net connection manager                                           |
+|==============================================================================}
 unit MicroCoin.Net.ConnectionManager;
-
-{
-  This unit contains code from PascalCoin:
-
-  Copyright (c) Albert Molina 2016 - 2018 original code from PascalCoin https://pascalcoin.org/
-
-  Distributed under the MIT software license, see the accompanying file LICENSE
-  or visit http://www.opensource.org/licenses/mit-license.php.
-
-}
 
 {$ifdef FPC}
   {$mode delphi}
@@ -83,10 +105,8 @@ type
   strict protected
     class function GetInstance: TConnectionManager; static;
   public
-    class function HeaderDataToText(const HeaderData: TNetHeaderData): AnsiString;
     class function ExtractHeaderInfo(buffer: TStream; var HeaderData: TNetHeaderData; DataBuffer: TStream;
       var IsValidHeaderButNeedMoreData: Boolean): Boolean;
-    class function OperationToText(operation: Word): AnsiString;
     // Only 1 NetData
     class procedure ReleaseInstance; static;
     class function NetDataExists: Boolean;
@@ -151,8 +171,8 @@ type
 
     property NetConnectionsActive: Boolean read FNetConnectionsActive write SetNetConnectionsActive;
     property NetworkAdjustedTime: TNetworkAdjustedTime read FNetworkAdjustedTime;
-    property MaxNodeServersAddressesBuffer: Integer read FMaxNodeServersAddressesBuffer
-      write SetMaxNodeServersAddressesBuffer;
+    property MaxNodeServersAddressesBuffer: Integer read FMaxNodeServersAddressesBuffer  write SetMaxNodeServersAddressesBuffer;
+
     property MaxConnections: Integer read FMaxConnections write FMaxConnections;
     class property Instance: TConnectionManager read GetInstance;
     class property NodeServersAddresses: TPCThreadList read FNodeServersAddresses;
@@ -867,7 +887,7 @@ begin
     if (HeaderData.IsError) then
     begin
       TLog.NewLog(ltError, Classname, 'Response with error (' + IntToHex(HeaderData.ErrorCode, 4) + '): ' +
-        HeaderData.ErrorText + ' ...on ' + 'operation: ' + OperationToText(HeaderData.Operation) + ' id: ' +
+        HeaderData.ErrorText + ' ...on ' + 'operation: ' + HeaderData.OperationTxt + ' id: ' +
         Inttostr(HeaderData.RequestId));
     end;
     Result := true;
@@ -923,6 +943,7 @@ end;
 
 // TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 // Spaghetti code
+// Move to other class!
 procedure TConnectionManager.GetNewBlockChainFromClient(Connection: TNetConnection; const why: string);
 const
   CT_LogSender = 'GetNewBlockChainFromClient';
@@ -935,7 +956,7 @@ const
     xBlock: TBlock;
     xRequestId, xCount, i: Cardinal;
     xErrors: AnsiString;
-    xNumberOfTransactions: Integer;
+    xNetOperationNumber: Integer;
   begin
     Result := false;
     BlocksList.Clear;
@@ -947,18 +968,18 @@ const
     try
       if OnlyOperationBlock then
       begin
-        xNumberOfTransactions := cNetOp_GetOperationsBlock;
+        xNetOperationNumber := cNetOp_GetOperationsBlock;
       end
       else
       begin
-        xNumberOfTransactions := cNetOp_GetBlocks;
+        xNetOperationNumber := cNetOp_GetBlocks;
       end;
-      TLog.NewLog(ltdebug, CT_LogSender, Format('Sending %s from block %d to %d (Total: %d)',
-        [TConnectionManager.OperationToText(xNumberOfTransactions), block_start, block_end, block_end - block_start + 1]));
+      TLog.NewLog(ltdebug, CT_LogSender, Format('Sending %d from block %d to %d (Total: %d)',
+        [xNetOperationNumber, block_start, block_end, block_end - block_start + 1]));
       xSendData.Write(block_start, 4);
       xSendData.Write(block_end, 4);
       xRequestId := TConnectionManager.Instance.NewRequestId;
-      if Connection.DoSendAndWaitForResponse(xNumberOfTransactions, xRequestId, xSendData, xReceiveData, MaxWaitMilliseconds,
+      if Connection.DoSendAndWaitForResponse(xNetOperationNumber, xRequestId, xSendData, xReceiveData, MaxWaitMilliseconds,
         xHeaderData) then
       begin
         if xHeaderData.IsError then
@@ -987,8 +1008,8 @@ const
       end
       else
       begin
-        TLog.NewLog(ltError, CT_LogSender, Format('No received response after waiting %d request id %d operation %s',
-          [MaxWaitMilliseconds, xRequestId, TConnectionManager.OperationToText(xNumberOfTransactions)]));
+        TLog.NewLog(ltError, CT_LogSender, Format('No received response after waiting %d request id %d operation %d',
+          [MaxWaitMilliseconds, xRequestId, (xNetOperationNumber)]));
       end;
     finally
       xSendData.Free;
@@ -1585,21 +1606,6 @@ begin
   end;
 end;
 
-class function TConnectionManager.HeaderDataToText(const HeaderData: TNetHeaderData): AnsiString;
-begin
-  Result := CT_NetTransferType[HeaderData.HeaderType] + ' Operation:' + TConnectionManager.OperationToText
-    (HeaderData.Operation);
-  if HeaderData.IsError then
-  begin
-    Result := Result + ' ERRCODE:' + Inttostr(HeaderData.ErrorCode) + ' ERROR:' + HeaderData.ErrorText;
-  end
-  else
-  begin
-    Result := Result + ' ReqId:' + Inttostr(HeaderData.RequestId) + ' BufferSize:' +
-      Inttostr(HeaderData.BufferDataLength);
-  end;
-end;
-
 procedure TConnectionManager.IncStatistics(incActiveConnections, incClientsConnections, incServersConnections,
   incServersConnectionsWithResponse: Integer; incBytesReceived, incBytesSend: Int64);
 begin
@@ -1741,7 +1747,7 @@ end;
 
 class procedure TConnectionManager.NotifyNodeServersUpdated;
 begin
-  if assigned(FInstance)
+  if Assigned(FInstance)
   then FInstance.FNetDataNotifyEventsThread.NotifyOnNodeServersUpdated := true;
 end;
 
@@ -1755,29 +1761,6 @@ begin
   FNetDataNotifyEventsThread.NotifyOnStatisticsChanged := true;
 end;
 
-class function TConnectionManager.OperationToText(operation: Word): AnsiString;
-begin
-  case operation of
-    cNetOp_Hello:
-      Result := 'HELLO';
-    cNetOp_Error:
-      Result := 'ERROR';
-    cNetOp_GetBlocks:
-      Result := 'GET BLOCKS';
-    cNetOp_Message:
-      Result := 'MESSAGE';
-    cNetOp_GetOperationsBlock:
-      Result := 'GET OPERATIONS BLOCK';
-    cNetOp_NewBlock:
-      Result := 'NEW BLOCK';
-    cNetOp_AddOperations:
-      Result := 'ADD OPERATIONS';
-    cNetOp_GetAccountStorage:
-      Result := 'GET SAFEBOX';
-  else
-    Result := 'UNKNOWN OPERATION ' + IntToHex(operation, 4);
-  end;
-end;
 
 function TConnectionManager.PendingRequest(Sender: TNetConnectionBase; var requests_data: AnsiString): Integer;
 var
@@ -1795,7 +1778,7 @@ begin
       begin
         if (PNetRequestRegistered(l[i])^.NetClient = Sender) then
         begin
-          requests_data := requests_data + 'Op:' + OperationToText(PNetRequestRegistered(l[i])^.operation) + ' Id:' +
+          requests_data := requests_data + 'Op:' + IntToStr(PNetRequestRegistered(l[i])^.operation) + ' Id:' +
             Inttostr(PNetRequestRegistered(l[i])^.RequestId) + ' - ';
           Inc(Result);
         end;
@@ -1822,7 +1805,7 @@ begin
     P^.SendTime := now;
     l.Add(P);
     TLog.NewLog(ltdebug, Classname, 'Registering request to ' + Sender.ClientRemoteAddr + ' Op:' +
-      OperationToText(operation) + ' Id:' + Inttostr(request_id) + ' Total pending:' + Inttostr(l.Count));
+      IntToStr(operation) + ' Id:' + Inttostr(request_id) + ' Total pending:' + Inttostr(l.Count));
   finally
     FRegisteredRequests.UnlockList;
   end;
@@ -1858,11 +1841,11 @@ begin
         if Assigned(Sender.TcpIpClient) then
         begin
           TLog.NewLog(ltdebug, Classname, 'Unregistering request to ' + Sender.ClientRemoteAddr + ' Op:' +
-            OperationToText(operation) + ' Id:' + Inttostr(request_id) + ' Total pending:' + Inttostr(l.Count));
+            IntToStr(operation) + ' Id:' + Inttostr(request_id) + ' Total pending:' + Inttostr(l.Count));
         end
         else
         begin
-          TLog.NewLog(ltdebug, Classname, 'Unregistering request to (NIL) Op:' + OperationToText(operation) + ' Id:' +
+          TLog.NewLog(ltdebug, Classname, 'Unregistering request to (NIL) Op:' + IntToStr(operation) + ' Id:' +
             Inttostr(request_id) + ' Total pending:' + Inttostr(l.Count));
         end;
       end;

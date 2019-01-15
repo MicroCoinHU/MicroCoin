@@ -548,6 +548,7 @@ end;
 
 class procedure TNode.DecodeIpStringToNodeServerAddressArray(const Ips: AnsiString;
   var NodeServerAddressArray: TNodeServerAddressArray);
+
   function GetIp(var ips_string: AnsiString; var nsa: TNodeServer): Boolean;
   const
     CT_IP_CHARS = ['a' .. 'z', 'A' .. 'Z', '0' .. '9', '.', '-', '_'];

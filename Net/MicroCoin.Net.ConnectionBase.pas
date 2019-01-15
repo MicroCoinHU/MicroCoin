@@ -97,16 +97,15 @@ type
       MaxWaitTime: Cardinal; var HeaderData: TNetHeaderData): Boolean;
     procedure DisconnectInvalidClient(ItsMyself: Boolean; const why: AnsiString);
     procedure DoProcessBuffer;
-    procedure SendError(NetTranferType: TNetTransferType; operation, request_id: Integer; error_code: Integer;
-      error_text: AnsiString);
     procedure SetClient(const Value: TNetTcpIpClient);
     function ConnectTo(ServerIP: string; ServerPort: Word): Boolean;
 
-    function Send_Hello(NetTranferType: TNetTransferType; request_id: Integer): Boolean; virtual; abstract;
-    function Send_NewBlockFound(const NewBlock: TBlock): Boolean; virtual; abstract;
-    function Send_GetBlocks(StartAddress, quantity: Cardinal; var request_id: Cardinal): Boolean; virtual; abstract;
-    function Send_AddOperations(Operations: TTransactionHashTree): Boolean; virtual; abstract;
-    function Send_Message(const TheMessage: AnsiString): Boolean; virtual; abstract;
+    procedure Send_Error(NetTranferType: TNetTransferType; operation, request_id: Integer; error_code: Integer; error_text: AnsiString);
+    function  Send_Hello(NetTranferType: TNetTransferType; request_id: Integer): Boolean; virtual; abstract;
+    function  Send_NewBlockFound(const NewBlock: TBlock): Boolean; virtual; abstract;
+    function  Send_GetBlocks(StartAddress, quantity: Cardinal; var request_id: Cardinal): Boolean; virtual; abstract;
+    function  Send_AddOperations(Operations: TTransactionHashTree): Boolean; virtual; abstract;
+    function  Send_Message(const TheMessage: AnsiString): Boolean; virtual; abstract;
 
     procedure FinalizeConnection;
 
@@ -378,9 +377,7 @@ var
   was_waiting_for_response: Boolean;
   l: TList;
   i: Integer;
-  iDebugStep: Integer;
 begin
-  iDebugStep := 0;
   try
     Result := false;
     HeaderData := TNetHeaderData.Empty;
@@ -389,28 +386,22 @@ begin
       TLog.NewLog(ltdebug, Classname, 'Is waiting for response ...');
       exit;
     end;
-    iDebugStep := 100;
     if not Assigned(FTcpIpClient) then
       exit;
     if not Client.Connected then
       exit;
-    iDebugStep := 110;
     tc := GetTickCount;
     if TPCThread.TryProtectEnterCriticalSection(Self, MaxWaitTime, FNetLock) then
     begin
       try
-        iDebugStep := 120;
         was_waiting_for_response := RequestId > 0;
         try
           if was_waiting_for_response then
           begin
-            iDebugStep := 200;
             FIsWaitingForResponse := true;
             Send(ntp_request, operation, 0, RequestId, SendDataBuffer);
           end;
-          iDebugStep := 300;
           repeat
-            iDebugStep := 400;
             if (MaxWaitTime > GetTickCount - tc) then
               MaxWaitTime := MaxWaitTime - (GetTickCount - tc)
             else
@@ -418,10 +409,8 @@ begin
             tc := GetTickCount;
             if (ReadTcpClientBuffer(MaxWaitTime, HeaderData, ReceiveDataBuffer)) then
             begin
-              iDebugStep := 500;
               l := TConnectionManager.Instance.NodeServersAddresses.LockList;
               try
-                iDebugStep := 600;
                 for i := 0 to l.Count - 1 do
                 begin
                   if PNodeServerAddress(l[i])^.netConnection = Self then
@@ -431,12 +420,10 @@ begin
                   end;
                 end;
               finally
-                iDebugStep := 700;
                 TConnectionManager.Instance.NodeServersAddresses.UnlockList;
               end;
-              iDebugStep := 800;
               TLog.NewLog(ltdebug, Classname, 'Received ' + CT_NetTransferType[HeaderData.HeaderType] + ' operation:' +
-                TConnectionManager.OperationToText(HeaderData.Operation) + ' id:' + Inttostr(HeaderData.RequestId) +
+                HeaderData.OperationTxt + ' id:' + Inttostr(HeaderData.RequestId) +
                 ' Buffer size:' + Inttostr(HeaderData.BufferDataLength));
               if (RequestId = HeaderData.RequestId) and (HeaderData.HeaderType = ntp_response) then
               begin
@@ -444,16 +431,9 @@ begin
               end
               else
               begin
-                iDebugStep := 1000;
                 case HeaderData.Operation of
-                  cNetOp_Hello:
-                    begin
-                      DoProcess_Hello(HeaderData, ReceiveDataBuffer);
-                    end;
-                  cNetOp_Message:
-                    begin
-                      DoProcess_Message(HeaderData, ReceiveDataBuffer);
-                    end;
+                  cNetOp_Hello:   DoProcess_Hello(HeaderData, ReceiveDataBuffer);
+                  cNetOp_Message: DoProcess_Message(HeaderData, ReceiveDataBuffer);
                   cNetOp_GetBlocks:
                     begin
                       if HeaderData.HeaderType = ntp_request then
@@ -461,16 +441,14 @@ begin
                       else if HeaderData.HeaderType = ntp_response then
                         DoProcess_GetBlocks_Response(HeaderData, ReceiveDataBuffer)
                       else
-                        DisconnectInvalidClient(false, 'Not resquest or response: ' +
-                          TConnectionManager.HeaderDataToText(HeaderData));
+                        DisconnectInvalidClient(false, 'Not resquest or response: ' + (HeaderData.ToString));
                     end;
                   cNetOp_GetOperationsBlock:
                     begin
                       if HeaderData.HeaderType = ntp_request then
                         DoProcess_GetOperationsBlock_Request(HeaderData, ReceiveDataBuffer)
                       else
-                        TLog.NewLog(ltdebug, Classname, 'Received old response of: ' +
-                          TConnectionManager.HeaderDataToText(HeaderData));
+                        TLog.NewLog(ltdebug, Classname, 'Received old response of: ' + (HeaderData.ToString));
                     end;
                   cNetOp_NewBlock:
                     begin
@@ -485,23 +463,20 @@ begin
                       if HeaderData.HeaderType = ntp_request then
                         DoProcess_GetAccountStorage_Request(HeaderData, ReceiveDataBuffer)
                       else
-                        DisconnectInvalidClient(false, 'Received ' + TConnectionManager.HeaderDataToText(HeaderData));
+                        DisconnectInvalidClient(false, 'Received ' + (HeaderData.ToString));
                     end
                 else
-                  DisconnectInvalidClient(false, 'Invalid operation: ' + TConnectionManager.HeaderDataToText
-                    (HeaderData));
+                  DisconnectInvalidClient(false, 'Invalid operation: ' + (HeaderData.ToString));
                 end;
               end;
             end
             else
               sleep(1);
-            iDebugStep := 900;
           until (Result) or (GetTickCount > (MaxWaitTime + tc));
         finally
           if was_waiting_for_response then
             FIsWaitingForResponse := false;
         end;
-        iDebugStep := 990;
       finally
         FNetLock.Release;
       end;
@@ -509,7 +484,7 @@ begin
   except
     on E: Exception do
     begin
-      E.Message := E.Message + ' DoSendAndWaitForResponse step ' + Inttostr(iDebugStep);
+      E.Message := E.Message + ' DoSendAndWaitForResponse';
       raise;
     end;
   end;
@@ -665,8 +640,7 @@ begin
         begin
           TLog.NewLog(ltdebug, Classname,
             Format('Not enough data received - Received %d bytes from TcpClient buffer of %s after max %d miliseconds. Elapsed: %d - HeaderData: %s',
-            [FClientBufferRead.Size, Client.ClientRemoteAddr, MaxWaitMiliseconds, GetTickCount - tc,
-            TConnectionManager.HeaderDataToText(HeaderData)]));
+            [FClientBufferRead.Size, Client.ClientRemoteAddr, MaxWaitMiliseconds, GetTickCount - tc, (HeaderData.ToString)]));
         end;
       end;
     finally
@@ -758,13 +732,11 @@ begin
     buffer.Position := 0;
     TPCThread.ProtectEnterCriticalSection(Self, FNetLock);
     try
-      TLog.NewLog(ltdebug, Classname, 'Sending: ' + CT_NetTransferType[NetTranferType] + ' operation:' +
-        TConnectionManager.OperationToText(operation) + ' id:' + Inttostr(request_id) + ' errorcode:' +
+      TLog.NewLog(ltdebug, ClassName, 'Sending: ' + CT_NetTransferType[NetTranferType] + ' operation:' +
+        IntToStr(operation) + ' id:' + Inttostr(request_id) + ' errorcode:' +
         Inttostr(errorcode) + ' Size:' + Inttostr(buffer.Size) + 'b ' + s + 'to ' + ClientRemoteAddr);
       (Client as TBufferedNetTcpIpClient).WriteBufferToSend(buffer);
       FLastDataSendedTS := GetTickCount;
-      // if(operation=CT_NetOp_Hello) then (Buffer as TMemoryStream).SaveToFile('./fullhello0.bin');
-      // if(operation=CT_NetOp_Hello) then (DataBuffer as TMemoryStream).SaveToFile('./body.bin');
       FRandomWaitSecondsSendHello := 90 + Random(60);
     finally
       FNetLock.Release;
@@ -775,7 +747,7 @@ begin
   end;
 end;
 
-procedure TNetConnectionBase.SendError(NetTranferType: TNetTransferType; operation, request_id: Integer;
+procedure TNetConnectionBase.Send_Error(NetTranferType: TNetTransferType; operation, request_id: Integer;
   error_code: Integer; error_text: AnsiString);
 var
   buffer: TStream;

@@ -16,7 +16,7 @@ unit MicroCoin.BlockChain.FileStorage;
 interface
 
 uses Classes, MicroCoin.BlockChain.BlockManager, SyncObjs, UThread, UCrypto, MicroCoin.Account.Storage,
-  MicroCoin.BlockChain.Storage, MicroCoin.BlockChain.Block, UFolderHelper;
+  MicroCoin.BlockChain.Storage, MicroCoin.BlockChain.Block, UConst;
 
 {$I config.inc}
 
@@ -86,7 +86,7 @@ type
 
 implementation
 
-uses ULog, SysUtils, UConst;
+uses ULog, SysUtils;
 
 { TFileStorage }
 
@@ -198,7 +198,7 @@ begin
   FStreamLastBlockNumber := -1;
   FStorageLock := TPCCriticalSection.Create('TFileStorage_StorageLock');
 //  Remove(TFolderHelper.GetMicroCoinDataFolder + PathDelim + 'Data');
-  FDatabaseFolder := TFolderHelper.GetMicroCoinDataFolder + PathDelim + 'Data';
+  FDatabaseFolder := MicroCoinDataFolder + PathDelim + 'Data';
 end;
 
 destructor TFileStorage.Destroy;
