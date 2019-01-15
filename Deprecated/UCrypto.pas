@@ -133,7 +133,7 @@ Const
 implementation
 
 uses
-  ULog, UConst, MicroCoin.Account.AccountKey,MicroCoin.Common.Stream;
+  ULog, MicroCoin.Common.Config, MicroCoin.Account.AccountKey,MicroCoin.Common.Stream;
 
 Var _initialized : Boolean = false;
 

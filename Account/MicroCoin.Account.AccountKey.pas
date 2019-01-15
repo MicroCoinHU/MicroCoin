@@ -42,7 +42,7 @@ unit MicroCoin.Account.AccountKey;
 
 interface
 
-uses UCrypto, sysutils, classes, uconst, OpenSSL, ULog, MicroCoin.Common.Lists;
+uses UCrypto, sysutils, classes, MicroCoin.Common.Config, OpenSSL, ULog, MicroCoin.Common.Lists;
 
 type
 

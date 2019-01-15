@@ -18,7 +18,7 @@ interface
 
 uses Sysutils, Classes, httpsend, UWalletkeys, Ulog, Inifiles,
 {$IFDEF fpc} fpjson, {$ELSE}System.Json, {$ENDIF} UJSONFunctions, synautil,
-  UConst, UThread, blcksock, synsock, MicroCoin.RPC.Handler, MicroCoin.Node.Events,
+  MicroCoin.Common.Config, UThread, blcksock, synsock, MicroCoin.RPC.Handler, MicroCoin.Node.Events,
   MicroCoin.Transaction.Itransaction, MicroCoin.Keys.KeyManager,
   UCrypto, MicroCoin.Common, MicroCoin.Transaction.Base, MicroCoin.Account.Data;
 
@@ -237,7 +237,7 @@ begin
     FRPCServerThread.WaitFor;
     FreeAndNil(FRPCServerThread);
   end;
-  TLog.NewLog(ltupdate, Classname, 'Updated RPC Server to Active=' + CT_TRUE_FALSE[FActive]);
+  TLog.NewLog(ltupdate, Classname, 'Updated RPC Server to Active=' + BoolToStr(FActive, true));
 end;
 
 procedure TRPCServer.SetIniFileName(const Value: AnsiString);

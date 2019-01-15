@@ -15,7 +15,7 @@ unit MicroCoin.Net.Time;
 
 interface
 
-uses Sysutils, classes, UThread, SyncObjs, UTime, ULog, UConst;
+uses Sysutils, classes, UThread, SyncObjs, UTime, ULog, MicroCoin.Common.Config;
 
 type
   TNetworkAdjustedTime = class

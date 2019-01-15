@@ -15,7 +15,7 @@ unit MicroCoin.BlockChain.Protocol;
 
 interface
 
-uses UCrypto, SysUtils, Classes, MicroCoin.BlockChain.BlockHeader, UConst, MicroCoin.Account.AccountKey;
+uses UCrypto, SysUtils, Classes, MicroCoin.BlockChain.BlockHeader, MicroCoin.Common.Config, MicroCoin.Account.AccountKey;
 
 type
   TMicroCoinProtocol = class

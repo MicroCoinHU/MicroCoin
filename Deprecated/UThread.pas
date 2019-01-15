@@ -102,7 +102,7 @@ Type
 implementation
 
 uses
-  SysUtils, ULog, UConst;
+  SysUtils, ULog, MicroCoin.Common.Config;
 
 { TPCThread }
 

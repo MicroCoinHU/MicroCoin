@@ -17,7 +17,7 @@ interface
 uses UTCPIP, UJsonFunctions, MicroCoin.Account.AccountKey, UThread,
   MicroCoin.BlockChain.Block,
   UCrypto, MicroCoin.Node.Events, SysUtils, Classes, ULog, MicroCoin.RPC.Client,
-  MicroCoin.BlockChain.BlockHeader, UConst, MicroCoin.Net.ConnectionManager,
+  MicroCoin.BlockChain.BlockHeader, MicroCoin.Common.Config, MicroCoin.Net.ConnectionManager,
   Variants,
   MicroCoin.Node.Node, MicroCoin.Transaction.HashTree,
   MicroCoin.Transaction.Base,
@@ -237,8 +237,8 @@ begin
   FMinerPayload := '';
   FPoolJobs := TPCThreadList.Create('TPoolMiningServer_PoolJobs');
   FPoolThread := TPoolMiningServerThread.Create(Self);
-  FMax0FeeOperationsPerBlock := CT_MAX_0_fee_operations_per_block_by_miner;
-  FMaxOperationsPerBlock := CT_MAX_Operations_per_block_by_miner;
+  FMax0FeeOperationsPerBlock := cMAX_Zero_Fee_operations_per_block_by_miner;
+  FMaxOperationsPerBlock := cMAX_Operations_per_block_by_miner;
 end;
 
 destructor TMiningServer.Destroy;
@@ -711,9 +711,9 @@ procedure TMiningServer.SetMax0FeeOperationsPerBlock(const Value: Integer);
 begin
   if FMax0FeeOperationsPerBlock = Value then
     exit;
-  if (Value < (CT_MAX_0_fee_operations_per_block_by_miner div 5)) or (Value < 1) then
+  if (Value < (cMAX_Zero_Fee_operations_per_block_by_miner div 5)) or (Value < 1) then
   begin
-    FMax0FeeOperationsPerBlock := (CT_MAX_0_fee_operations_per_block_by_miner div 5);
+    FMax0FeeOperationsPerBlock := (cMAX_Zero_Fee_operations_per_block_by_miner div 5);
     // To prevent no 0 fee...
     if FMax0FeeOperationsPerBlock < 1 then
       FMax0FeeOperationsPerBlock := 1; // For Testnet or low constant values...
@@ -731,9 +731,9 @@ procedure TMiningServer.SetMaxOperationsPerBlock(const Value: Integer);
 begin
   if FMaxOperationsPerBlock = Value then
     exit;
-  if (Value < (CT_MAX_Operations_per_block_by_miner div 5)) or (Value < 1) then
+  if (Value < (cMAX_Operations_per_block_by_miner div 5)) or (Value < 1) then
   begin
-    FMaxOperationsPerBlock := (CT_MAX_Operations_per_block_by_miner div 5);
+    FMaxOperationsPerBlock := (cMAX_Operations_per_block_by_miner div 5);
     // To prevent very small blocks...
     if FMaxOperationsPerBlock < 1 then
       FMaxOperationsPerBlock := 1; // For Testnet or low constant values...

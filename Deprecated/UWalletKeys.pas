@@ -78,7 +78,7 @@ const
 
 implementation
 
-uses SysUtils, UConst, ULog, UAES, MicroCoin.Common.Stream;
+uses SysUtils, MicroCoin.Common.Config, ULog, UAES, MicroCoin.Common.Stream;
 
 const
   CT_PrivateKeyFile_Magic = 'TWalletKeys';

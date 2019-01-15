@@ -23,7 +23,7 @@ uses Classes, MicroCoin.BlockChain.BlockManager, UCrypto,
   MicroCoin.Transaction.Events, MicroCoin.Net.Server, MicroCoin.Net.NodeServer,
   MicroCoin.BlockChain.Block, MicroCoin.Transaction.TransactionList,
   MicroCoin.Transaction.HashTree, MicroCoin.Account.Storage,
-  MicroCoin.BlockChain.BlockHeader, Sysutils, UConst, UTime;
+  MicroCoin.BlockChain.BlockHeader, Sysutils, MicroCoin.Common.Config, UTime;
 
 type
 

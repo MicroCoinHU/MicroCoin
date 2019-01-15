@@ -129,7 +129,7 @@ type
 
 implementation
 
-uses UTime, MicroCoin.Net.ConnectionManager, UConst, UCrypto,
+uses UTime, MicroCoin.Net.ConnectionManager, MicroCoin.Common.Config, UCrypto,
   UECIES,
   UChunk, MicroCoin.Net.Client, {$IFDEF MSWINDOWS} Windows, {$ENDIF} MicroCoin.Transaction.Base,
   MicroCoin.Net.Utils, MicroCoin.Common.Stream,

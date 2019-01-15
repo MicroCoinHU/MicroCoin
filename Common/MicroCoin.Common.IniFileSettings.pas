@@ -29,7 +29,7 @@ unit MicroCoin.Common.IniFileSettings;
 
 interface
 
-uses MicroCoin.Common.AppSettings, IniFiles, Sysutils, UConst;
+uses MicroCoin.Common.AppSettings, IniFiles, Sysutils, MicroCoin.Common.Config;
 
 type
   TMicroCoinIniFileSettings = class(TMicroCoinAppSettings)
@@ -94,14 +94,14 @@ end;
 
 function TMicroCoinIniFileSettings.GetMaxTransactionPerBlock: integer;
 begin
-  Result := FIniFile.ReadInteger(MINER, 'MaxTransactionPerBlock', CT_MAX_Operations_per_block_by_miner);
+  Result := FIniFile.ReadInteger(MINER, 'MaxTransactionPerBlock', cMAX_Operations_per_block_by_miner);
   if not FIniFile.ValueExists(MINER, 'MaxTransactionPerBlock')
   then FIniFile.WriteInteger(MINER, 'MaxTransactionPerBlock', Result);
 end;
 
 function TMicroCoinIniFileSettings.GetMaxZeroFeeTransactionPerBlock: integer;
 begin
-  Result := FIniFile.ReadInteger(MINER, 'ZeroFeeTransactionPerBlock', CT_MAX_0_fee_operations_per_block_by_miner);
+  Result := FIniFile.ReadInteger(MINER, 'ZeroFeeTransactionPerBlock', cMAX_Zero_Fee_operations_per_block_by_miner);
   if not FIniFile.ValueExists(MINER, 'ZeroFeeTransactionPerBlock')
   then FIniFile.WriteInteger(MINER, 'ZeroFeeTransactionPerBlock', Result);
 end;

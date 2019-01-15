@@ -16,7 +16,7 @@ unit MicroCoin.BlockChain.FileStorage;
 interface
 
 uses Classes, MicroCoin.BlockChain.BlockManager, SyncObjs, UThread, UCrypto, MicroCoin.Account.Storage,
-  MicroCoin.BlockChain.Storage, MicroCoin.BlockChain.Block, UConst;
+  MicroCoin.BlockChain.Storage, MicroCoin.BlockChain.Block, MicroCoin.Common.Config;
 
 {$I config.inc}
 

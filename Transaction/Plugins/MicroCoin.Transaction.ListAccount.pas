@@ -23,7 +23,7 @@ uses MicroCoin.Transaction.Base,
   MicroCoin.Account.AccountKey,
   MicroCoin.Transaction.Transaction,
   Sysutils, classes, UCrypto,
-  ULog, UConst, MicroCoin.Transaction.Manager;
+  ULog, MicroCoin.Common.Config, MicroCoin.Transaction.Manager;
 
 type
 

@@ -39,7 +39,37 @@ unit MicroCoin.Transaction.Base;
 
 interface
 
-uses SysUtils, Classes, UCrypto, UConst, MicroCoin.Account.AccountKey;
+uses SysUtils, Classes, UCrypto, MicroCoin.Common.Config, MicroCoin.Account.AccountKey;
+
+const
+  CT_Op_Transaction = $01;
+  CT_Op_Changekey = $02;
+  CT_Op_Recover = $03;
+  CT_Op_ListAccountForSale = $04;
+  CT_Op_DelistAccount = $05;
+  CT_Op_BuyAccount = $06;
+  CT_Op_ChangeKeySigned = $07;
+  CT_Op_ChangeAccountInfo = $08;
+  CT_Op_CreateSubAccount = $09;
+  CT_Op_Transaction_Extended = $0A;
+  CT_Op_Data = $0B;
+
+  CT_OpSubtype_TransactionSender          = 11;
+  CT_OpSubtype_TransactionReceiver        = 12;
+  CT_OpSubtype_BuyTransactionBuyer        = 13;
+  CT_OpSubtype_BuyTransactionTarget       = 14;
+  CT_OpSubtype_BuyTransactionSeller       = 15;
+  CT_OpSubtype_ChangeKey                  = 21;
+  CT_OpSubtype_Recover                    = 31;
+  CT_OpSubtype_ListAccountForPublicSale   = 41;
+  CT_OpSubtype_ListAccountForPrivateSale  = 42;
+  CT_OpSubtype_DelistAccount              = 51;
+  CT_OpSubtype_BuyAccountBuyer            = 61;
+  CT_OpSubtype_BuyAccountTarget           = 62;
+  CT_OpSubtype_BuyAccountSeller           = 63;
+  CT_OpSubtype_ChangeKeySigned            = 71;
+  CT_OpSubtype_ChangeAccountInfo          = 81;
+  CT_OpSubtype_CreateSubAccount           = 91;
 
 type
 

@@ -202,7 +202,7 @@ uses
 {$ELSE}
   {LCLIntf, LCLType, LMessages,}
 {$ENDIF}
-  UConst, ULog;
+  MicroCoin.Common.Config, ULog;
 
 resourcestring
   rsCannotConnec = 'Cannot connect to a server at: %s Reason: %s';

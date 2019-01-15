@@ -64,7 +64,7 @@ implementation
 
 uses UAES, MicroCoin.Net.ConnectionManager,
   MicroCoin.Net.NodeServer,
-  MicroCoin.Net.Client, MicroCoin.Net.Connection, UWalletKeys, UECIES, UConst, MicroCoin.RPC.Server, ULog, Variants,
+  MicroCoin.Net.Client, MicroCoin.Net.Connection, UWalletKeys, UECIES, MicroCoin.Common.Config, MicroCoin.RPC.Server, ULog, Variants,
   UTime;
 
 constructor TRPCHandler.Create(hsock: TSocket);

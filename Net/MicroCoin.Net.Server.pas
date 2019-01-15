@@ -35,7 +35,7 @@ type
 
 implementation
 
-uses UConst, MicroCoin.Net.Client, MicroCoin.Net.ConnectionManager, MicroCoin.Net.Protocol;
+uses MicroCoin.Common.Config, MicroCoin.Net.Client, MicroCoin.Net.ConnectionManager, MicroCoin.Net.Protocol;
 
 constructor TNetServer.Create;
 begin

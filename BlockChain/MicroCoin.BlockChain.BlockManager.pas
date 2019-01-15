@@ -126,7 +126,7 @@ uses
     SysUtils, Variants, {Graphics,}
   {Controls, Forms,}
   {StdCtrls,}
-  UTime, UConst;
+  UTime, MicroCoin.Common.Config;
 
 resourcestring
   StrMigratingToVersion = 'Migrating to version 2 format';

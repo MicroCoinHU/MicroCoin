@@ -43,7 +43,7 @@ interface
 
 uses SysUtils, Classes, UCrypto, UThread, MicroCoin.Common.Lists,
   MicroCoin.Account.Data, MicroCoin.Account.AccountKey, MicroCoin.BlockChain.BlockHeader,
-  UConst, UBaseTypes, ULog, MicroCoin.BlockChain.Protocol;
+  MicroCoin.Common.Config, UBaseTypes, ULog, MicroCoin.BlockChain.Protocol;
 
 type
 
@@ -1761,7 +1761,7 @@ constructor TOrderedAccountKeysList.Create(AAccountStorage: TAccountStorage; AAu
 var
   i: Integer;
 begin
-  TLog.NewLog(ltDebug, Classname, 'Creating an Ordered Account Keys List adding all:' + CT_TRUE_FALSE[AAutoAddAll]);
+  TLog.NewLog(ltDebug, Classname, 'Creating an Ordered Account Keys List adding all:' + BooltoStr(AAutoAddAll, true));
   FAutoAddAll := AAutoAddAll;
   FAccountStorage := AAccountStorage;
   FOrderedAccountKeysList := TList.Create;
@@ -1780,7 +1780,7 @@ end;
 
 destructor TOrderedAccountKeysList.Destroy;
 begin
-  TLog.NewLog(ltDebug, Classname, 'Destroying an Ordered Account Keys List adding all:' + CT_TRUE_FALSE[FAutoAddAll]);
+  TLog.NewLog(ltDebug, Classname, 'Destroying an Ordered Account Keys List adding all:' + BoolToStr(FAutoAddAll));
   if Assigned(FAccountStorage) then
   begin
     FAccountStorage.ListOfOrderedAccountKeysList.Remove(Self);

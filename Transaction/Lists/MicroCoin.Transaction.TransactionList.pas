@@ -19,7 +19,7 @@ interface
 
 uses SysUtils, Classes, MicroCoin.Transaction.Base, UThread,
   MicroCoin.Account.Storage, MicroCoin.Account.AccountKey,
-  MicroCoin.Common.Lists, UCrypto, UConst, ULog;
+  MicroCoin.Common.Lists, UCrypto, MicroCoin.Common.Config, ULog;
 
 type
   TTransactionList = class

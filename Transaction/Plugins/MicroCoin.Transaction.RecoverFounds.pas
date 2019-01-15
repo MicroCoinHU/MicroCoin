@@ -21,7 +21,7 @@ interface
 uses MicroCoin.Transaction.Base, MicroCoin.Transaction.Transaction,
   MicroCoin.Common, MicroCoin.Account.Transaction,
   MicroCoin.Account.Data,
-  Sysutils, classes, UCrypto, ULog, UConst, MicroCoin.Transaction.Manager;
+  Sysutils, classes, UCrypto, ULog, MicroCoin.Common.Config, MicroCoin.Transaction.Manager;
 
 type
 

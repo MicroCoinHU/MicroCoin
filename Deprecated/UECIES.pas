@@ -108,7 +108,7 @@ int main() {
 
 interface
 
-Uses OpenSSLdef, OpenSSL, UCrypto, ULog, UConst;
+Uses OpenSSLdef, OpenSSL, UCrypto, ULog, MicroCoin.Common.Config;
 
 Const CT_Max_Bytes_To_Encrypt = 32000;
 

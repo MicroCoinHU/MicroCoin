@@ -40,7 +40,7 @@ unit MicroCoin.Account.RPC;
 
 interface
 
-uses Sysutils, classes, MicroCoin.RPC.Handler, MicroCoin.Account.Data, Uconst, MicroCoin.Common.Lists,
+uses Sysutils, classes, MicroCoin.RPC.Handler, MicroCoin.Account.Data, MicroCoin.Common.Config, MicroCoin.Common.Lists,
   MicroCoin.RPC.Server, MicroCoin.Node.Node, MicroCoin.Account.AccountKey, MicroCoin.RPC.PluginManager, UJsonFunctions,
   UCrypto, MicroCoin.Common, MicroCoin.RPC.Plugin, MicroCoin.RPC.Result;
 

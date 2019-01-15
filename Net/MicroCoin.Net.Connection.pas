@@ -101,7 +101,7 @@ type
 
 implementation
 
-uses UTime, MicroCoin.Net.ConnectionManager, UConst, UCrypto,
+uses UTime, MicroCoin.Net.ConnectionManager, MicroCoin.Common.Config, UCrypto,
   UECIES, MicroCoin.Common.Stream,
   UChunk, MicroCoin.Net.Client,{$IFDEF MSWINDOWS} Windows,{$ENDIF} MicroCoin.Transaction.Base,
   MicroCoin.Net.Utils,
@@ -985,7 +985,7 @@ begin
       data.Write(nsa.last_connection, 4);
     end;
     // Send client version
-    data.WriteAnsiString(UConst.ClientAppVersion{$IFDEF LINUX} + ' Linux'{$ELSE} + ' Windows'{$ENDIF}{$IFDEF FPC}{$IFDEF LCL} + ' '{$ELSE} + ' '{$ENDIF}{$ELSE}+' '{$ENDIF}{$IFDEF DEBUG}+' Debug'{$ELSE}+''{$ENDIF}{$IFDEF CONSOLE}+' daemon'{$ENDIF});
+    data.WriteAnsiString(ClientAppVersion{$IFDEF LINUX} + ' Linux'{$ELSE} + ' Windows'{$ENDIF}{$IFDEF FPC}{$IFDEF LCL} + ' '{$ELSE} + ' '{$ENDIF}{$ELSE}+' '{$ENDIF}{$IFDEF DEBUG}+' Debug'{$ELSE}+''{$ENDIF}{$IFDEF CONSOLE}+' daemon'{$ENDIF});
     // Build 1.5 send accumulated work
     data.Write(TNode.Node.BlockManager.AccountStorage.WorkSum, SizeOf(TNode.Node.BlockManager.AccountStorage.WorkSum));
     //
