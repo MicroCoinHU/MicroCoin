@@ -32,9 +32,10 @@ type
     initial_safe_box_hash: TRawBytes; // RAW Safe Box Hash value (32 bytes, it's a Sha256)
     transactionHash: TRawBytes; // RAW sha256 (32 bytes) of Operations
     proof_of_work: TRawBytes; // RAW Double Sha256
-    procedure SaveToStream(const stream: TStream);
     class function LoadFromStream(const stream: TStream; var ABlockHeader: TBlockHeader): Boolean; static;
-    class function Empty : TBlockHeader; static;
+    procedure SaveToStream(const stream: TStream);
+      class function Empty : TBlockHeader; static;
+    function ToString : AnsiString;
   end;
 
 
@@ -57,6 +58,13 @@ begin
   stream.WriteAnsiString(initial_safe_box_hash);
   stream.WriteAnsiString(transactionHash);
   stream.WriteAnsiString(proof_of_work);
+end;
+
+function TBlockHeader.ToString: AnsiString;
+begin
+  Result := Format('Block:%d Timestamp:%d Reward:%d Fee:%d Target:%d PoW:%s',
+    [Block, timestamp, reward, Fee,
+    compact_target, TCrypto.ToHexaString(proof_of_work)]);
 end;
 
 class function TBlockHeader.Empty: TBlockHeader;

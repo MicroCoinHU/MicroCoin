@@ -21,6 +21,7 @@ uses SysUtils, Classes, UTime, MicroCoin.Account.Transaction, MicroCoin.Transact
   MicroCoin.BlockChain.Protocol, MicroCoin.BlockChain.Base, MicroCoin.Transaction.Base, UThread;
 
 type
+
   TBlock = class(TComponent)
   private
     FBlockManager: TBlockManagerBase;
@@ -54,6 +55,7 @@ type
     procedure Notification(AComponent: TComponent; Operation: TOperation); override;
     function SaveBlockToStreamExt(ASaveOnlyBlock: Boolean; AStream: TStream; ASaveToStorage: Boolean): Boolean;
     function LoadBlockFromStreamExt(AStream: TStream; ALoadingFromStorage: Boolean; var RErrors: AnsiString): Boolean;
+    function GetTransactionCount: Integer;
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
@@ -62,10 +64,8 @@ type
     function AddTransaction(AExecute: Boolean; ATransaction: ITransaction; var RErrors: AnsiString): Boolean;
     function AddTransactions(ATransactions: TTransactionHashTree; var errors: AnsiString): Integer;
     procedure Clear(DeleteTransactions: Boolean);
-    function Count: Integer;
-    class function BlockToString(ABlockHeader: TBlockHeader): AnsiString;
-    class function SaveBlockToStream(const ABlockHeader: TBlockHeader; Stream: TStream): Boolean; overload;
     procedure UpdateTimestamp;
+    class function SaveBlockToStream(const ABlockHeader: TBlockHeader; Stream: TStream): Boolean; overload;
     function SaveBlockToStorage(Stream: TStream): Boolean;
     function SaveBlockToStream(ASaveOnlyBlock: Boolean; Stream: TStream): Boolean; overload;
     function LoadBlockFromStorage(Stream: TStream; var errors: AnsiString): Boolean;
@@ -80,14 +80,16 @@ type
     class function GetFirstBlock: TBlockHeader;
     class function Equals(const ABlock1, ABlock2: TBlockHeader): Boolean;
     //
+    property BlockHeader: TBlockHeader read FBlockHeader write FBlockHeader;
+    property TransactionCount : Integer read GetTransactionCount;
     property Transaction[index: Integer]: ITransaction read GetTransaction;
+    //
     property BlockManager: TBlockManagerBase read FBlockManager write SetBank;
     property AccountKey: TAccountKey read GetAccountKey write SetAccountKey;
     property nonce: Cardinal read GetnOnce write SetnOnce;
     property timestamp: Cardinal read Gettimestamp write Settimestamp;
     property BlockPayload: TRawBytes read GetBlockPayload write SetBlockPayload;
     property IsOnlyBlock: Boolean read FIsOnlyBlock;
-    property BlockHeader: TBlockHeader read FBlockHeader write FBlockHeader;
     property AccountTransaction: TAccountTransaction read FAccountTransaction;
     property TransactionHashTree: TTransactionHashTree read FTransactionHashTree;
     property PoW_Digest_Part1: TRawBytes read FDigest_Part1;
@@ -303,7 +305,7 @@ begin
   end;
 end;
 
-function TBlock.Count: Integer;
+function TBlock.GetTransactionCount: Integer;
 begin
   Result := FTransactionHashTree.TransactionCount;
 end;
@@ -531,12 +533,6 @@ begin
   end;
 end;
 
-class function TBlock.BlockToString(ABlockHeader: TBlockHeader): AnsiString;
-begin
-  Result := Format('Block:%d Timestamp:%d Reward:%d Fee:%d Target:%d PoW:%s',
-    [ABlockHeader.Block, ABlockHeader.timestamp, ABlockHeader.reward, ABlockHeader.Fee,
-    ABlockHeader.compact_target, TCrypto.ToHexaString(ABlockHeader.proof_of_work)]);
-end;
 
 procedure TBlock.Sanitize;
 { This function check operationblock with bank and updates itself if necessary
@@ -625,6 +621,31 @@ begin
   Result := SaveBlockToStreamExt(ASaveOnlyBlock, Stream, false);
 end;
 
+class function TBlock.SaveBlockToStream(const ABlockHeader: TBlockHeader;
+  Stream: TStream): Boolean;
+var
+  soob: Byte;
+begin
+  soob := 3;
+  Stream.Write(soob, 1);
+  Stream.Write(ABlockHeader.protocol_version, Sizeof(ABlockHeader.protocol_version));
+  Stream.Write(ABlockHeader.protocol_available, Sizeof(ABlockHeader.protocol_available));
+  //
+  Stream.Write(ABlockHeader.Block, Sizeof(ABlockHeader.Block));
+  //
+  Stream.WriteAnsiString(ABlockHeader.account_key.ToRawString);
+  Stream.Write(ABlockHeader.reward, Sizeof(ABlockHeader.reward));
+  Stream.Write(ABlockHeader.Fee, Sizeof(ABlockHeader.Fee));
+  Stream.Write(ABlockHeader.timestamp, Sizeof(ABlockHeader.timestamp));
+  Stream.Write(ABlockHeader.compact_target, Sizeof(ABlockHeader.compact_target));
+  Stream.Write(ABlockHeader.nonce, Sizeof(ABlockHeader.nonce));
+  Stream.WriteAnsiString(ABlockHeader.block_payload);
+  Stream.WriteAnsiString(ABlockHeader.initial_safe_box_hash);
+  Stream.WriteAnsiString(ABlockHeader.transactionHash);
+  Stream.WriteAnsiString(ABlockHeader.proof_of_work);
+  Result := true;
+end;
+
 function TBlock.SaveBlockToStreamExt(ASaveOnlyBlock: Boolean; AStream: TStream;
   ASaveToStorage: Boolean): Boolean;
 var
@@ -688,30 +709,6 @@ begin
   finally
     Unlock;
   end;
-end;
-
-class function TBlock.SaveBlockToStream(const ABlockHeader: TBlockHeader; Stream: TStream): Boolean;
-var
-  soob: Byte;
-begin
-  soob := 3;
-  Stream.Write(soob, 1);
-  Stream.Write(ABlockHeader.protocol_version, Sizeof(ABlockHeader.protocol_version));
-  Stream.Write(ABlockHeader.protocol_available, Sizeof(ABlockHeader.protocol_available));
-  //
-  Stream.Write(ABlockHeader.Block, Sizeof(ABlockHeader.Block));
-  //
-  Stream.WriteAnsiString(ABlockHeader.account_key.ToRawString);
-  Stream.Write(ABlockHeader.reward, Sizeof(ABlockHeader.reward));
-  Stream.Write(ABlockHeader.Fee, Sizeof(ABlockHeader.Fee));
-  Stream.Write(ABlockHeader.timestamp, Sizeof(ABlockHeader.timestamp));
-  Stream.Write(ABlockHeader.compact_target, Sizeof(ABlockHeader.compact_target));
-  Stream.Write(ABlockHeader.nonce, Sizeof(ABlockHeader.nonce));
-  Stream.WriteAnsiString(ABlockHeader.block_payload);
-  Stream.WriteAnsiString(ABlockHeader.initial_safe_box_hash);
-  Stream.WriteAnsiString(ABlockHeader.transactionHash);
-  Stream.WriteAnsiString(ABlockHeader.proof_of_work);
-  Result := true;
 end;
 
 procedure TBlock.SetAccountKey(const value: TAccountKey);
@@ -854,11 +851,11 @@ begin
       exit;
     // Execute SafeBoxTransaction operations:
     AccountTransaction.Rollback;
-    for i := 0 to Count - 1 do
+    for i := 0 to TransactionCount - 1 do
     begin
       if not Transaction[i].ApplyTransaction(AccountTransaction, errors) then
       begin
-        errors := 'Error executing operation ' + Inttostr(i + 1) + '/' + Inttostr(Count) + ': ' + errors;
+        errors := 'Error executing operation ' + Inttostr(i + 1) + '/' + Inttostr(TransactionCount) + ': ' + errors;
         exit;
       end;
     end;

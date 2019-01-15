@@ -148,7 +148,7 @@ begin
   if xProxy = '' then
     exit;
   { Script := TPSScript.Create(nil); }
-  for i := 0 to TNodeNotifyEvents(Sender).Node.TransactionStorage.Count - 1 do
+  for i := 0 to TNodeNotifyEvents(Sender).Node.TransactionStorage.TransactionCount - 1 do
   begin
     {
       Script.AddRegisteredVariable('FromAccount', 'btString');

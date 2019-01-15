@@ -1136,10 +1136,10 @@ const
               else
               begin
                 TLog.NewLog(ltError, CT_LogSender, 'Error creating new bank with client Operations. Block:' +
-                  TBlock.BlockToString(OpExecute.BlockHeader) + ' Error:' + errors);
+                  OpExecute.BlockHeader.ToString() + ' Error:' + errors);
                 // Add to blacklist !
                 Connection.DisconnectInvalidClient(false, 'Invalid BlockChain on Block ' +
-                  TBlock.BlockToString(OpExecute.BlockHeader) + ' with errors:' + errors);
+                  OpExecute.BlockHeader.ToString() + ' with errors:' + errors);
                 finished := true;
                 IsAScam := true;
                 break;
@@ -1180,12 +1180,12 @@ const
                 begin
                   if TNode.Node.BlockManager.LoadTransactions(OpExecute, start) then
                   begin
-                    for i := 0 to OpExecute.Count - 1 do
+                    for i := 0 to OpExecute.TransactionCount - 1 do
                     begin
                       // TODO: NEED TO EXCLUDE OPERATIONS ALREADY INCLUDED IN BLOCKCHAIN?
                       oldBlockchainOperations.AddTransactionToHashTree(OpExecute.Transaction[i]);
                     end;
-                    TLog.NewLog(ltInfo, CT_LogSender, 'Recovered ' + Inttostr(OpExecute.Count) +
+                    TLog.NewLog(ltInfo, CT_LogSender, 'Recovered ' + Inttostr(OpExecute.TransactionCount) +
                       ' operations from block ' + Inttostr(start));
                   end
                   else
@@ -1456,8 +1456,8 @@ begin
       exit;
     end;
     TLog.NewLog(ltdebug, CT_LogSender, 'Starting GetNewBlockChainFromClient at client:' + Connection.ClientRemoteAddr +
-      ' with OperationBlock:' + TBlock.BlockToString(Connection.RemoteOperationBlock) + ' (My block: ' +
-      TBlock.BlockToString(TNode.Node.BlockManager.LastBlock) + ')');
+      ' with OperationBlock:' + Connection.RemoteOperationBlock.ToString() + ' (My block: ' +
+      TNode.Node.BlockManager.LastBlock.ToString() + ')');
     // NOTE: FRemoteOperationBlock.block >= TNode.Node.Bank.BlocksCount
     // First capture same block than me (TNode.Node.Bank.BlocksCount-1) to check if i'm an orphan block...
     xMyBlockHeader := TNode.Node.BlockManager.LastBlock;
@@ -1472,7 +1472,7 @@ begin
     if (not TBlock.Equals(xMyBlockHeader, xClientBlockHeader)) then
     begin
       TLog.NewLog(ltInfo, CT_LogSender, 'My blockchain is not equal... received: ' +
-        TBlock.BlockToString(xClientBlockHeader) + ' My: ' + TBlock.BlockToString(xMyBlockHeader));
+        xClientBlockHeader.ToString() + ' My: ' + xMyBlockHeader.ToString());
       if not FindLastSameBlockByOperationsBlock(0, xClientBlockHeader.Block, xClientBlockHeader) then
       begin
         TLog.NewLog(ltInfo, CT_LogSender, 'No found base block to start process... Receiving ALL');
@@ -1487,7 +1487,7 @@ begin
       end
       else
       begin
-        TLog.NewLog(ltInfo, CT_LogSender, 'Found base new block: ' + TBlock.BlockToString(xClientBlockHeader));
+        TLog.NewLog(ltInfo, CT_LogSender, 'Found base new block: ' + xClientBlockHeader.ToString());
         // Move operations to orphan folder... (temporal... waiting for a confirmation)
         GetNewBank(xClientBlockHeader.Block + 1);
       end;

@@ -340,16 +340,16 @@ begin
             // Is not a valid entry????
             // Perhaps an orphan blockchain: Me or Client!
             TLog.NewLog(ltInfo, Classname, 'Distinct operation block found! My:' +
-              TBlock.BlockToString(TNode.Node.BlockManager.AccountStorage.Blocks[TNode.Node.BlockManager.BlocksCount - 1]
-              .BlockHeader) + ' remote:' + TBlock.BlockToString(xBlock.BlockHeader) + ' Errors: ' + xErrors);
+              TNode.Node.BlockManager.AccountStorage.Blocks[TNode.Node.BlockManager.BlocksCount - 1]
+              .BlockHeader.ToString() + ' remote:' + xBlock.BlockHeader.ToString() + ' Errors: ' + xErrors);
           end;
         end
         else
         begin
           // Receiving an unexpected operationblock
           TLog.NewLog(ltError, Classname, 'Received a distinct block, finalizing: ' +
-            TBlock.BlockToString(xBlock.BlockHeader) + ' (My block: ' +
-            TBlock.BlockToString(TNode.Node.BlockManager.LastBlock) + ')');
+            xBlock.BlockHeader.ToString() + ' (My block: ' +
+            TNode.Node.BlockManager.LastBlock.ToString() + ')');
           FIsDownloadingBlocks := false;
           exit;
         end;
@@ -637,7 +637,7 @@ begin
         end;
       end;
 
-      TLog.NewLog(ltdebug, Classname, 'Hello received: ' + TBlock.BlockToString(FRemoteOperationBlock));
+      TLog.NewLog(ltdebug, Classname, 'Hello received: ' + FRemoteOperationBlock.ToString());
       if (HeaderData.HeaderType in [ntp_request, ntp_response]) then
       begin
         // Response:

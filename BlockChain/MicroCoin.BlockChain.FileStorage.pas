@@ -406,7 +406,7 @@ begin
           begin
             inc(b);
             TLog.NewLog(ltDebug, ClassName, 'Moving block from "' + Orphan + '" to "' + DestOrphan + '" ' +
-              TBlock.BlockToString(ops.BlockHeader));
+              ops.BlockHeader.ToString());
             db.SaveBlockChainBlock(ops);
           end;
           TLog.NewLog(ltDebug, ClassName, 'Moved blockchain from "' + Orphan + '" to "' + DestOrphan + '" from block ' +

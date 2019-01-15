@@ -151,8 +151,8 @@ begin
       if (OpB.Block <> 0) and (OpB.Block <> (FNodeNotifyEvents.Node.BlockManager.LastBlockFound.BlockHeader.Block + 1)) then
       begin
         // A new block is generated meanwhile ... do not include
-        TLog.NewLog(ltDebug, ClassName, 'Generated a new block meanwhile ... ' + TBlock.BlockToString(OpB) + '<>'
-          + TBlock.BlockToString(FNodeNotifyEvents.Node.BlockManager.LastBlockFound.BlockHeader));
+        TLog.NewLog(ltDebug, ClassName, 'Generated a new block meanwhile ... ' + OpB.ToString() + '<>'
+          + FNodeNotifyEvents.Node.BlockManager.LastBlockFound.BlockHeader.ToString());
         P^.OperationsComp.Free;
         Dispose(P);
         P := nil;
@@ -187,8 +187,8 @@ begin
             exit;
           SendJobToMiner(P^.OperationsComp, l[i], false, null);
         end;
-        TLog.NewLog(ltDebug, ClassName, 'Sending job to miners: ' + TBlock.BlockToString
-          (P^.OperationsComp.BlockHeader) + ' Cache blocks:' + IntToStr(l.count));
+        TLog.NewLog(ltDebug, ClassName, 'Sending job to miners: ' + P^.OperationsComp.BlockHeader.ToString
+          () + ' Cache blocks:' + IntToStr(l.count));
       finally
         NetTcpIpClientsUnlock;
       end;
@@ -367,7 +367,7 @@ begin
         if (not(TBlock.Equals(FMinerOperations.BlockHeader, xMaster.BlockHeader))) then
         begin
           FMinerOperations.Clear(true);
-          if xMaster.count > 0 then
+          if xMaster.TransactionCount > 0 then
           begin
             // First round: Select with fee > 0
             i := 0;
@@ -640,9 +640,9 @@ begin
           (P^.OperationsComp.BlockHeader.Block <> (FNodeNotifyEvents.Node.BlockManager.LastBlockFound.BlockHeader.Block
           + 1)) then
         begin
-          TLog.NewLog(lterror, ClassName, 'ERROR DEV 20170228-2 ' + TBlock.BlockToString
-            (P^.OperationsComp.BlockHeader) + '<>' + TBlock.BlockToString
-            (FNodeNotifyEvents.Node.BlockManager.LastBlockFound.BlockHeader));
+          TLog.NewLog(lterror, ClassName, 'ERROR DEV 20170228-2 ' + P^.OperationsComp.BlockHeader.ToString
+            () + '<>' + FNodeNotifyEvents.Node.BlockManager.LastBlockFound.BlockHeader.ToString
+            ());
           P^.OperationsComp.Free;
           Dispose(P);
           raise Exception.Create('ERROR DEV 20170228-2');
@@ -691,7 +691,7 @@ begin
     end;
 
     TLog.NewLog(ltInfo, ClassName, Format('Sending job %d to miner - Block:%d Ops:%d Target:%s PayloadStart:%s',
-      [nJobs, Operations.BlockHeader.Block, Operations.count, IntToHex(Operations.BlockHeader.compact_target, 8),
+      [nJobs, Operations.BlockHeader.Block, Operations.TransactionCount, IntToHex(Operations.BlockHeader.compact_target, 8),
       Operations.BlockHeader.block_payload]));
   finally
     params.Free;

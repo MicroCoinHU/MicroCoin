@@ -179,7 +179,7 @@ begin
       NewLog(ABlock, ltupdate,
         Format('New block height:%d nOnce:%d timestamp:%d Operations:%d Fee:%d SafeBoxBalance:%d=%d',
         [ABlock.BlockHeader.Block, ABlock.BlockHeader.nonce, ABlock.BlockHeader.timestamp,
-        ABlock.Count, ABlock.BlockHeader.Fee, AccountStorage.TotalBalance,
+        ABlock.TransactionCount, ABlock.BlockHeader.Fee, AccountStorage.TotalBalance,
         ABlock.AccountTransaction.TotalBalance]));
       // Save Operations to disk
       if not FIsRestoringFromFile then

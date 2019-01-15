@@ -128,7 +128,7 @@ begin
   begin
     TLog.NewLog(lterror, Classname,
       Format('Cannot Add new BlockChain due is adding disabled - Connection:%s NewBlock:%s',
-      [Inttohex(PtrInt(SenderConnection), 8), TBlock.BlockToString(NewBlockOperations.BlockHeader)]));
+      [Inttohex(PtrInt(SenderConnection), 8), NewBlockOperations.BlockHeader.ToString()]));
     errors := 'Adding blocks is disabled';
     exit;
   end;
@@ -140,7 +140,7 @@ begin
   end;
   OpBlock := NewBlockOperations.BlockHeader;
   TLog.NewLog(ltdebug, Classname, Format('AddNewBlockChain Connection:%s NewBlock:%s',
-    [Inttohex(PtrInt(SenderConnection), 8), TBlock.BlockToString(OpBlock)]));
+    [Inttohex(PtrInt(SenderConnection), 8), OpBlock.ToString()]));
   if not TPCThread.TryProtectEnterCriticalSection(Self, 2000, FLockNodeOperations) then
   begin
     if NewBlockOperations.BlockHeader.Block <> BlockManager.BlocksCount then
@@ -216,7 +216,7 @@ begin
     begin
       opsht := TTransactionHashTree.Create;
       try
-        for i := 0 to FTransactionStorage.Count - 1 do
+        for i := 0 to FTransactionStorage.TransactionCount - 1 do
         begin
           opsht.AddTransactionToHashTree(FTransactionStorage.Transaction[i]);
           // Add to sent operations
@@ -265,7 +265,7 @@ begin
   finally
     FLockNodeOperations.Release;
     TLog.NewLog(ltdebug, Classname, Format('Finalizing AddNewBlockChain Connection:%s NewBlock:%s',
-      [Inttohex(PtrInt(SenderConnection), 8), TBlock.BlockToString(OpBlock)]));
+      [Inttohex(PtrInt(SenderConnection), 8), OpBlock.ToString()]));
   end;
   if Result then
   begin
@@ -416,7 +416,7 @@ begin
               if Assigned(OperationsResult) then
               begin
                 xTransaction.GetTransactionData(0, xTransaction.SignerAccount, xTransactionData);
-                xTransactionData.NOpInsideBlock := FTransactionStorage.Count - 1;
+                xTransactionData.NOpInsideBlock := FTransactionStorage.TransactionCount - 1;
                 xTransactionData.balance := FTransactionStorage.AccountTransaction.Account(xTransaction.SignerAccount).Balance;
                 OperationsResult.Add(xTransactionData);
               end;
@@ -924,7 +924,7 @@ begin
   begin
     FTransactionStorage.Lock;
     try
-      for i := 0 to FTransactionStorage.Count - 1 do
+      for i := 0 to FTransactionStorage.TransactionCount - 1 do
       begin
         xTransaction := FTransactionStorage.Transaction[i];
         if (xTransaction.SignerAccount = Account) then
@@ -957,7 +957,7 @@ begin
     xAuxBlock := RBlock;
     if not BlockManager.LoadTransactions(ABlock, RBlock) then
       exit;
-    for i := ABlock.Count - 1 downto 0 do
+    for i := ABlock.TransactionCount - 1 downto 0 do
     begin
       xTransaction := ABlock.Transaction[i];
       if (xTransaction.SignerAccount = Account) then

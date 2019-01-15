@@ -397,7 +397,7 @@ var
       jsonObject.GetAsVariant('maturation').Value := FNode.BlockManager.BlocksCount - ob.Block - 1;
       if FNode.BlockManager.LoadTransactions(pcops, nBlock) then
       begin
-        jsonObject.GetAsVariant('operations').Value := pcops.Count;
+        jsonObject.GetAsVariant('operations').Value := pcops.TransactionCount;
       end;
       Result := true;
     finally
@@ -2484,11 +2484,11 @@ begin
           exit;
         end;
         i := params.GetAsVariant('opblock').AsInteger(0);
-        if (i < 0) or (i >= pcops.Count) then
+        if (i < 0) or (i >= pcops.TransactionCount) then
         begin
           ErrorNum := CT_RPC_ErrNum_InvalidOperation;
           ErrorDesc := 'Block/Operation not found: ' + Inttostr(c) + '/' + Inttostr(i) + ' BlockOperations:' +
-            Inttostr(pcops.Count);
+            Inttostr(pcops.TransactionCount);
           exit;
         end;
         if pcops.Transaction[i].GetTransactionData(c, pcops.Transaction[i].SignerAccount, OPR) then
@@ -2530,7 +2530,7 @@ begin
         jsonarr := GetResultArray;
         k := params.AsInteger('max', 100);
         j := params.AsInteger('start', 0);
-        for i := 0 to pcops.Count - 1 do
+        for i := 0 to pcops.TransactionCount - 1 do
         begin
           if (i >= j) then
           begin
@@ -2588,7 +2588,7 @@ begin
     // Returns all the operations pending to be included in a block in "Operation resume format" as an array
     // Create result
     GetResultArray;
-    for i := FNode.TransactionStorage.Count - 1 downto 0 do
+    for i := FNode.TransactionStorage.TransactionCount - 1 downto 0 do
     begin
       if not FNode.TransactionStorage.Transaction[i].GetTransactionData(0, FNode.TransactionStorage.Transaction[i].SignerAccount, OPR) then
       begin
@@ -2598,7 +2598,7 @@ begin
       end;
       OPR.NOpInsideBlock := i;
       OPR.balance := FNode.TransactionStorage.AccountTransaction.Account(FNode.TransactionStorage.Transaction[i].SignerAccount).Balance;
-      FillOperationResumeToJSONObject(OPR, GetResultArray.GetAsObject(FNode.TransactionStorage.Count - 1 - i));
+      FillOperationResumeToJSONObject(OPR, GetResultArray.GetAsObject(FNode.TransactionStorage.TransactionCount - 1 - i));
     end;
     Result := true;
   end

@@ -40,7 +40,7 @@ unit MicroCoin.Account.Data;
 
 interface
 
-uses Classes, Sysutils, MicroCoin.Account.AccountKey, UCrypto, UConst, UBaseTypes;
+uses Classes, Sysutils, MicroCoin.Account.AccountKey, UCrypto, UConst, UBasetypes;
 
 type
 
