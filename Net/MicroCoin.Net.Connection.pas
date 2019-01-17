@@ -115,7 +115,7 @@ begin
   FBufferToSendOperations := TTransactionHashTree.Create;
   FRemoteOperationBlock := TBlockHeader.Empty;
   FRemoteAccumulatedWork := 0;
-  FClientPublicKey := CT_TECDSA_Public_Nul;
+  FClientPublicKey := TAccountKey.Empty;
   FTimestampDiff := 0;
   inherited;
 end;

@@ -44,7 +44,7 @@ uses UCrypto, MicroCoin.Crypto.Keys, sysutils, classes, ubasetypes, MicroCoin.Cr
 
 type
 
-  TAccountKey = TECDSA_Public;
+  TAccountKey = TECPublicKey;
   PAccountKey = ^TAccountKey;
 
   TAccountKeyHelper = record helper for TAccountKey
@@ -53,7 +53,7 @@ type
     procedure ToRawString(var dest: TRawBytes); overload;
     class function FromRawString(const rawaccstr: TRawBytes): TAccountKey; overload; static; inline;
     class procedure FromRawString(const rawaccstr: TRawBytes; var dest: TAccountKey); overload; static;
-    class function FromPrivateKey(key: TECPrivateKey): TAccountKey; static; inline;
+    class function FromPrivateKey(key: TECKeyPair): TAccountKey; static; inline;
     class function AccountKeyFromImport(const HumanReadable: AnsiString; var RAccountKey: TAccountKey; var errors: AnsiString): Boolean; static;
     function AccountPublicKeyExport: AnsiString;
     class function AccountPublicKeyImport(const HumanReadable: AnsiString; var RAccountKey: TAccountKey; var errors: AnsiString): Boolean; static;
@@ -123,7 +123,7 @@ begin
   end;
 end;
 
-class function TAccountKeyHelper.FromPrivateKey(key: TECPrivateKey): TAccountKey;
+class function TAccountKeyHelper.FromPrivateKey(key: TECKeyPair): TAccountKey;
 begin
   Result := key.PublicKey;
 end;
@@ -139,7 +139,7 @@ var
 begin
   if length(rawaccstr) = 0 then
   begin
-    dest := CT_TECDSA_Public_Nul;
+    dest := TAccountKey.Empty;
   end else begin
     ms := TMemoryStream.Create;
     try
@@ -158,7 +158,7 @@ begin
   case self.EC_OpenSSL_NID of
     cNID_secp256k1, cNID_secp384r1, cNID_sect283k1, cNID_secp521r1:
       begin
-        Result := TECPrivateKey.IsValidPublicKey(self);
+        Result := TECKeyPair.IsValidPublicKey(self);
         if not Result then
         begin
           errors := Format('Invalid AccountKey type:%d - Length x:%d y:%d Error:%s',
@@ -184,7 +184,7 @@ var
 begin
   Result := False;
   errors := 'Invalid length';
-  RAccountKey := CT_TECDSA_Public_Nul;
+  RAccountKey := TAccountKey.Empty;
   if length(HumanReadable) < 20 then
     exit;
   BN := 0;
@@ -260,7 +260,7 @@ var
 begin
   Result := False;
   errors := 'Invalid length';
-  RAccountKey := CT_TECDSA_Public_Nul;
+  RAccountKey := TAccountKey.Empty;
   if length(HumanReadable) >= 20
   then begin
     BN := 0;

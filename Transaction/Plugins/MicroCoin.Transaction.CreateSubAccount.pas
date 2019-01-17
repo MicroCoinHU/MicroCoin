@@ -44,7 +44,7 @@ type
       NumberOfTransactions: Cardinal;
       Fee: UInt64;
       Payload: TRawBytes;
-      PublicKey: TECDSA_Public;
+      PublicKey: TECPublicKey;
       Signature: TECDSA_SIG;
       Balance: UInt64;
       TotalLimit: UInt64;
@@ -65,7 +65,7 @@ type
     class function GetHashForSignature(const ATransaction: TCreateSubAccountData): TRawBytes; static;
   public
     constructor Create(AAccountNumber : Cardinal; Afee: UInt64; ANTransactions: Cardinal;
-                       AKey: TECPrivateKey; APublicKey: TECDSA_Public; ABalance: UInt64;
+                       AKey: TECKeyPair; APublicKey: TECPublicKey; ABalance: UInt64;
                        ATotalLimit, ADailyLimit : UInt64); reintroduce;
     function GetBuffer(UseProtocolV2: Boolean): TRawBytes; override;
     function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean; override;
@@ -187,7 +187,7 @@ begin
 end;
 
 constructor TCreateSubAccountTransaction.Create(AAccountNumber: Cardinal;
-  Afee: uInt64; ANTransactions: Cardinal; AKey: TECPrivateKey; APublicKey: TECDSA_Public; ABalance : UInt64;
+  Afee: uInt64; ANTransactions: Cardinal; AKey: TECKeyPair; APublicKey: TECPublicKey; ABalance : UInt64;
   ATotalLimit, ADailyLimit : UInt64);
 var
   s: AnsiString;
@@ -321,7 +321,7 @@ begin
   FData.NumberOfTransactions := 0;
   FData.Fee := 0;
   FData.Payload := '';
-  FData.PublicKey := CT_TECDSA_Public_Nul;
+  FData.PublicKey := TAccountKey.Empty;
   FData.Signature.r := '';
   FData.Signature.s := '';
   FData.Balance := 0;

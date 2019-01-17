@@ -57,7 +57,7 @@ type
       NumberOfTransactions: Cardinal;
       Fee: UInt64;
       Payload: TRawBytes;
-      PublicKey: TECDSA_Public;
+      PublicKey: TECPublicKey;
       ChangeType: TChangeAccountInfoTypes;
       // bits mask. $0001 = New account key , $0002 = New name , $0004 = New type
       NewAccountKey: TAccountKey;
@@ -81,7 +81,7 @@ type
     function GetTransactionType: Byte; override;
   public
     class function GetHashForSignature(const ATransactionData: TChangeAccountInfoTransactionData): TRawBytes;
-    class function DoSignTransaction(key: TECPrivateKey; var ATransactionData: TChangeAccountInfoTransactionData): Boolean;
+    class function DoSignTransaction(key: TECKeyPair; var ATransactionData: TChangeAccountInfoTransactionData): Boolean;
 
     function GetBuffer(UseProtocolV2: Boolean): TRawBytes; override;
     function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean; override;
@@ -89,7 +89,7 @@ type
     function GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal; var TransactionData: TTransactionData): Boolean; override;
     function ToString: string; override;
 
-    constructor CreateChangeAccountInfo(account_signer, n_operation, account_target: Cardinal; key: TECPrivateKey;
+    constructor CreateChangeAccountInfo(account_signer, n_operation, account_target: Cardinal; key: TECKeyPair;
       change_key: Boolean; const new_account_key: TAccountKey; change_name: Boolean; const new_name: TRawBytes;
       change_type: Boolean; const new_type: Word; fee: UInt64; payload: TRawBytes);
 
@@ -209,7 +209,7 @@ begin
   end;
 end;
 
-class function TChangeAccountInfoTransaction.DoSignTransaction(key: TECPrivateKey; var ATransactionData: TChangeAccountInfoTransactionData): Boolean;
+class function TChangeAccountInfoTransaction.DoSignTransaction(key: TECKeyPair; var ATransactionData: TChangeAccountInfoTransactionData): Boolean;
 var
   raw: TRawBytes;
   _sign: TECDSA_SIG;
@@ -339,7 +339,7 @@ begin
     errors := 'No change';
     exit;
   end;
-  if (FData.PublicKey.EC_OpenSSL_NID <> CT_TECDSA_Public_Nul.EC_OpenSSL_NID) and
+  if (FData.PublicKey.EC_OpenSSL_NID <> TAccountKey.Empty.EC_OpenSSL_NID) and
     (not TAccountKey.EqualAccountKeys(FData.PublicKey, account_signer.accountInfo.AccountKey)) then
   begin
     errors := Format('Invalid public key for account %d. Distinct from SafeBox public key! %s <> %s',
@@ -469,7 +469,7 @@ begin
 end;
 
 constructor TChangeAccountInfoTransaction.CreateChangeAccountInfo(account_signer, n_operation, account_target: Cardinal;
-  key: TECPrivateKey; change_key: Boolean; const new_account_key: TAccountKey; change_name: Boolean;
+  key: TECKeyPair; change_key: Boolean; const new_account_key: TAccountKey; change_name: Boolean;
   const new_name: TRawBytes; change_type: Boolean; const new_type: Word; fee: UInt64; payload: TRawBytes);
 begin
   inherited Create;

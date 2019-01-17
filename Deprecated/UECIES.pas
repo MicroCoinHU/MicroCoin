@@ -114,7 +114,7 @@ Const CT_Max_Bytes_To_Encrypt = 32000;
 
 Type size_t = Word;
 
-function ECIESEncrypt(const ECDSAPubKey: TECDSA_Public; const MessageToEncrypt: AnsiString): TRawBytes; overload;
+function ECIESEncrypt(const ECDSAPubKey: TECPublicKey; const MessageToEncrypt: AnsiString): TRawBytes; overload;
 function ECIESEncrypt(EC_OpenSSL_NID : Word; PubKey: EC_POINT; const MessageToEncrypt: AnsiString): TRawBytes; overload;
 function ECIESDecrypt(EC_OpenSSL_NID : Word; PrivateKey: PEC_KEY; logErrors : Boolean; const MessageToDecrypt: TRawBytes; Var Decrypted : AnsiString): Boolean;
 
@@ -209,7 +209,7 @@ begin
   Result := EVP_md5;
 end;
 
-function ECIESEncrypt(const ECDSAPubKey: TECDSA_Public; const MessageToEncrypt: AnsiString): TRawBytes;
+function ECIESEncrypt(const ECDSAPubKey: TECPublicKey; const MessageToEncrypt: AnsiString): TRawBytes;
 Var BNx,BNy : PBIGNUM;
   ECG : PEC_GROUP;
   ctx : PBN_CTX;

@@ -60,7 +60,7 @@ type
     function GetNumberOfTransactions: Cardinal; override;
   public
     class function GetTransactionHashForSignature(const ATransaction: TListAccountTransactionData): TRawBytes;
-    class function DoSignTransaction(key: TECPrivateKey; var ATransaction: TListAccountTransactionData): Boolean;
+    class function DoSignTransaction(key: TECKeyPair; var ATransaction: TListAccountTransactionData): Boolean;
     function IsPrivateSale: Boolean;
     function IsDelist: Boolean; virtual; abstract;
     function GetBuffer(UseProtocolV2: Boolean): TRawBytes; override;
@@ -76,7 +76,7 @@ type
   public
     constructor CreateListAccountForSale(account_signer, ANumberOfTransactions, account_target: Cardinal;
       account_price, fee: UInt64; account_to_pay: Cardinal; new_public_key: TAccountKey; locked_until_block: Cardinal;
-      key: TECPrivateKey; payload: TRawBytes);
+      key: TECKeyPair; payload: TRawBytes);
     function IsDelist: Boolean; override;
     function GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal;
       var TransactionData: TTransactionData): Boolean; override;
@@ -86,7 +86,7 @@ type
   public
     function GetTransactionType: Byte; override;
     constructor CreateDelistAccountForSale(account_signer, ANumberOfTransactions, account_target: Cardinal; fee: UInt64;
-      key: TECPrivateKey; payload: TRawBytes);
+      key: TECKeyPair; payload: TRawBytes);
     function IsDelist: Boolean; override;
     function GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal;
       var TransactionData: TTransactionData): Boolean; override;
@@ -233,7 +233,7 @@ begin
   end;
   //
   // Build 1.4
-  if (FData.PublicKey.EC_OpenSSL_NID <> CT_TECDSA_Public_Nul.EC_OpenSSL_NID) and
+  if (FData.PublicKey.EC_OpenSSL_NID <> TAccountKey.Empty.EC_OpenSSL_NID) and
     (not TAccountKey.EqualAccountKeys(FData.PublicKey, account_signer.accountInfo.AccountKey)) then
   begin
     errors := Format('Invalid public key for account %d. Distinct from SafeBox public key! %s <> %s',
@@ -271,7 +271,7 @@ begin
     account_target.accountInfo, account_target.Name, account_target.AccountType, FData.Fee, errors);
 end;
 
-class function TListAccountTransaction.DoSignTransaction(key: TECPrivateKey; var ATransaction: TListAccountTransactionData): Boolean;
+class function TListAccountTransaction.DoSignTransaction(key: TECKeyPair; var ATransaction: TListAccountTransactionData): Boolean;
 var
   s: AnsiString;
   _sign: TECDSA_SIG;
@@ -462,7 +462,7 @@ begin
   case FData.TransactionType of
     lat_ListForSale:
       begin
-        if (FData.NewPublicKey.EC_OpenSSL_NID = CT_TECDSA_Public_Nul.EC_OpenSSL_NID) then
+        if (FData.NewPublicKey.EC_OpenSSL_NID = TAccountKey.Empty.EC_OpenSSL_NID) then
         begin
           Result := Format('List account %s for sale price %s locked until block:%d fee:%s (n_op:%d) payload size:%d',
             [TAccount.AccountNumberToString(FData.TargetAccount),
@@ -492,7 +492,7 @@ end;
 
 constructor TListAccountForSaleTransaction.CreateListAccountForSale(account_signer, ANumberOfTransactions, account_target: Cardinal;
   account_price, fee: UInt64; account_to_pay: Cardinal; new_public_key: TAccountKey; locked_until_block: Cardinal;
-  key: TECPrivateKey; payload: TRawBytes);
+  key: TECKeyPair; payload: TRawBytes);
 begin
   inherited Create;
   FData.SignerAccount := account_signer;
@@ -550,7 +550,7 @@ begin
 end;
 
 constructor TDelistAccountTransaction.CreateDelistAccountForSale(account_signer, ANumberOfTransactions, account_target: Cardinal;
-  fee: UInt64; key: TECPrivateKey; payload: TRawBytes);
+  fee: UInt64; key: TECKeyPair; payload: TRawBytes);
 begin
   inherited Create;
   FData.SignerAccount := account_signer;

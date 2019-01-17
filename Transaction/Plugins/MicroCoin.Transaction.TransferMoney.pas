@@ -37,7 +37,7 @@ type
       Amount: UInt64;
       Fee: UInt64;
       Payload: TRawBytes;
-      PublicKey: TECDSA_Public;
+      PublicKey: TECPublicKey;
       Signature: TECDSA_SIG;
       //
       TransactionStyle: TTransferMoneyTransactionStyle;
@@ -62,8 +62,8 @@ type
     function GetNumberOfTransactions: Cardinal; override;
   public
     class function GetTransactionHashForSignature(const trans: TTransferMoneyTransactionData): TRawBytes;
-    class function SignTransaction(AKey: TECPrivateKey; var RTransactionData: TTransferMoneyTransactionData): Boolean;
-    constructor CreateTransaction(ASenderAccount, ANumberOfTransactions, ATargetAccount: Cardinal; AKey: TECPrivateKey; AAmount, AFee: UInt64;
+    class function SignTransaction(AKey: TECKeyPair; var RTransactionData: TTransferMoneyTransactionData): Boolean;
+    constructor CreateTransaction(ASenderAccount, ANumberOfTransactions, ATargetAccount: Cardinal; AKey: TECKeyPair; AAmount, AFee: UInt64;
       APayload: TRawBytes);
     function GetBuffer(UseProtocolV2: Boolean): TRawBytes; override;
     function ToString: string; override;
@@ -80,7 +80,7 @@ type
     function GetTransactionType: Byte; override;
   public
     constructor CreateBuy(account_number, n_operation, account_to_buy, account_to_pay: Cardinal;
-      price, amount, fee: UInt64; new_public_key: TAccountKey; key: TECPrivateKey; payload: TRawBytes);
+      price, amount, fee: UInt64; new_public_key: TAccountKey; key: TECKeyPair; payload: TRawBytes);
     function GetTransactionData(Block: Cardinal; Affected_account_number: Cardinal;
       var TransactionData: TTransactionData): Boolean; override;
   end;
@@ -105,7 +105,7 @@ begin
   end;
 end;
 
-constructor TTransferMoneyTransaction.CreateTransaction(ASenderAccount, ANumberOfTransactions, ATargetAccount: Cardinal; AKey: TECPrivateKey;
+constructor TTransferMoneyTransaction.CreateTransaction(ASenderAccount, ANumberOfTransactions, ATargetAccount: Cardinal; AKey: TECKeyPair;
   AAmount, AFee: UInt64; APayload: TRawBytes);
 begin
   inherited Create;
@@ -175,7 +175,7 @@ begin
     exit;
   end;
   // Build 1.4
-  if (FData.PublicKey.EC_OpenSSL_NID <> CT_TECDSA_Public_Nul.EC_OpenSSL_NID) and
+  if (FData.PublicKey.EC_OpenSSL_NID <> TAccountKey.Empty.EC_OpenSSL_NID) and
     (not TAccountKey.EqualAccountKeys(FData.PublicKey, xSenderAccount.accountInfo.AccountKey)) then
   begin
     errors := Format('Invalid sender public key for account %d. Distinct from SafeBox public key! %s <> %s',
@@ -284,7 +284,7 @@ begin
   end;
 end;
 
-class function TTransferMoneyTransaction.SignTransaction(AKey: TECPrivateKey;
+class function TTransferMoneyTransaction.SignTransaction(AKey: TECKeyPair;
   var RTransactionData: TTransferMoneyTransactionData): Boolean;
 var
   s: AnsiString;
@@ -647,7 +647,7 @@ begin
 end;
 
 constructor TBuyAccountTransaction.CreateBuy(account_number, n_operation, account_to_buy, account_to_pay: Cardinal;
-  price, amount, fee: UInt64; new_public_key: TAccountKey; key: TECPrivateKey; payload: TRawBytes);
+  price, amount, fee: UInt64; new_public_key: TAccountKey; key: TECKeyPair; payload: TRawBytes);
 begin
   inherited Create;
   FData.SenderAccount := account_number;

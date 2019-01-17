@@ -39,33 +39,37 @@ uses Classes, SysUtils, OpenSSL, OpenSSLdef, UBasetypes, MicroCoin.Crypto.Errors
 
 type
 
-  TECDSA_Public = record
+  TECPublicKey = record
     EC_OpenSSL_NID: Word;
     x: TRawBytes;
     y: TRawBytes;
+    class function Empty : TECPublicKey; static;
   end;
 
-  PECDSA_Public = ^TECDSA_Public;
+  PECPublicKey = ^TECPublicKey;
 
   //TODO: Convert to record
-  TECPrivateKey = class
+  TECKeyPair = class
   private
     FPrivateKey: PEC_KEY;
     FEC_OpenSSL_NID: Word;
     procedure SetPrivateKey(const Value: PEC_KEY);
-    function GetPublicKey: TECDSA_Public;
+    function GetPublicKey: TECPublicKey;
     function GetPublicKeyPoint: PEC_POINT;
   public
+    class function IsValidPublicKey(PubKey: TECPublicKey): Boolean;
+    class function ImportFromRaw(const raw: TRawBytes): TECKeyPair; static;
+
     constructor Create;
     destructor Destroy; override;
+
     procedure GenerateRandomPrivateKey(EC_OpenSSL_NID: Word);
     function ExportToRaw: TRawBytes;
-    class function IsValidPublicKey(PubKey: TECDSA_Public): Boolean;
-    class function ImportFromRaw(const raw: TRawBytes): TECPrivateKey; static;
-    property PrivateKey: PEC_KEY read FPrivateKey;
-    property PublicKey: TECDSA_Public read GetPublicKey;
-    property PublicKeyPoint: PEC_POINT read GetPublicKeyPoint;
     function SetPrivateKeyFromHexa(EC_OpenSSL_NID: Word; hexa: AnsiString): Boolean;
+
+    property PrivateKey: PEC_KEY read FPrivateKey;
+    property PublicKey: TECPublicKey read GetPublicKey;
+    property PublicKeyPoint: PEC_POINT read GetPublicKeyPoint;
     property EC_OpenSSL_NID: Word read FEC_OpenSSL_NID;
   end;
 
@@ -73,15 +77,15 @@ implementation
 
 uses ULog, MicroCoin.Common.Config, MicroCoin.Account.AccountKey, MicroCoin.Common.Stream;
 
-{ TECPrivateKey }
+{ TECKeyPair }
 
-constructor TECPrivateKey.Create;
+constructor TECKeyPair.Create;
 begin
   FPrivateKey := nil;
   FEC_OpenSSL_NID := cDefault_EC_OpenSSL_NID;
 end;
 
-destructor TECPrivateKey.Destroy;
+destructor TECKeyPair.Destroy;
 begin
   if Assigned(FPrivateKey) then
     EC_KEY_free(FPrivateKey);
@@ -89,7 +93,7 @@ begin
 end;
 
 //TODO: remove stream
-function TECPrivateKey.ExportToRaw: TRawBytes;
+function TECKeyPair.ExportToRaw: TRawBytes;
 var
   ms: TStream;
   aux: TRawBytes;
@@ -108,7 +112,7 @@ begin
   end;
 end;
 
-procedure TECPrivateKey.GenerateRandomPrivateKey(EC_OpenSSL_NID: Word);
+procedure TECKeyPair.GenerateRandomPrivateKey(EC_OpenSSL_NID: Word);
 var
   i: Integer;
 begin
@@ -121,7 +125,7 @@ begin
     raise ECryptoException.Create('Error generating new Random Private Key');
 end;
 
-function TECPrivateKey.GetPublicKey: TECDSA_Public;
+function TECKeyPair.GetPublicKey: TECPublicKey;
 var
   BNx, BNy: PBIGNUM;
   ctx: PBN_CTX;
@@ -142,12 +146,12 @@ begin
   end;
 end;
 
-function TECPrivateKey.GetPublicKeyPoint: PEC_POINT;
+function TECKeyPair.GetPublicKeyPoint: PEC_POINT;
 begin
   Result := EC_KEY_get0_public_key(FPrivateKey);
 end;
 
-class function TECPrivateKey.ImportFromRaw(const raw: TRawBytes): TECPrivateKey;
+class function TECKeyPair.ImportFromRaw(const raw: TRawBytes): TECKeyPair;
 var
   ms: TStream;
   aux: TRawBytes;
@@ -170,7 +174,7 @@ begin
       try
         PAC := BN_bn2hex(BNx);
         try
-          Result := TECPrivateKey.Create;
+          Result := TECKeyPair.Create;
           try
             Result.SetPrivateKeyFromHexa(ECID, PAC);
           except
@@ -189,7 +193,7 @@ begin
   end;
 end;
 
-class function TECPrivateKey.IsValidPublicKey(PubKey: TECDSA_Public): Boolean;
+class function TECKeyPair.IsValidPublicKey(PubKey: TECPublicKey): Boolean;
 var
   BNx, BNy: PBIGNUM;
   ECG: PEC_GROUP;
@@ -224,14 +228,14 @@ begin
   end;
 end;
 
-procedure TECPrivateKey.SetPrivateKey(const Value: PEC_KEY);
+procedure TECKeyPair.SetPrivateKey(const Value: PEC_KEY);
 begin
   if Assigned(FPrivateKey) then
     EC_KEY_free(FPrivateKey);
   FPrivateKey := Value;
 end;
 
-function TECPrivateKey.SetPrivateKeyFromHexa(EC_OpenSSL_NID: Word; hexa: AnsiString): Boolean;
+function TECKeyPair.SetPrivateKeyFromHexa(EC_OpenSSL_NID: Word; hexa: AnsiString): Boolean;
 var
   bn: PBIGNUM;
   ctx: PBN_CTX;
@@ -265,6 +269,15 @@ begin
   finally
     BN_free(bn);
   end;
+end;
+
+{ TECPublicKey }
+
+class function TECPublicKey.Empty: TECPublicKey;
+begin
+  Result.EC_OpenSSL_NID := 0;
+  Result.x := '';
+  Result.y := '';
 end;
 
 end.

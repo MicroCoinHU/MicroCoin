@@ -32,7 +32,7 @@ type
       NumberOfTransactions: Cardinal;
       Fee: UInt64;
       Payload: TRawBytes;
-      PublicKey: TECDSA_Public;
+      PublicKey: TECPublicKey;
       NewAccountKey: TAccountKey;
       Signature: TECDSA_SIG;
     end;
@@ -50,11 +50,11 @@ type
     function GetNumberOfTransactions: Cardinal; override;
     function GetTransactionType: Byte; override;
   public
-    constructor Create(account_signer, n_operation, account_target: Cardinal; key: TECPrivateKey;
+    constructor Create(account_signer, n_operation, account_target: Cardinal; key: TECKeyPair;
       new_account_key: TAccountKey; fee: UInt64; payload: TRawBytes);
 
     class function GetHashToSignature(const AErrors: ChangeKeyTransactionData): TRawBytes;
-    class function DoSignTransaction(AKey: TECPrivateKey; var ATransaction: ChangeKeyTransactionData): Boolean;
+    class function DoSignTransaction(AKey: TECKeyPair; var ATransaction: ChangeKeyTransactionData): Boolean;
 
     function GetBuffer(UseProtocolV2: Boolean): TRawBytes; override;
     function ApplyTransaction(AAccountTransaction: TAccountTransaction; var RErrors: AnsiString): Boolean; override;
@@ -90,7 +90,7 @@ begin
     AList.Add(TObject(FData.TargetAccount));
 end;
 
-constructor TChangeKeyTransaction.Create(account_signer, n_operation, account_target: Cardinal; key: TECPrivateKey;
+constructor TChangeKeyTransaction.Create(account_signer, n_operation, account_target: Cardinal; key: TECKeyPair;
   new_account_key: TAccountKey; fee: UInt64; payload: TRawBytes);
 begin
   inherited Create;
@@ -198,7 +198,7 @@ begin
     end;
   end;
   // Build 1.4
-  if (FData.PublicKey.EC_OpenSSL_NID <> CT_TECDSA_Public_Nul.EC_OpenSSL_NID) and
+  if (FData.PublicKey.EC_OpenSSL_NID <> TAccountKey.Empty.EC_OpenSSL_NID) and
     (not TAccountKey.EqualAccountKeys(FData.PublicKey, account_signer.accountInfo.AccountKey)) then
   begin
     RErrors := Format('Invalid public key for account %d. Distinct from SafeBox public key! %s <> %s',
@@ -243,12 +243,12 @@ begin
   account_target.accountInfo.LockedUntilBlock := 0;
   account_target.accountInfo.Price := 0;
   account_target.accountInfo.AccountToPay := 0;
-  account_target.accountInfo.NewPublicKey := CT_TECDSA_Public_Nul;
+  account_target.accountInfo.NewPublicKey := TAccountKey.Empty;
   Result := AAccountTransaction.UpdateAccountInfo(FData.SignerAccount, FData.NumberOfTransactions, FData.TargetAccount,
     account_target.accountInfo, account_target.Name, account_target.AccountType, FData.Fee, RErrors);
 end;
 
-class function TChangeKeyTransaction.DoSignTransaction(AKey: TECPrivateKey; var ATransaction: ChangeKeyTransactionData): Boolean;
+class function TChangeKeyTransaction.DoSignTransaction(AKey: TECKeyPair; var ATransaction: ChangeKeyTransactionData): Boolean;
 var
   s: AnsiString;
   _sign: TECDSA_SIG;

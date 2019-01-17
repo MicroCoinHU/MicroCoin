@@ -55,19 +55,19 @@ function TStreamHelper.ReadAccountKey(var value: TAccountKey): Integer;
 begin
   if Size - Position < 2 then
   begin
-    value := CT_TECDSA_Public_Nul;
+    value := TAccountKey.Empty;
     Result := -1;
     exit;
   end;
   Read(value.EC_OpenSSL_NID, SizeOf(value.EC_OpenSSL_NID));
   if (ReadAnsiString(value.x) <= 0) then
   begin
-    value := CT_TECDSA_Public_Nul;
+    value := TAccountKey.Empty;
     exit;
   end;
   if (ReadAnsiString(value.y) <= 0) then
   begin
-    value := CT_TECDSA_Public_Nul;
+    value := TAccountKey.Empty;
     exit;
   end;
   Result := value.EC_OpenSSL_NID;

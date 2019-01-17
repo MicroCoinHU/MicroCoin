@@ -27,7 +27,7 @@ type
     Name: AnsiString;
     AccountKey: TAccountKey;
     CryptedKey: TRawBytes;
-    PrivateKey: TECPrivateKey;
+    PrivateKey: TECKeyPair;
     SearchableAccountKey: TRawBytes;
   end;
 
@@ -56,8 +56,8 @@ type
     procedure Delete(index: Integer); virtual;
     procedure Clear; virtual;
     procedure SetName(index: Integer; const newName: AnsiString);
-    function AddPrivateKey(const Name: AnsiString; ECPrivateKey: TECPrivateKey): Integer; virtual;
-    function AddPublicKey(const Name: AnsiString; ECDSA_Public: TECDSA_Public): Integer; virtual;
+    function AddPrivateKey(const Name: AnsiString; ECPrivateKey: TECKeyPair): Integer; virtual;
+    function AddPublicKey(const Name: AnsiString; ECDSA_Public: TECPublicKey): Integer; virtual;
     function IndexOfAccountKey(AccountKey: TAccountKey): Integer;
     function Count: Integer;
     function LockWallet: Boolean;
@@ -86,7 +86,7 @@ const
 
   { TWalletKeys }
 
-function TWalletKeys.AddPrivateKey(const Name: AnsiString; ECPrivateKey: TECPrivateKey): Integer;
+function TWalletKeys.AddPrivateKey(const Name: AnsiString; ECPrivateKey: TECKeyPair): Integer;
 var
   P: PWalletKey;
   s: AnsiString;
@@ -99,7 +99,7 @@ begin
     P^.Name := name;
     P^.AccountKey := ECPrivateKey.PublicKey;
     P^.CryptedKey := TAESComp.EVP_Encrypt_AES256(TCrypto.PrivateKey2Hexa(ECPrivateKey), WalletPassword);
-    P^.PrivateKey := TECPrivateKey.Create;
+    P^.PrivateKey := TECKeyPair.Create;
     P^.PrivateKey.SetPrivateKeyFromHexa(ECPrivateKey.EC_OpenSSL_NID, TCrypto.PrivateKey2Hexa(ECPrivateKey));
     P^.SearchableAccountKey := ECPrivateKey.PublicKey.ToRawString;
     FSearchableKeys.Insert(Result, P);
@@ -115,7 +115,7 @@ begin
     FOnChanged(Self);
 end;
 
-function TWalletKeys.AddPublicKey(const Name: AnsiString; ECDSA_Public: TECDSA_Public): Integer;
+function TWalletKeys.AddPublicKey(const Name: AnsiString; ECDSA_Public: TECPublicKey): Integer;
 var
   P: PWalletKey;
 begin
@@ -250,7 +250,7 @@ begin
       isOk := TAESComp.EVP_Decrypt_AES256(P^.CryptedKey, FWalletPassword, s);
       if isOk then
       begin
-        P^.PrivateKey := TECPrivateKey.Create;
+        P^.PrivateKey := TECKeyPair.Create;
         try
           P^.PrivateKey.SetPrivateKeyFromHexa(P^.AccountKey.EC_OpenSSL_NID, s);
         except

@@ -881,7 +881,7 @@ var
     begin
       if (Payload_method = 'none') then
         f_raw := RawPayload
-      else if (Payload_method = 'dest') and (new_account_pubkey.EC_OpenSSL_NID <> CT_TECDSA_Public_Nul.EC_OpenSSL_NID)
+      else if (Payload_method = 'dest') and (new_account_pubkey.EC_OpenSSL_NID <> TAccountKey.Empty.EC_OpenSSL_NID)
       then
       begin
         // If using 'dest', only will apply if there is a fixed new public key, otherwise will use current public key of account
@@ -1365,7 +1365,7 @@ var
   function DoDecrypt(RawEncryptedPayload: TRawBytes; jsonArrayPwds: TPCJSONArray): Boolean;
   var
     i: integer;
-    pkey: TECPrivateKey;
+    pkey: TECKeyPair;
     decrypted_payload: TRawBytes;
   begin
     Result := false;
@@ -1529,7 +1529,7 @@ var
       end;
     end
     else
-      new_pubkey := CT_TECDSA_Public_Nul;
+      new_pubkey := TAccountKey.Empty;
     opSale := CreateOperationListAccountForSale(account_signer, last_n_operation, account_target, actualAccounKey,
       price, locked_until_block, seller_account, new_pubkey, fee, TBaseType.HexaToRaw(params.AsString('payload', '')),
       params.AsString('payload_method', 'dest'), params.AsString('pwd', ''));
@@ -1664,7 +1664,7 @@ var
     begin
       if (Payload_method = 'none') then
         f_raw := RawPayload
-      else if (Payload_method = 'dest') and (new_account_pubkey.EC_OpenSSL_NID <> CT_TECDSA_Public_Nul.EC_OpenSSL_NID)
+      else if (Payload_method = 'dest') and (new_account_pubkey.EC_OpenSSL_NID <> TAccountKey.Empty.EC_OpenSSL_NID)
       then
       begin
         // If using 'dest', only will apply if there is a fixed new public key, otherwise will use current public key of account
@@ -1750,7 +1750,7 @@ var
     end
     else
     begin
-      new_pubkey := CT_TECDSA_Public_Nul;
+      new_pubkey := TAccountKey.Empty;
       ChangeKey := false;
     end;
     if (params.IndexOfName('new_name') >= 0) then
@@ -1928,7 +1928,7 @@ var
       end;
     end
     else
-      new_pubkey := CT_TECDSA_Public_Nul;
+      new_pubkey := TAccountKey.Empty;
     opBuy := CreateOperationBuyAccount(buyer_account, last_n_operation, buyerAccountKey, account_to_purchase, price,
       Amount, seller_account, new_pubkey, fee, TBaseType.HexaToRaw(params.AsString('payload', '')),
       params.AsString('payload_method', 'dest'), params.AsString('pwd', ''));
@@ -2346,7 +2346,7 @@ var
   ansistr: AnsiString;
   nsaarr: TNodeServerAddressArray;
   pcops: TBlock;
-  ecpkey: TECPrivateKey;
+  ecpkey: TECKeyPair;
   OPR: TTransactionData;
   r: TRawBytes;
   ocl: TOrderedList;
@@ -3019,7 +3019,7 @@ begin
       ErrorDesc := 'Wallet is password protected. Unlock first';
       exit;
     end;
-    ecpkey := TECPrivateKey.Create;
+    ecpkey := TECKeyPair.Create;
     try
       ecpkey.GenerateRandomPrivateKey(params.AsInteger('ec_nid', cDefault_EC_OpenSSL_NID));
       TRPCServer.Instance.WalletKeys.AddPrivateKey(params.AsString('name', DateTimeToStr(now)), ecpkey);

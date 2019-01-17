@@ -233,7 +233,7 @@ begin
   FNodeNotifyEvents.OnTransactionsChanged := OnNodeOperationsChanged;
   FNodeNotifyEvents.Node := TNode.Node;
   FMinerOperations := TBlock.Create(FNodeNotifyEvents.Node.BlockManager);
-  FMinerAccountKey := CT_TECDSA_Public_Nul;
+  FMinerAccountKey := TAccountKey.Empty;
   FMinerPayload := '';
   FPoolJobs := TPCThreadList.Create('TPoolMiningServer_PoolJobs');
   FPoolThread := TPoolMiningServerThread.Create(Self);

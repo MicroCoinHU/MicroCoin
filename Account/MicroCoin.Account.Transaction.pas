@@ -157,7 +157,7 @@ begin
     RErrors := 'Account is not for sale';
     exit;
   end;
-  if (PaccAccountToBuy^.AccountInfo.NewPublicKey.EC_OpenSSL_NID <> CT_TECDSA_Public_Nul.EC_OpenSSL_NID) and
+  if (PaccAccountToBuy^.AccountInfo.NewPublicKey.EC_OpenSSL_NID <> TAccountKey.Empty.EC_OpenSSL_NID) and
     (not TAccountKey.EqualAccountKeys(PaccAccountToBuy^.AccountInfo.NewPublicKey, ANewKey)) then
   begin
     RErrors := 'New public key is not equal to allowed new public key for account';

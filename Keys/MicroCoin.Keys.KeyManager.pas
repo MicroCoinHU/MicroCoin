@@ -51,8 +51,8 @@ type
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
-    function AddPrivateKey(const Name: AnsiString; ECPrivateKey: TECPrivateKey): Integer; override;
-    function AddPublicKey(const Name: AnsiString; ECDSA_Public: TECDSA_Public): Integer; override;
+    function AddPrivateKey(const Name: AnsiString; ECPrivateKey: TECKeyPair): Integer; override;
+    function AddPublicKey(const Name: AnsiString; ECDSA_Public: TECPublicKey): Integer; override;
     procedure Delete(index: Integer); override;
     procedure Clear; override;
     property AccountsKeyList: TOrderedAccountKeysList read FOrderedAccountKeysList;
@@ -63,7 +63,7 @@ implementation
 
 { TWalletKeysExt }
 
-function TKeyManager.AddPrivateKey(const Name: AnsiString; ECPrivateKey: TECPrivateKey): Integer;
+function TKeyManager.AddPrivateKey(const Name: AnsiString; ECPrivateKey: TECKeyPair): Integer;
 begin
   Result := inherited AddPrivateKey(name, ECPrivateKey);
   if Assigned(FOrderedAccountKeysList) then
@@ -72,7 +72,7 @@ begin
   end;
 end;
 
-function TKeyManager.AddPublicKey(const Name: AnsiString; ECDSA_Public: TECDSA_Public): Integer;
+function TKeyManager.AddPublicKey(const Name: AnsiString; ECDSA_Public: TECPublicKey): Integer;
 begin
   Result := inherited AddPublicKey(name, ECDSA_Public);
   if Assigned(FOrderedAccountKeysList) then

@@ -71,7 +71,7 @@ type
   private
     FMaxNodeServersAddressesBuffer: Integer;
     FNetDataNotifyEventsThread: TNetDataNotifyEventsThread;
-    FNodePrivateKey: TECPrivateKey;
+    FNodePrivateKey: TECKeyPair;
     FLastRequestId: Cardinal;
     FRegisteredRequests: TPCThreadList;
     FIsDiscoveringServers: Boolean;
@@ -161,7 +161,7 @@ type
     property IsDiscoveringServers: Boolean read FIsDiscoveringServers;
     property IsGettingNewBlockChainFromClient: Boolean read FIsGettingNewBlockChainFromClient;
     property MaxRemoteOperationBlock: TBlockHeader read FMaxRemoteOperationBlock write FMaxRemoteOperationBlock;
-    property NodePrivateKey: TECPrivateKey read FNodePrivateKey;
+    property NodePrivateKey: TECKeyPair read FNodePrivateKey;
 
     property OnNetConnectionsUpdated: TNotifyEvent read FOnNetConnectionsUpdated write FOnNetConnectionsUpdated;
     property OnNodeServersUpdated: TNotifyEvent read FOnNodeServersUpdated write FOnNodeServersUpdated;
@@ -557,7 +557,7 @@ begin
   FLastRequestId := 0;
   FNetConnections := TPCThreadList.Create('TNetData_NetConnections');
   FIsGettingNewBlockChainFromClient := false;
-  FNodePrivateKey := TECPrivateKey.Create;
+  FNodePrivateKey := TECKeyPair.Create;
   FNodePrivateKey.GenerateRandomPrivateKey(cDefault_EC_OpenSSL_NID);
   FThreadCheckConnections := TThreadCheckConnections.Create(Self);
   FNetDataNotifyEventsThread := TNetDataNotifyEventsThread.Create(Self);

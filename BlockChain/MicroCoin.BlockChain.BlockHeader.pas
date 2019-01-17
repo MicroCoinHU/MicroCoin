@@ -70,7 +70,7 @@ end;
 class function TBlockHeader.Empty: TBlockHeader;
 begin
   Result.block := 0;
-  Result.account_key := CT_TECDSA_Public_Nul;
+  Result.account_key := TAccountKey.Empty;
   Result.reward := 0;
   Result.fee := 0;
   Result.protocol_version := 0;
