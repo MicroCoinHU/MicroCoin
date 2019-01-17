@@ -434,6 +434,8 @@ begin
                 case HeaderData.Operation of
                   cNetOp_Hello:   DoProcess_Hello(HeaderData, ReceiveDataBuffer);
                   cNetOp_Message: DoProcess_Message(HeaderData, ReceiveDataBuffer);
+                  cNetOp_NewBlock: DoProcess_NewBlock(HeaderData, ReceiveDataBuffer);
+                  cNetOp_AddOperations: DoProcess_AddOperations(HeaderData, ReceiveDataBuffer);
                   cNetOp_GetBlocks:
                     begin
                       if HeaderData.HeaderType = ntp_request then
@@ -449,14 +451,6 @@ begin
                         DoProcess_GetOperationsBlock_Request(HeaderData, ReceiveDataBuffer)
                       else
                         TLog.NewLog(ltdebug, Classname, 'Received old response of: ' + (HeaderData.ToString));
-                    end;
-                  cNetOp_NewBlock:
-                    begin
-                      DoProcess_NewBlock(HeaderData, ReceiveDataBuffer);
-                    end;
-                  cNetOp_AddOperations:
-                    begin
-                      DoProcess_AddOperations(HeaderData, ReceiveDataBuffer);
                     end;
                   cNetOp_GetAccountStorage:
                     begin
@@ -565,7 +559,7 @@ begin
           TNode.Node.NotifyNetClientMessage(nil, 'Detected a higher Net protocol version at ' + ClientRemoteAddr +
             ' (v ' + Inttostr(HeaderData.Protocol.protocol_version) + ' ' +
             Inttostr(HeaderData.Protocol.protocol_available) + ') ' +
-            '... check that your version is Ok! Visit official download website for possible updates: https://sourceforge.net/projects/microcoin/');
+            '... check that your version is Ok! Visit official download website for possible updates: https://github.com/MicroCoinHU/');
           DisconnectInvalidClient(false, Format('Invalid Net protocol version found: %d available: %d',
             [HeaderData.Protocol.protocol_version, HeaderData.Protocol.protocol_available]));
           Result := false;

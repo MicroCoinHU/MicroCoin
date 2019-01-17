@@ -19,7 +19,7 @@ interface
 
 uses MicroCoin.Transaction.Base,
   MicroCoin.Common,
-  MicroCoin.Account.Data,
+  MicroCoin.Account.Data, UBaseTypes,
   MicroCoin.Account.AccountKey,
   MicroCoin.Transaction.Transaction, MicroCoin.Account.Transaction,
   Sysutils, classes, UCrypto, ULog, MicroCoin.Common.Config, MicroCoin.Transaction.Manager;
@@ -179,8 +179,8 @@ begin
     (not TAccountKey.EqualAccountKeys(FData.PublicKey, xSenderAccount.accountInfo.AccountKey)) then
   begin
     errors := Format('Invalid sender public key for account %d. Distinct from SafeBox public key! %s <> %s',
-      [FData.SenderAccount, TCrypto.ToHexaString((FData.PublicKey.ToRawString)),
-      TCrypto.ToHexaString(xSenderAccount.accountInfo.AccountKey.ToRawString)]);
+      [FData.SenderAccount, TBaseType.ToHexaString((FData.PublicKey.ToRawString)),
+      TBaseType.ToHexaString(xSenderAccount.accountInfo.AccountKey.ToRawString)]);
     exit;
   end;
   // Check signature
@@ -427,7 +427,7 @@ begin
   if TCrypto.IsHumanReadable(TransactionData.OriginalPayload) then
     TransactionData.PrintablePayload := TransactionData.OriginalPayload
   else
-    TransactionData.PrintablePayload := TCrypto.ToHexaString(TransactionData.OriginalPayload);
+    TransactionData.PrintablePayload := TBaseType.ToHexaString(TransactionData.OriginalPayload);
   TransactionData.OperationHash := TransactionHash(ABlock);
   if (ABlock < cProtocol_Upgrade_v2_MinBlock) then
   begin
@@ -719,7 +719,7 @@ begin
   if TCrypto.IsHumanReadable(TransactionData.OriginalPayload) then
     TransactionData.PrintablePayload := TransactionData.OriginalPayload
   else
-    TransactionData.PrintablePayload := TCrypto.ToHexaString(TransactionData.OriginalPayload);
+    TransactionData.PrintablePayload := TBaseType.ToHexaString(TransactionData.OriginalPayload);
   TransactionData.OperationHash := TransactionHash(Block);
   if (Block < cProtocol_Upgrade_v2_MinBlock) then
   begin

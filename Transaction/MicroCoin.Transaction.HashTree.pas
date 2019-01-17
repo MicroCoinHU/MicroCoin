@@ -18,7 +18,7 @@ unit MicroCoin.Transaction.HashTree;
 interface
 
 uses SysUtils, UCrypto, Classes, MicroCoin.Transaction.Base, UThread,
-  MicroCoin.Transaction.ITransaction,
+  MicroCoin.Transaction.ITransaction, UBaseTypes,
   MicroCoin.Transaction.Manager, MicroCoin.Transaction.Transaction, SyncObjs;
 
 type

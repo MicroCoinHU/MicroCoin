@@ -21,7 +21,7 @@ uses UThread, SysUtils, Classes, blcksock,
   Synautil, Math, UCrypto, MicroCoin.RPC.MethodHandler,
   MicroCoin.Account.Data, MicroCoin.BlockChain.Block,
   MicroCoin.RPC.PluginManager, MicroCoin.Node.Node,
-  MicroCoin.RPC.Result,
+  MicroCoin.RPC.Result, UbaseTypes,
   MicroCoin.Account.Storage, MicroCoin.BlockChain.BlockHeader,
   MicroCoin.Transaction.Itransaction,
   MicroCoin.Transaction.TransferMoney, MicroCoin.Transaction.ChangeKey,
@@ -322,7 +322,7 @@ var
     ms: TMemoryStream;
   begin
     Result := false;
-    raw := TCrypto.HexaToRaw(HexaStringOperationsHashTree);
+    raw := TBaseType.HexaToRaw(HexaStringOperationsHashTree);
     if (HexaStringOperationsHashTree <> '') and (raw = '') then
     begin
       errors := 'Invalid HexaString as operations';
@@ -358,7 +358,7 @@ var
       ms.Position := 0;
       SetLength(raw, ms.size);
       ms.ReadBuffer(raw[1], ms.size);
-      Result := TCrypto.ToHexaString(raw);
+      Result := TBaseType.ToHexaString(raw);
     finally
       ms.Free;
     end;
@@ -381,7 +381,7 @@ var
       ob := FNode.BlockManager.AccountStorage.Blocks[nBlock].BlockHeader;
 
       jsonObject.GetAsVariant('block').Value := ob.Block;
-      jsonObject.GetAsVariant('enc_pubkey').Value := TCrypto.ToHexaString(ob.account_key.ToRawString);
+      jsonObject.GetAsVariant('enc_pubkey').Value := TBaseType.ToHexaString(ob.account_key.ToRawString);
       jsonObject.GetAsVariant('reward').Value := ToJSONCurrency(ob.reward);
       jsonObject.GetAsVariant('fee').Value := ToJSONCurrency(ob.fee);
       jsonObject.GetAsVariant('ver').Value := ob.protocol_version;
@@ -390,9 +390,9 @@ var
       jsonObject.GetAsVariant('target').Value := Int64(ob.compact_target);
       jsonObject.GetAsVariant('nonce').Value := Int64(ob.nonce);
       jsonObject.GetAsVariant('payload').Value := ob.block_payload;
-      jsonObject.GetAsVariant('sbh').Value := TCrypto.ToHexaString(ob.initial_safe_box_hash);
-      jsonObject.GetAsVariant('oph').Value := TCrypto.ToHexaString(ob.transactionHash);
-      jsonObject.GetAsVariant('pow').Value := TCrypto.ToHexaString(ob.proof_of_work);
+      jsonObject.GetAsVariant('sbh').Value := TBaseType.ToHexaString(ob.initial_safe_box_hash);
+      jsonObject.GetAsVariant('oph').Value := TBaseType.ToHexaString(ob.transactionHash);
+      jsonObject.GetAsVariant('pow').Value := TBaseType.ToHexaString(ob.proof_of_work);
       jsonObject.GetAsVariant('hashratekhs').Value := FNode.BlockManager.AccountStorage.CalcBlockHashRateInKhs(ob.Block, 50);
       jsonObject.GetAsVariant('maturation').Value := FNode.BlockManager.BlocksCount - ob.Block - 1;
       if FNode.BlockManager.LoadTransactions(pcops, nBlock) then
@@ -434,7 +434,7 @@ var
     jsonObject.GetAsVariant('fee').Value := ToJSONCurrency(OPR.fee);
     if (OPR.balance >= 0) and (OPR.valid) then
       jsonObject.GetAsVariant('balance').Value := ToJSONCurrency(OPR.balance);
-    jsonObject.GetAsVariant('payload').Value := TCrypto.ToHexaString(OPR.OriginalPayload);
+    jsonObject.GetAsVariant('payload').Value := TBaseType.ToHexaString(OPR.OriginalPayload);
     if (OPR.transactionType = CT_Op_Transaction) then
     begin
       if OPR.SignerAccount >= 0 then
@@ -448,14 +448,14 @@ var
     end;
     if OPR.newKey.EC_OpenSSL_NID > 0 then
     begin
-      jsonObject.GetAsVariant('enc_pubkey').Value := TCrypto.ToHexaString(OPR.newKey.ToRawString);
+      jsonObject.GetAsVariant('enc_pubkey').Value := TBaseType.ToHexaString(OPR.newKey.ToRawString);
     end;
     if (OPR.valid) and (OPR.OperationHash <> '') then
     begin
-      jsonObject.GetAsVariant('ophash').Value := TCrypto.ToHexaString(OPR.OperationHash);
+      jsonObject.GetAsVariant('ophash').Value := TBaseType.ToHexaString(OPR.OperationHash);
       if (OPR.Block < cProtocol_Upgrade_v2_MinBlock) then
       begin
-        jsonObject.GetAsVariant('old_ophash').Value := TCrypto.ToHexaString(OPR.OperationHash_OLD);
+        jsonObject.GetAsVariant('old_ophash').Value := TBaseType.ToHexaString(OPR.OperationHash_OLD);
       end;
     end;
   end;
@@ -1295,7 +1295,7 @@ var
   procedure FillAccountObject(const Account: TAccount; jsonobj: TPCJSONObject);
   begin
     jsonobj.GetAsVariant('account').Value := Account.AccountNumber;
-    jsonobj.GetAsVariant('enc_pubkey').Value := TCrypto.ToHexaString(Account.accountInfo.AccountKey.ToRawString);
+    jsonobj.GetAsVariant('enc_pubkey').Value := TBaseType.ToHexaString(Account.accountInfo.AccountKey.ToRawString);
     jsonobj.GetAsVariant('balance').Value := ToJSONCurrency(Account.Balance);
     jsonobj.GetAsVariant('n_operation').Value := Account.NumberOfTransactions;
     jsonobj.GetAsVariant('updated_b').Value := Account.UpdatedBlock;
@@ -1312,7 +1312,7 @@ var
           if not(Account.accountInfo.NewPublicKey.EC_OpenSSL_NID <> 0) then
           begin
             jsonobj.GetAsVariant('new_enc_pubkey').Value :=
-              TCrypto.ToHexaString(Account.accountInfo.NewPublicKey.ToRawString);
+              TBaseType.ToHexaString(Account.accountInfo.NewPublicKey.ToRawString);
           end;
         end
     else
@@ -1325,9 +1325,9 @@ var
   procedure FillPublicKeyObject(const PubKey: TAccountKey; jsonobj: TPCJSONObject);
   begin
     jsonobj.GetAsVariant('ec_nid').Value := PubKey.EC_OpenSSL_NID;
-    jsonobj.GetAsVariant('x').Value := TCrypto.ToHexaString(PubKey.x);
-    jsonobj.GetAsVariant('y').Value := TCrypto.ToHexaString(PubKey.y);
-    jsonobj.GetAsVariant('enc_pubkey').Value := TCrypto.ToHexaString(PubKey.ToRawString);
+    jsonobj.GetAsVariant('x').Value := TBaseType.ToHexaString(PubKey.x);
+    jsonobj.GetAsVariant('y').Value := TBaseType.ToHexaString(PubKey.y);
+    jsonobj.GetAsVariant('enc_pubkey').Value := TBaseType.ToHexaString(PubKey.ToRawString);
     jsonobj.GetAsVariant('b58_pubkey').Value := (PubKey.AccountPublicKeyExport);
   end;
 
@@ -1357,7 +1357,7 @@ var
     end
     else
       f_raw := '';
-    jsonresponse.GetAsVariant('result').Value := TCrypto.ToHexaString(f_raw);
+    jsonresponse.GetAsVariant('result').Value := TBaseType.ToHexaString(f_raw);
     Result := true;
   end;
 
@@ -1384,11 +1384,11 @@ var
         if ECIESDecrypt(pkey.EC_OpenSSL_NID, pkey.PrivateKey, false, RawEncryptedPayload, decrypted_payload) then
         begin
           GetResultObject.GetAsVariant('result').Value := true;
-          GetResultObject.GetAsVariant('enc_payload').Value := TCrypto.ToHexaString(RawEncryptedPayload);
+          GetResultObject.GetAsVariant('enc_payload').Value := TBaseType.ToHexaString(RawEncryptedPayload);
           GetResultObject.GetAsVariant('unenc_payload').Value := decrypted_payload;
-          GetResultObject.GetAsVariant('unenc_hexpayload').Value := TCrypto.ToHexaString(decrypted_payload);
+          GetResultObject.GetAsVariant('unenc_hexpayload').Value := TBaseType.ToHexaString(decrypted_payload);
           GetResultObject.GetAsVariant('payload_method').Value := 'key';
-          GetResultObject.GetAsVariant('enc_pubkey').Value := TCrypto.ToHexaString(pkey.PublicKey.ToRawString);
+          GetResultObject.GetAsVariant('enc_pubkey').Value := TBaseType.ToHexaString(pkey.PublicKey.ToRawString);
           // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
           Result := true;
           exit;
@@ -1401,9 +1401,9 @@ var
       then
       begin
         GetResultObject.GetAsVariant('result').Value := true;
-        GetResultObject.GetAsVariant('enc_payload').Value := TCrypto.ToHexaString(RawEncryptedPayload);
+        GetResultObject.GetAsVariant('enc_payload').Value := TBaseType.ToHexaString(RawEncryptedPayload);
         GetResultObject.GetAsVariant('unenc_payload').Value := decrypted_payload;
-        GetResultObject.GetAsVariant('unenc_hexpayload').Value := TCrypto.ToHexaString(decrypted_payload);
+        GetResultObject.GetAsVariant('unenc_hexpayload').Value := TBaseType.ToHexaString(decrypted_payload);
         GetResultObject.GetAsVariant('payload_method').Value := 'pwd';
         GetResultObject.GetAsVariant('pwd').Value := jsonArrayPwds.GetAsVariant(i).AsString('');
         // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
@@ -1413,7 +1413,7 @@ var
     end;
     // Not found
     GetResultObject.GetAsVariant('result').Value := false;
-    GetResultObject.GetAsVariant('enc_payload').Value := TCrypto.ToHexaString(RawEncryptedPayload);
+    GetResultObject.GetAsVariant('enc_payload').Value := TBaseType.ToHexaString(RawEncryptedPayload);
     Result := true;
   end;
 
@@ -1434,7 +1434,7 @@ var
       end;
       if (params.IndexOfName(prefix + 'enc_pubkey') >= 0) then
       begin
-        auxpubkey := TAccountKey.FromRawString(TCrypto.HexaToRaw(params.AsString(prefix + 'enc_pubkey', '')));
+        auxpubkey := TAccountKey.FromRawString(TBaseType.HexaToRaw(params.AsString(prefix + 'enc_pubkey', '')));
         if (not TAccountKey.EqualAccountKeys(auxpubkey, PubKey)) then
         begin
           errortxt := 'Params "' + prefix + 'b58_pubkey" and "' + prefix +
@@ -1450,7 +1450,7 @@ var
         errortxt := 'Need param "' + prefix + 'enc_pubkey" or "' + prefix + 'b58_pubkey"';
         exit;
       end;
-      PubKey := TAccountKey.FromRawString(TCrypto.HexaToRaw(params.AsString(prefix + 'enc_pubkey', '')));
+      PubKey := TAccountKey.FromRawString(TBaseType.HexaToRaw(params.AsString(prefix + 'enc_pubkey', '')));
     end;
     if not PubKey.IsValidAccountKey(ansistr) then
     begin
@@ -1530,7 +1530,7 @@ var
     else
       new_pubkey := CT_TECDSA_Public_Nul;
     opSale := CreateOperationListAccountForSale(account_signer, last_n_operation, account_target, actualAccounKey,
-      price, locked_until_block, seller_account, new_pubkey, fee, TCrypto.HexaToRaw(params.AsString('payload', '')),
+      price, locked_until_block, seller_account, new_pubkey, fee, TBaseType.HexaToRaw(params.AsString('payload', '')),
       params.AsString('payload_method', 'dest'), params.AsString('pwd', ''));
     if opSale = nil then
       exit;
@@ -1612,7 +1612,7 @@ var
       exit;
     end;
     opDelist := CreateOperationDelistAccountForSale(account_signer, last_n_operation, account_target, actualAccountKey,
-      fee, TCrypto.HexaToRaw(params.AsString('payload', '')), params.AsString('payload_method', 'dest'),
+      fee, TBaseType.HexaToRaw(params.AsString('payload', '')), params.AsString('payload_method', 'dest'),
       params.AsString('pwd', ''));
     if opDelist = nil then
       exit;
@@ -1782,7 +1782,7 @@ var
 
     opChangeInfo := CreateOperationChangeAccountInfo(account_signer, last_n_operation, account_target, actualAccountKey,
       ChangeKey, new_pubkey, changeName, new_name, changeType, new_type, fee,
-      TCrypto.HexaToRaw(params.AsString('payload', '')), params.AsString('payload_method', 'dest'),
+      TBaseType.HexaToRaw(params.AsString('payload', '')), params.AsString('payload_method', 'dest'),
       params.AsString('pwd', ''));
     if opChangeInfo = nil then
       exit;
@@ -1929,7 +1929,7 @@ var
     else
       new_pubkey := CT_TECDSA_Public_Nul;
     opBuy := CreateOperationBuyAccount(buyer_account, last_n_operation, buyerAccountKey, account_to_purchase, price,
-      Amount, seller_account, new_pubkey, fee, TCrypto.HexaToRaw(params.AsString('payload', '')),
+      Amount, seller_account, new_pubkey, fee, TBaseType.HexaToRaw(params.AsString('payload', '')),
       params.AsString('payload_method', 'dest'), params.AsString('pwd', ''));
     if opBuy = nil then
       exit;
@@ -2605,7 +2605,7 @@ begin
   else if (method = 'findoperation') then
   begin
     // Search for an operation based on "ophash"
-    r := TCrypto.HexaToRaw(params.AsString('ophash', ''));
+    r := TBaseType.HexaToRaw(params.AsString('ophash', ''));
     if (r = '') then
     begin
       ErrorNum := CT_RPC_ErrNum_NotFound;
@@ -2649,7 +2649,7 @@ begin
     end;
     Result := OpSendTo(params.AsCardinal('sender', cMaxAccountNumber), params.AsCardinal('target', cMaxAccountNumber),
       ToMicroCoins(params.AsDouble('amount', 0)), ToMicroCoins(params.AsDouble('fee', 0)),
-      TCrypto.HexaToRaw(params.AsString('payload', '')), params.AsString('payload_method', 'dest'),
+      TBaseType.HexaToRaw(params.AsString('payload', '')), params.AsString('payload_method', 'dest'),
       params.AsString('pwd', ''));
   end
   else if (method = 'signsendto') then
@@ -2682,7 +2682,7 @@ begin
     Result := SignOpSendTo(params.AsString('rawoperations', ''), params.AsCardinal('sender', cMaxAccountNumber),
       params.AsCardinal('target', cMaxAccountNumber), senderpubkey, destpubkey, params.AsCardinal('last_n_operation', 0),
       ToMicroCoins(params.AsDouble('amount', 0)), ToMicroCoins(params.AsDouble('fee', 0)),
-      TCrypto.HexaToRaw(params.AsString('payload', '')), params.AsString('payload_method', 'dest'),
+      TBaseType.HexaToRaw(params.AsString('payload', '')), params.AsString('payload_method', 'dest'),
       params.AsString('pwd', ''));
   end
   else if (method = 'changekey') then
@@ -2717,7 +2717,7 @@ begin
       exit;
     end;
     Result := ChangeAccountKey(c2, c, Account.accountInfo.AccountKey, ToMicroCoins(params.AsDouble('fee', 0)),
-      TCrypto.HexaToRaw(params.AsString('payload', '')), params.AsString('payload_method', 'dest'),
+      TBaseType.HexaToRaw(params.AsString('payload', '')), params.AsString('payload_method', 'dest'),
       params.AsString('pwd', ''));
   end
   else if (method = 'changekeys') then
@@ -2745,7 +2745,7 @@ begin
       exit;
     end;
     Result := ChangeAccountsKey(params.AsString('accounts', ''), Account.accountInfo.AccountKey,
-      ToMicroCoins(params.AsDouble('fee', 0)), TCrypto.HexaToRaw(params.AsString('payload', '')),
+      ToMicroCoins(params.AsDouble('fee', 0)), TBaseType.HexaToRaw(params.AsString('payload', '')),
       params.AsString('payload_method', 'dest'), params.AsString('pwd', ''));
   end
   else if (method = 'signchangekey') then
@@ -2791,7 +2791,7 @@ begin
     end;
     Result := SignOpChangeKey(params.AsString('rawoperations', ''), c2, c, senderpubkey, destpubkey,
       params.AsCardinal('last_n_operation', 0), ToMicroCoins(params.AsDouble('fee', 0)),
-      TCrypto.HexaToRaw(params.AsString('payload', '')), params.AsString('payload_method', 'dest'),
+      TBaseType.HexaToRaw(params.AsString('payload', '')), params.AsString('payload_method', 'dest'),
       params.AsString('pwd', ''));
   end
   else if (method = 'listaccountforsale') then
@@ -2878,8 +2878,8 @@ begin
     GetResultObject.GetAsObject('netprotocol').GetAsVariant('ver_a').Value := cNetProtocol_Available;
     GetResultObject.GetAsVariant('blocks').Value := FNode.BlockManager.BlocksCount;
     GetResultObject.GetAsVariant('sbh').Value :=
-      TCrypto.ToHexaString(FNode.BlockManager.LastBlock.initial_safe_box_hash);
-    GetResultObject.GetAsVariant('pow').Value := TCrypto.ToHexaString(FNode.BlockManager.LastBlock.proof_of_work);
+      TBaseType.ToHexaString(FNode.BlockManager.LastBlock.initial_safe_box_hash);
+    GetResultObject.GetAsVariant('pow').Value := TBaseType.ToHexaString(FNode.BlockManager.LastBlock.proof_of_work);
     GetResultObject.GetAsObject('netstats').GetAsVariant('active').Value :=
       TConnectionManager.Instance.NetStatistics.ActiveConnections;
     GetResultObject.GetAsObject('netstats').GetAsVariant('clients').Value :=
@@ -2916,8 +2916,8 @@ begin
     // Param "x","y" are x and y ec public keys values in hexadecimal based on ec_nid
     // Returns a hexadecimal value containing encoded public key
     Account.accountInfo.AccountKey.EC_OpenSSL_NID := params.AsInteger('ec_nid', 0);
-    Account.accountInfo.AccountKey.x := TCrypto.HexaToRaw(params.AsString('x', ''));
-    Account.accountInfo.AccountKey.y := TCrypto.HexaToRaw(params.AsString('y', ''));
+    Account.accountInfo.AccountKey.x := TBaseType.HexaToRaw(params.AsString('x', ''));
+    Account.accountInfo.AccountKey.y := TBaseType.HexaToRaw(params.AsString('y', ''));
     if (Account.accountInfo.AccountKey.EC_OpenSSL_NID = 0) or (Account.accountInfo.AccountKey.x = '') or
       (Account.accountInfo.AccountKey.y = '') then
     begin
@@ -2927,7 +2927,7 @@ begin
     end;
     if Account.accountInfo.AccountKey.IsValidAccountKey(ansistr) then
     begin
-      jsonresponse.GetAsVariant('result').Value := TCrypto.ToHexaString(Account.accountInfo.AccountKey.ToRawString);
+      jsonresponse.GetAsVariant('result').Value := TBaseType.ToHexaString(Account.accountInfo.AccountKey.ToRawString);
       Result := true;
     end
     else
@@ -2980,7 +2980,7 @@ begin
         exit;
       end;
     end;
-    Result := DoEncrypt(TCrypto.HexaToRaw(params.AsString('payload', '')), OPR.newKey,
+    Result := DoEncrypt(TBaseType.HexaToRaw(params.AsString('payload', '')), OPR.newKey,
       params.AsString('payload_method', ''), params.AsString('pwd', ''));
   end
   else if (method = 'payloaddecrypt') then
@@ -2999,7 +2999,7 @@ begin
       ErrorDesc := 'Wallet is password protected. Unlock first';
       exit;
     end;
-    Result := DoDecrypt(TCrypto.HexaToRaw(params.AsString('payload', '')), params.GetAsArray('pwds'));
+    Result := DoDecrypt(TBaseType.HexaToRaw(params.AsString('payload', '')), params.GetAsArray('pwds'));
   end
   else if (method = 'getconnections') then
   begin

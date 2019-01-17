@@ -17,7 +17,7 @@ interface
 
 uses SysUtils, Classes, UTime, MicroCoin.Account.Transaction, MicroCoin.Transaction.HashTree,
   MicroCoin.BlockChain.BlockHeader, MicroCoin.Common.Config, UCrypto, MicroCoin.Account.AccountKey, Ulog,
-  MicroCoin.Transaction.ITransaction,
+  MicroCoin.Transaction.ITransaction, UBaseTypes,
   MicroCoin.BlockChain.Protocol, MicroCoin.BlockChain.Base, MicroCoin.Transaction.Base, UThread;
 
 type
@@ -862,8 +862,8 @@ begin
     // Check OperationsHash value is valid
     if FTransactionHashTree.HashTree <> BlockHeader.transactionHash then
     begin
-      errors := 'Invalid Operations Hash ' + TCrypto.ToHexaString(BlockHeader.transactionHash) + '<>' +
-        TCrypto.ToHexaString(FTransactionHashTree.HashTree);
+      errors := 'Invalid Operations Hash ' + TBaseType.ToHexaString(BlockHeader.transactionHash) + '<>' +
+        TBaseType.ToHexaString(FTransactionHashTree.HashTree);
       exit;
     end;
     // Check OperationBlock with SafeBox info:

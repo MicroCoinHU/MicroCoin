@@ -42,7 +42,7 @@ unit MicroCoin.Account.AccountKey;
 
 interface
 
-uses UCrypto, sysutils, classes, MicroCoin.Common.Config, OpenSSL, ULog, MicroCoin.Common.Lists;
+uses UCrypto, sysutils, classes, ubasetypes, MicroCoin.Crypto.BigNum, MicroCoin.Common.Config, OpenSSL, ULog, MicroCoin.Common.Lists;
 
 type
 
@@ -180,7 +180,7 @@ class function TAccountKeyHelper.AccountKeyFromImport(const HumanReadable: AnsiS
   var errors: AnsiString): Boolean;
 var
   raw: TRawBytes;
-  BN, BNAux, BNBase: TBigNum;
+  BN, BNAux, BNBase: BigInteger;
   i, j: Integer;
   s1, s2: AnsiString;
 begin
@@ -189,33 +189,105 @@ begin
   RAccountKey := CT_TECDSA_Public_Nul;
   if length(HumanReadable) < 20 then
     exit;
-  BN := TBigNum.Create(0);
-  BNAux := TBigNum.Create;
-  BNBase := TBigNum.Create(1);
+  BN := 0;
+  BNAux := 0;
+  BNBase := 1;
+  for i := length(HumanReadable) downto 1 do
+  begin
+    if (HumanReadable[i] <> ' ') then
+    begin
+      j := pos(HumanReadable[i], CT_Base58);
+      if j = 0 then
+      begin
+        errors := 'Invalid char "' + HumanReadable[i] + '" at pos ' + inttostr(i) + '/' +
+          inttostr(length(HumanReadable));
+        exit;
+      end;
+      BNAux := j - 1;
+      BNAux.Multiply(BNBase);
+      BN.Add(BNAux);
+      BNBase.Multiply(length(CT_Base58));
+    end;
+  end;
+  // Last 8 hexa chars are the checksum of others
+  s1 := Copy(BN.HexaValue, 3, length(BN.HexaValue));
+  s2 := Copy(s1, length(s1) - 7, 8);
+  s1 := Copy(s1, 1, length(s1) - 8);
+  raw := TBaseType.HexaToRaw(s1);
+  s1 := TBaseType.ToHexaString(TCrypto.DoSha256(raw));
+  if Copy(s1, 1, 8) <> s2 then
+  begin
+    // Invalid checksum
+    errors := 'Invalid checksum';
+    exit;
+  end;
   try
+    RAccountKey := TAccountKey.FromRawString(raw);
+    Result := true;
+    errors := '';
+  except
+    // Nothing to do... invalid
+    errors := 'Error on conversion from Raw to Account key';
+  end;
+end;
+
+function TAccountKeyHelper.AccountPublicKeyExport: AnsiString;
+var
+  raw: TRawBytes;
+  BN, BNMod, BNDiv: BigInteger;
+begin
+  Result := '';
+  raw := ToRawString;
+  BN := 0;
+  BNMod := 0;
+  BNDiv := length(CT_Base58);
+  BN := '01' + TBaseType.ToHexaString(raw) + TBaseType.ToHexaString(Copy(TCrypto.DoSha256(raw), 1, 4));
+  while (not BN.IsZero) do
+  begin
+    BN.Divide(BNDiv, BNMod);
+    if (BNMod >= 0) and (BNMod < length(CT_Base58)) then
+      Result := CT_Base58[Byte(BNMod.value) + 1] + Result
+    else
+      raise Exception.Create('Error converting to Base 58');
+  end;
+end;
+
+class function TAccountKeyHelper.AccountPublicKeyImport(const HumanReadable: AnsiString; var RAccountKey: TAccountKey;
+  var errors: AnsiString): Boolean;
+var
+  raw: TRawBytes;
+  BN, BNAux, BNBase: BigInteger;
+  i, j: Integer;
+  s1, s2: AnsiString;
+begin
+  Result := False;
+  errors := 'Invalid length';
+  RAccountKey := CT_TECDSA_Public_Nul;
+  if length(HumanReadable) >= 20
+  then begin
+    BN := 0;
+    BNAux := 0;
+    BNBase := 1;
     for i := length(HumanReadable) downto 1 do
     begin
-      if (HumanReadable[i] <> ' ') then
+      j := pos(HumanReadable[i], CT_Base58);
+      if j = 0 then
       begin
-        j := pos(HumanReadable[i], CT_Base58);
-        if j = 0 then
-        begin
-          errors := 'Invalid char "' + HumanReadable[i] + '" at pos ' + inttostr(i) + '/' +
-            inttostr(length(HumanReadable));
-          exit;
-        end;
-        BNAux.value := j - 1;
-        BNAux.Multiply(BNBase);
-        BN.Add(BNAux);
-        BNBase.Multiply(length(CT_Base58));
+        errors := 'Invalid char "' + HumanReadable[i] + '" at pos ' + inttostr(i) + '/' +
+          inttostr(length(HumanReadable));
+        exit;
       end;
+      BNAux := j - 1;
+      BNAux.Multiply(BNBase);
+      BN.Add(BNAux);
+      BNBase.Multiply(length(CT_Base58));
     end;
     // Last 8 hexa chars are the checksum of others
     s1 := Copy(BN.HexaValue, 3, length(BN.HexaValue));
     s2 := Copy(s1, length(s1) - 7, 8);
     s1 := Copy(s1, 1, length(s1) - 8);
-    raw := TCrypto.HexaToRaw(s1);
-    s1 := TCrypto.ToHexaString(TCrypto.DoSha256(raw));
+    raw := TBaseType.HexaToRaw(s1);
+    s1 := TBaseType.ToHexaString(TCrypto.DoSha256(raw));
     if Copy(s1, 1, 8) <> s2 then
     begin
       // Invalid checksum
@@ -229,96 +301,6 @@ begin
     except
       // Nothing to do... invalid
       errors := 'Error on conversion from Raw to Account key';
-    end;
-  finally
-    BN.Free;
-    BNBase.Free;
-    BNAux.Free;
-  end;
-end;
-
-function TAccountKeyHelper.AccountPublicKeyExport: AnsiString;
-var
-  raw: TRawBytes;
-  BN, BNMod, BNDiv: TBigNum;
-begin
-  Result := '';
-  raw := ToRawString;
-  BN := TBigNum.Create;
-  BNMod := TBigNum.Create;
-  BNDiv := TBigNum.Create(length(CT_Base58));
-  try
-    BN.HexaValue := '01' + TCrypto.ToHexaString(raw) + TCrypto.ToHexaString(Copy(TCrypto.DoSha256(raw), 1, 4));
-    while (not BN.IsZero) do
-    begin
-      BN.Divide(BNDiv, BNMod);
-      if (BNMod.value >= 0) and (BNMod.value < length(CT_Base58)) then
-        Result := CT_Base58[Byte(BNMod.value) + 1] + Result
-      else
-        raise Exception.Create('Error converting to Base 58');
-    end;
-  finally
-    BN.Free;
-    BNMod.Free;
-    BNDiv.Free;
-  end;
-end;
-
-class function TAccountKeyHelper.AccountPublicKeyImport(const HumanReadable: AnsiString; var RAccountKey: TAccountKey;
-  var errors: AnsiString): Boolean;
-var
-  raw: TRawBytes;
-  BN, BNAux, BNBase: TBigNum;
-  i, j: Integer;
-  s1, s2: AnsiString;
-begin
-  Result := False;
-  errors := 'Invalid length';
-  RAccountKey := CT_TECDSA_Public_Nul;
-  if length(HumanReadable) >= 20
-  then begin
-    BN := TBigNum.Create(0);
-    BNAux := TBigNum.Create;
-    BNBase := TBigNum.Create(1);
-    try
-      for i := length(HumanReadable) downto 1 do
-      begin
-        j := pos(HumanReadable[i], CT_Base58);
-        if j = 0 then
-        begin
-          errors := 'Invalid char "' + HumanReadable[i] + '" at pos ' + inttostr(i) + '/' +
-            inttostr(length(HumanReadable));
-          exit;
-        end;
-        BNAux.value := j - 1;
-        BNAux.Multiply(BNBase);
-        BN.Add(BNAux);
-        BNBase.Multiply(length(CT_Base58));
-      end;
-      // Last 8 hexa chars are the checksum of others
-      s1 := Copy(BN.HexaValue, 3, length(BN.HexaValue));
-      s2 := Copy(s1, length(s1) - 7, 8);
-      s1 := Copy(s1, 1, length(s1) - 8);
-      raw := TCrypto.HexaToRaw(s1);
-      s1 := TCrypto.ToHexaString(TCrypto.DoSha256(raw));
-      if Copy(s1, 1, 8) <> s2 then
-      begin
-        // Invalid checksum
-        errors := 'Invalid checksum';
-        exit;
-      end;
-      try
-        RAccountKey := TAccountKey.FromRawString(raw);
-        Result := true;
-        errors := '';
-      except
-        // Nothing to do... invalid
-        errors := 'Error on conversion from Raw to Account key';
-      end;
-    finally
-      BN.Free;
-      BNBase.Free;
-      BNAux.Free;
     end;
   end;
 end;

@@ -15,7 +15,7 @@ unit MicroCoin.BlockChain.BlockHeader;
 
 interface
 
-uses Sysutils, classes, UCrypto, MicroCoin.Account.AccountKey;
+uses Sysutils, classes, UCrypto, UBaseTypes, MicroCoin.Account.AccountKey;
 
 type
   TBlockHeader = record
@@ -64,7 +64,7 @@ function TBlockHeader.ToString: AnsiString;
 begin
   Result := Format('Block:%d Timestamp:%d Reward:%d Fee:%d Target:%d PoW:%s',
     [Block, timestamp, reward, Fee,
-    compact_target, TCrypto.ToHexaString(proof_of_work)]);
+    compact_target, TBaseType.ToHexaString(proof_of_work)]);
 end;
 
 class function TBlockHeader.Empty: TBlockHeader;

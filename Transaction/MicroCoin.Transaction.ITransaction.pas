@@ -31,7 +31,7 @@ unit MicroCoin.Transaction.ITransaction;
 
 interface
 
-uses Sysutils, classes, MicroCoin.Transaction.Base, MicroCoin.Account.Transaction, UCrypto;
+uses Sysutils, classes, UBaseTypes, MicroCoin.Transaction.Base, MicroCoin.Account.Transaction, UCrypto;
 
 type
   ITransaction = interface

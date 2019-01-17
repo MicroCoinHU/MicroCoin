@@ -18,7 +18,7 @@ uses UTCPIP, UJsonFunctions, MicroCoin.Account.AccountKey, UThread,
   MicroCoin.BlockChain.Block,
   UCrypto, MicroCoin.Node.Events, SysUtils, Classes, ULog, MicroCoin.RPC.Client,
   MicroCoin.BlockChain.BlockHeader, MicroCoin.Common.Config, MicroCoin.Net.ConnectionManager,
-  Variants,
+  Variants, UBaseTypes,
   MicroCoin.Node.Node, MicroCoin.Transaction.HashTree,
   MicroCoin.Transaction.Base,
   MicroCoin.Transaction.Itransaction,
@@ -290,7 +290,7 @@ begin
     try
       response_result.GetAsVariant('block').Value := FNodeNotifyEvents.Node.BlockManager.LastBlockFound.BlockHeader.Block;
       response_result.GetAsVariant('account_key').Value :=
-        TCrypto.ToHexaString(FNodeNotifyEvents.Node.BlockManager.LastBlockFound.BlockHeader.account_key.ToRawString);
+        TBaseType.ToHexaString(FNodeNotifyEvents.Node.BlockManager.LastBlockFound.BlockHeader.account_key.ToRawString);
       response_result.GetAsVariant('reward').Value := FNodeNotifyEvents.Node.BlockManager.LastBlockFound.BlockHeader.reward;
       response_result.GetAsVariant('fee').Value := FNodeNotifyEvents.Node.BlockManager.LastBlockFound.BlockHeader.fee;
       response_result.GetAsVariant('p_version').Value := FNodeNotifyEvents.Node.BlockManager.LastBlockFound.BlockHeader.
@@ -303,13 +303,13 @@ begin
         compact_target;
       response_result.GetAsVariant('nonce').Value := FNodeNotifyEvents.Node.BlockManager.LastBlockFound.BlockHeader.nonce;
       response_result.GetAsVariant('payload').Value :=
-        TCrypto.ToHexaString(FNodeNotifyEvents.Node.BlockManager.LastBlockFound.BlockHeader.block_payload);
+        TBaseType.ToHexaString(FNodeNotifyEvents.Node.BlockManager.LastBlockFound.BlockHeader.block_payload);
       response_result.GetAsVariant('initial_sbh').Value :=
-        TCrypto.ToHexaString(FNodeNotifyEvents.Node.BlockManager.LastBlockFound.BlockHeader.initial_safe_box_hash);
+        TBaseType.ToHexaString(FNodeNotifyEvents.Node.BlockManager.LastBlockFound.BlockHeader.initial_safe_box_hash);
       response_result.GetAsVariant('operations_hash').Value :=
-        TCrypto.ToHexaString(FNodeNotifyEvents.Node.BlockManager.LastBlockFound.BlockHeader.transactionHash);
+        TBaseType.ToHexaString(FNodeNotifyEvents.Node.BlockManager.LastBlockFound.BlockHeader.transactionHash);
       response_result.GetAsVariant('pow').Value :=
-        TCrypto.ToHexaString(FNodeNotifyEvents.Node.BlockManager.LastBlockFound.BlockHeader.proof_of_work);
+        TBaseType.ToHexaString(FNodeNotifyEvents.Node.BlockManager.LastBlockFound.BlockHeader.proof_of_work);
       Client.SendJSONRPCResponse(response_result, id_value);
     finally
       response_result.Free;
@@ -411,8 +411,8 @@ begin
           //
           TLog.NewLog(ltInfo, ClassName, Format('New miner operations:%d Hash:%s %s',
             [FMinerOperations.TransactionHashTree.TransactionCount,
-            TCrypto.ToHexaString(FMinerOperations.TransactionHashTree.HashTree),
-            TCrypto.ToHexaString(FMinerOperations.BlockHeader.transactionHash)]));
+            TBaseType.ToHexaString(FMinerOperations.TransactionHashTree.HashTree),
+            TBaseType.ToHexaString(FMinerOperations.BlockHeader.transactionHash)]));
         end
         else
         begin
@@ -462,7 +462,7 @@ begin
   nbOperations := nil;
   try
     _payloadHexa := params.AsString('payload', '');
-    _payload := TCrypto.HexaToRaw(_payloadHexa);
+    _payload := TBaseType.HexaToRaw(_payloadHexa);
     if FMinerPayload <> '' then
     begin
       if (copy(_payload, 1, length(FMinerPayload)) <> FMinerPayload) then
@@ -518,7 +518,7 @@ begin
         try
           json.GetAsVariant('block').Value := FNodeNotifyEvents.Node.BlockManager.LastBlock.Block;
           json.GetAsVariant('pow').Value :=
-            TCrypto.ToHexaString(FNodeNotifyEvents.Node.BlockManager.LastBlock.proof_of_work);
+            TBaseType.ToHexaString(FNodeNotifyEvents.Node.BlockManager.LastBlock.proof_of_work);
           json.GetAsVariant('payload').Value := nbOperations.BlockPayload;
           json.GetAsVariant('timestamp').Value := nbOperations.timestamp;
           json.GetAsVariant('nonce').Value := nbOperations.nonce;
@@ -667,12 +667,12 @@ begin
       exit;
     params.GetAsVariant('block').Value := Operations.BlockHeader.Block;
     params.GetAsVariant('version').Value := Operations.BlockHeader.protocol_version;
-    params.GetAsVariant('part1').Value := TCrypto.ToHexaString(Operations.PoW_Digest_Part1);
-    params.GetAsVariant('payload_start').Value := TCrypto.ToHexaString(Operations.BlockHeader.block_payload);
-    params.GetAsVariant('part3').Value := TCrypto.ToHexaString(Operations.PoW_Digest_Part3);
+    params.GetAsVariant('part1').Value := TBaseType.ToHexaString(Operations.PoW_Digest_Part1);
+    params.GetAsVariant('payload_start').Value := TBaseType.ToHexaString(Operations.BlockHeader.block_payload);
+    params.GetAsVariant('part3').Value := TBaseType.ToHexaString(Operations.PoW_Digest_Part3);
     params.GetAsVariant('target').Value := Operations.BlockHeader.compact_target;
     params.GetAsVariant('target_pow').Value :=
-      TCrypto.ToHexaString(TMicroCoinProtocol.TargetFromCompact(Operations.BlockHeader.compact_target));
+      TBaseType.ToHexaString(TMicroCoinProtocol.TargetFromCompact(Operations.BlockHeader.compact_target));
 
     ts := TConnectionManager.Instance.NetworkAdjustedTime.GetAdjustedTime;
     if (ts < FNodeNotifyEvents.Node.BlockManager.LastBlockFound.BlockHeader.timestamp) then
@@ -751,14 +751,14 @@ begin
   if TAccountKey.EqualAccountKeys(FMinerAccountKey, Value) then
     exit;
   FMinerAccountKey := Value;
-  TLog.NewLog(ltDebug, ClassName, 'Assigning Miner account key to: ' + TCrypto.ToHexaString(Value.ToRawString));
+  TLog.NewLog(ltDebug, ClassName, 'Assigning Miner account key to: ' + TBaseType.ToHexaString(Value.ToRawString));
   CaptureNewJobAndSendToMiners;
 end;
 
 procedure TMiningServer.SetMinerPayload(const Value: TRawBytes);
 begin
   FMinerPayload := Value;
-  TLog.NewLog(ltDebug, ClassName, 'Assigning Miner new Payload: ' + TCrypto.ToHexaString(Value));
+  TLog.NewLog(ltDebug, ClassName, 'Assigning Miner new Payload: ' + TBaseType.ToHexaString(Value));
   CaptureNewJobAndSendToMiners;
 end;
 
@@ -766,9 +766,9 @@ procedure TMiningServer.UpdateAccountAndPayload(AMinerAccountKey: TAccountKey; A
 begin
   FMinerAccountKey := AMinerAccountKey;
   TLog.NewLog(ltDebug, ClassName, 'Assigning Miner account key to: ' +
-    TCrypto.ToHexaString(AMinerAccountKey.ToRawString));
+    TBaseType.ToHexaString(AMinerAccountKey.ToRawString));
   FMinerPayload := AMinerPayload;
-  TLog.NewLog(ltDebug, ClassName, 'Assigning Miner new Payload: ' + TCrypto.ToHexaString(AMinerPayload));
+  TLog.NewLog(ltDebug, ClassName, 'Assigning Miner new Payload: ' + TBaseType.ToHexaString(AMinerPayload));
   CaptureNewJobAndSendToMiners;
 end;
 

@@ -15,7 +15,7 @@ unit MicroCoin.Mining.Common;
 
 interface
 
-uses UCrypto;
+uses UBaseTypes;
 
 type
   TMinerValuesForWork = Record

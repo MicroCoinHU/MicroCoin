@@ -16,7 +16,7 @@ interface
 {$MODE DELPHI}
 {$ENDIF}
 
-uses SysUtils, classes, UCrypto {$ifdef USE_GENERICS}, Generics.Collections, Generics.Defaults{$ENDIF};
+uses SysUtils, classes, UBaseTypes, UCrypto {$ifdef USE_GENERICS}, Generics.Collections, Generics.Defaults{$ENDIF};
 
 type
   {$ifndef USE_GENERICS}

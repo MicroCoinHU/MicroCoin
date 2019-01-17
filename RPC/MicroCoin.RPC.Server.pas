@@ -19,7 +19,7 @@ interface
 uses Sysutils, Classes, httpsend, UWalletkeys, Ulog, Inifiles,
 {$IFDEF fpc} fpjson, {$ELSE}System.Json, {$ENDIF} UJSONFunctions, synautil,
   MicroCoin.Common.Config, UThread, blcksock, synsock, MicroCoin.RPC.Handler, MicroCoin.Node.Events,
-  MicroCoin.Transaction.Itransaction, MicroCoin.Keys.KeyManager,
+  MicroCoin.Transaction.Itransaction, MicroCoin.Keys.KeyManager, UbaseTypes,
   UCrypto, MicroCoin.Common, MicroCoin.Transaction.Base, MicroCoin.Account.Data;
 
 type
@@ -168,7 +168,7 @@ begin
     xAmount := TCurrencyUtils.CurrencyToString(xTransactionData.Amount * -1);
     xFee := TCurrencyUtils.CurrencyToString(xTransactionData.fee);
     xBalance := TCurrencyUtils.CurrencyToString(xTransactionData.balance);
-    xTransactionHash := TCrypto.ToHexaString(xTransactionData.OperationHash);
+    xTransactionHash := TBaseType.ToHexaString(xTransactionData.OperationHash);
     if TCrypto.IsHumanReadable(xTransactionData.OriginalPayload) then
       xPayload := xTransactionData.OriginalPayload
     else

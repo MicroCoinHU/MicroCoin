@@ -42,7 +42,7 @@ interface
 
 uses Sysutils, classes, MicroCoin.RPC.Handler, MicroCoin.Account.Data, MicroCoin.Common.Config, MicroCoin.Common.Lists,
   MicroCoin.RPC.Server, MicroCoin.Node.Node, MicroCoin.Account.AccountKey, MicroCoin.RPC.PluginManager, UJsonFunctions,
-  UCrypto, MicroCoin.Common, MicroCoin.RPC.Plugin, MicroCoin.RPC.Result;
+  UBaseTypes, UCrypto, MicroCoin.Common, MicroCoin.RPC.Plugin, MicroCoin.RPC.Result;
 
 type
 
@@ -89,7 +89,7 @@ begin
     end;
     if (AParams.IndexOfName(APrefix + 'enc_pubkey') >= 0) then
     begin
-      auxpubkey := TAccountKey.FromRawString(TCrypto.HexaToRaw(AParams.AsString(APrefix + 'enc_pubkey', '')));
+      auxpubkey := TAccountKey.FromRawString(TBaseType.HexaToRaw(AParams.AsString(APrefix + 'enc_pubkey', '')));
       if (not TAccountKey.EqualAccountKeys(auxpubkey, APubKey)) then
       begin
         RErrorText := 'Params "' + APrefix + 'b58_pubkey" and "' + APrefix +
@@ -105,7 +105,7 @@ begin
       RErrorText := 'Need param "' + APrefix + 'enc_pubkey" or "' + APrefix + 'b58_pubkey"';
       exit;
     end;
-    APubKey := TAccountKey.FromRawString(TCrypto.HexaToRaw(AParams.AsString(APrefix + 'enc_pubkey', '')));
+    APubKey := TAccountKey.FromRawString(TBaseType.HexaToRaw(AParams.AsString(APrefix + 'enc_pubkey', '')));
   end;
   if not APubKey.IsValidAccountKey(ansistr) then
   begin
@@ -118,16 +118,16 @@ end;
 procedure TRPCAccountPlugin.FillPublicKeyObject(const APubKey: TAccountKey; AJsonObject: TPCJSONObject);
 begin
   AJsonObject.GetAsVariant('ec_nid').Value := APubKey.EC_OpenSSL_NID;
-  AJsonObject.GetAsVariant('x').Value := TCrypto.ToHexaString(APubKey.x);
-  AJsonObject.GetAsVariant('y').Value := TCrypto.ToHexaString(APubKey.y);
-  AJsonObject.GetAsVariant('enc_pubkey').Value := TCrypto.ToHexaString(APubKey.ToRawString);
+  AJsonObject.GetAsVariant('x').Value := TBaseType.ToHexaString(APubKey.x);
+  AJsonObject.GetAsVariant('y').Value := TBaseType.ToHexaString(APubKey.y);
+  AJsonObject.GetAsVariant('enc_pubkey').Value := TBaseType.ToHexaString(APubKey.ToRawString);
   AJsonObject.GetAsVariant('b58_pubkey').Value := (APubKey.AccountPublicKeyExport);
 end;
 
 procedure TRPCAccountPlugin.FillAccountObject(const AAccount: TAccount; AJsonObject: TPCJSONObject);
 begin
   AJsonObject.GetAsVariant('account').Value := AAccount.AccountNumber;
-  AJsonObject.GetAsVariant('enc_pubkey').Value := TCrypto.ToHexaString(AAccount.accountInfo.AccountKey.ToRawString);
+  AJsonObject.GetAsVariant('enc_pubkey').Value := TBaseType.ToHexaString(AAccount.accountInfo.AccountKey.ToRawString);
   AJsonObject.GetAsVariant('balance').Value := TCurrencyUtils.ToJsonValue(AAccount.Balance);
   AJsonObject.GetAsVariant('n_operation').Value := AAccount.NumberOfTransactions;
   AJsonObject.GetAsVariant('updated_b').Value := AAccount.UpdatedBlock;
@@ -144,7 +144,7 @@ begin
         if not(AAccount.accountInfo.NewPublicKey.EC_OpenSSL_NID <> 0) then
         begin
           AJsonObject.GetAsVariant('new_enc_pubkey').Value :=
-            TCrypto.ToHexaString(AAccount.accountInfo.NewPublicKey.ToRawString);
+            TBaseType.ToHexaString(AAccount.accountInfo.NewPublicKey.ToRawString);
         end;
       end
   else

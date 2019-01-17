@@ -22,7 +22,7 @@ uses MicroCoin.Transaction.Base,
   MicroCoin.Account.Data, MicroCoin.Account.Transaction,
   MicroCoin.Account.AccountKey,
   MicroCoin.Transaction.Transaction,
-  Sysutils, classes, UCrypto,
+  Sysutils, classes, UCrypto, UBaseTypes,
   ULog, MicroCoin.Common.Config, MicroCoin.Transaction.Manager;
 
 type
@@ -237,8 +237,8 @@ begin
     (not TAccountKey.EqualAccountKeys(FData.PublicKey, account_signer.accountInfo.AccountKey)) then
   begin
     errors := Format('Invalid public key for account %d. Distinct from SafeBox public key! %s <> %s',
-      [FData.SignerAccount, TCrypto.ToHexaString(FData.PublicKey.ToRawString),
-      TCrypto.ToHexaString(account_signer.accountInfo.AccountKey.ToRawString)]);
+      [FData.SignerAccount, TBaseType.ToHexaString(FData.PublicKey.ToRawString),
+      TBaseType.ToHexaString(account_signer.accountInfo.AccountKey.ToRawString)]);
     exit;
   end;
   if not TCrypto.ECDSAVerify(account_signer.accountInfo.AccountKey, GetTransactionHashForSignature(FData), FData.Signature) then
@@ -590,7 +590,7 @@ begin
   if TCrypto.IsHumanReadable(TransactionData.OriginalPayload) then
     TransactionData.PrintablePayload := TransactionData.OriginalPayload
   else
-    TransactionData.PrintablePayload := TCrypto.ToHexaString(TransactionData.OriginalPayload);
+    TransactionData.PrintablePayload := TBaseType.ToHexaString(TransactionData.OriginalPayload);
   TransactionData.OperationHash := TransactionHash(Block);
   if (Block < cProtocol_Upgrade_v2_MinBlock) then
   begin

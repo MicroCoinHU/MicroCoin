@@ -33,11 +33,14 @@ type
   T32Bytes = array [0 .. 31] of Byte;
 
   TRawBytes = AnsiString;
+  PRawBytes = ^TRawBytes;
 
   { TBaseType }
 
   TBaseType = class
   public
+    class function ToHexaString(const raw : TRawBytes) : AnsiString;
+    class function HexaToRaw(const HexaString : AnsiString) : TRawBytes;
     class procedure T32BytesToRawBytes(const source: T32Bytes; var dest: TDynRawBytes); overload;
     class function T32BytesToRawBytes(const source: T32Bytes): TDynRawBytes; overload;
     class function TRawBytesTo32Left0Padded(const source: TDynRawBytes): T32Bytes;
@@ -266,6 +269,36 @@ begin
     Result := leftBytes[i] - rightBytes[i];
     if Result <> 0 then
       Exit;
+  end;
+end;
+
+class function TBaseType.ToHexaString(const raw: TRawBytes): AnsiString;
+Var i : Integer;
+  s : AnsiString;
+  b : Byte;
+begin
+  SetLength(Result,length(raw)*2);
+  for i := 0 to length(raw)-1 do begin
+    b := Ord(raw[i+1]);
+    s := IntToHex(b,2);
+    Result[(i*2)+1] := s[1];
+    Result[(i*2)+2] := s[2];
+  end;
+end;
+
+class function TBaseType.HexaToRaw(const HexaString: AnsiString): TRawBytes;
+Var P : PAnsiChar;
+ lc : AnsiString;
+ i : Integer;
+begin
+  Result := '';
+  if ((length(HexaString) MOD 2)<>0) Or (length(HexaString)=0) then exit;
+  SetLength(result,length(HexaString) DIV 2);
+  P := @Result[1];
+  lc := LowerCase(HexaString);
+  i := HexToBin(PAnsiChar(@lc[1]),P,length(Result));
+  if (i<>(length(HexaString) DIV 2)) then begin
+    Result := '';
   end;
 end;
 

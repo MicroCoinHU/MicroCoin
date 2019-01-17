@@ -44,7 +44,7 @@ interface
 
 uses SysUtils, Classes, UTCPIP, MicroCoin.BlockChain.BlockHeader, UThread,
   MicroCoin.Account.AccountKey, MicroCoin.Common.Lists, MicroCoin.Net.Protocol,
-  MicroCoin.Net.NodeServer,
+  MicroCoin.Net.NodeServer, UBaseTypes,
   MicroCoin.Transaction.Itransaction,
   MicroCoin.Transaction.HashTree, MicroCoin.BlockChain.Block, ULog,
   MicroCoin.Net.ConnectionBase;
@@ -506,7 +506,8 @@ begin
       if xAccountStorageHeader.AccountStorageHash <> xAccountStorageHash then
       begin
         DisconnectInvalidClient(false, Format('Invalid safeboxhash on GetSafeBox request (Real:%s > Requested:%s)',
-          [TCrypto.ToHexaString(xAccountStorageHeader.AccountStorageHash), TCrypto.ToHexaString(xAccountStorageHash)]));
+          [TBaseType.ToHexaString(xAccountStorageHeader.AccountStorageHash),
+          TBaseType.ToHexaString(xAccountStorageHash)]));
         exit;
       end;
       // Response:
@@ -703,7 +704,7 @@ begin
         Inttostr(length(decrypted)) + ' bytes): ' + decrypted)
     else
       TLog.NewLog(ltInfo, Classname, 'Received new message from ' + ClientRemoteAddr + ' Message (' +
-        Inttostr(length(decrypted)) + ' bytes) in hexadecimal: ' + TCrypto.ToHexaString(decrypted));
+        Inttostr(length(decrypted)) + ' bytes) in hexadecimal: ' + TBaseType.ToHexaString(decrypted));
     try
       TNode.Node.NotifyNetClientMessage(Self, decrypted);
     except

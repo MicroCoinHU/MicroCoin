@@ -41,7 +41,7 @@ unit MicroCoin.Transaction.Transaction;
 
 interface
 
-uses Sysutils, classes, UCrypto, MicroCoin.Transaction.ITransaction, MicroCoin.Transaction.Base, MicroCoin.Common.Config, MicroCoin.Account.Transaction;
+uses Sysutils, classes, UCrypto, UbaseTypes, MicroCoin.Transaction.ITransaction, MicroCoin.Transaction.Base, MicroCoin.Common.Config, MicroCoin.Account.Transaction;
 
 type
   TTransaction = class(TInterfacedObject, ITransaction)
@@ -169,7 +169,7 @@ end;
 
 class function TTransaction.FinalOperationHashAsHexa(const OperationHash: TRawBytes): AnsiString;
 begin
-  Result := TCrypto.ToHexaString(Copy(OperationHash, 5, 28));
+  Result := TBaseType.ToHexaString(Copy(OperationHash, 5, 28));
 end;
 
 procedure TTransaction.InitializeData;

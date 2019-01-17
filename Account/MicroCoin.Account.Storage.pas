@@ -42,6 +42,7 @@ unit MicroCoin.Account.Storage;
 interface
 
 uses SysUtils, Classes, UCrypto, UThread, MicroCoin.Common.Lists,
+  MicroCoin.Crypto.BigNum,
   MicroCoin.Account.Data, MicroCoin.Account.AccountKey, MicroCoin.BlockChain.BlockHeader,
   MicroCoin.Common.Config, UBaseTypes, ULog, MicroCoin.BlockChain.Protocol;
 
@@ -415,49 +416,41 @@ function TAccountStorage.CalcBlockHashRateInKhs(ABlockNumber: Cardinal; APreviou
 var
   c, t: Cardinal;
   t_sum: Extended;
-  bn, bn_sum: TBigNum;
+  bn, bn_sum: BigInteger;
 begin
   FLock.Acquire;
   try
-    bn_sum := TBigNum.Create;
-    try
-      if (ABlockNumber = 0) then
-      begin
-        Result := 1;
-        exit;
-      end;
-      if (ABlockNumber < 0) or (ABlockNumber >= FBlockAccountsList.Count) then
-        raise Exception.Create('Invalid block number: ' + inttostr(ABlockNumber));
-      if (APreviousBlocksAverage <= 0) then
-        raise Exception.Create('Dev error 20161016-1');
-      if (APreviousBlocksAverage > ABlockNumber) then
-        APreviousBlocksAverage := ABlockNumber;
-      //
-      c := (ABlockNumber - APreviousBlocksAverage) + 1;
-      t_sum := 0;
-      while (c <= ABlockNumber) do
-      begin
-        bn := TBigNum.TargetToHashRate(PBlockAccount(FBlockAccountsList.Items[c])^.BlockChainInfo.CompactTarget);
-        try
-          bn_sum.Add(bn);
-        finally
-          bn.Free;
-        end;
-        t_sum := t_sum + (PBlockAccount(FBlockAccountsList.Items[c])^.BlockChainInfo.Timestamp -
-          PBlockAccount(FBlockAccountsList.Items[c - 1])^.BlockChainInfo.Timestamp);
-        inc(c);
-      end;
-      bn_sum.Divide(APreviousBlocksAverage); // Obtain target average
-      t_sum := t_sum / APreviousBlocksAverage; // time average
-      t := Round(t_sum);
-      if (t <> 0) then
-      begin
-        bn_sum.Divide(t);
-      end;
-      Result := bn_sum.Divide(1024).value; // Value in Kh/s
-    finally
-      bn_sum.Free;
+    bn_sum := 0;
+    if (ABlockNumber = 0) then
+    begin
+      Result := 1;
+      exit;
     end;
+    if (ABlockNumber < 0) or (ABlockNumber >= FBlockAccountsList.Count) then
+      raise Exception.Create('Invalid block number: ' + inttostr(ABlockNumber));
+    if (APreviousBlocksAverage <= 0) then
+      raise Exception.Create('Dev error 20161016-1');
+    if (APreviousBlocksAverage > ABlockNumber) then
+      APreviousBlocksAverage := ABlockNumber;
+    //
+    c := (ABlockNumber - APreviousBlocksAverage) + 1;
+    t_sum := 0;
+    while (c <= ABlockNumber) do
+    begin
+      bn := BigInteger.TargetToHashRate(PBlockAccount(FBlockAccountsList.Items[c])^.BlockChainInfo.CompactTarget);
+      bn_sum.Add(bn);
+      t_sum := t_sum + (PBlockAccount(FBlockAccountsList.Items[c])^.BlockChainInfo.Timestamp -
+        PBlockAccount(FBlockAccountsList.Items[c - 1])^.BlockChainInfo.Timestamp);
+      inc(c);
+    end;
+    bn_sum.Divide(APreviousBlocksAverage); // Obtain target average
+    t_sum := t_sum / APreviousBlocksAverage; // time average
+    t := Round(t_sum);
+    if (t <> 0) then
+    begin
+      bn_sum.Divide(t);
+    end;
+    Result := bn_sum.Divide(1024); // Value in Kh/s
   finally
     FLock.Release;
   end;
@@ -625,8 +618,8 @@ begin
     exit;
   // Recalc all BlockAccounts block_hash value
   aux := CalculateHash;
-  TLog.NewLog(ltInfo, Classname, 'Start Upgrade to protocol 2 - Old Hash:' + TCrypto.ToHexaString(FAccountStorageHash) +
-    ' calculated: ' + TCrypto.ToHexaString(aux) + ' Blocks: ' + inttostr(BlocksCount));
+  TLog.NewLog(ltInfo, Classname, 'Start Upgrade to protocol 2 - Old Hash:' + TBaseType.ToHexaString(FAccountStorageHash) +
+    ' calculated: ' + TBaseType.ToHexaString(aux) + ' Blocks: ' + inttostr(BlocksCount));
   FBufferBlocksHash := '';
   for block_number := 0 to BlocksCount - 1 do
   begin
@@ -643,7 +636,7 @@ begin
   FAccountStorageHash := CalculateHash;
   FCurrentProtocol := cPROTOCOL_2;
   Result := true;
-  TLog.NewLog(ltInfo, Classname, 'End Upgraded to protocol 2 - New hash:' + TCrypto.ToHexaString(FAccountStorageHash));
+  TLog.NewLog(ltInfo, Classname, 'End Upgraded to protocol 2 - New hash:' + TBaseType.ToHexaString(FAccountStorageHash));
 end;
 
 procedure TAccountStorage.EndThreadSave;
@@ -844,8 +837,8 @@ begin
       // Checking saved SafeBoxHash
       if FAccountStorageHash <> savedSBH then
       begin
-        errors := 'Invalid Hash value in stream ' + TCrypto.ToHexaString(FAccountStorageHash) + '<>' +
-          TCrypto.ToHexaString(savedSBH) + ' Last block:' + inttostr(ALastReadBlock.BlockHeader.block);
+        errors := 'Invalid Hash value in stream ' + TBaseType.ToHexaString(FAccountStorageHash) + '<>' +
+          TBaseType.ToHexaString(savedSBH) + ' Last block:' + inttostr(ALastReadBlock.BlockHeader.block);
         exit;
       end;
       Result := true;
@@ -1077,7 +1070,7 @@ begin
     destTotalBlocks := AToBlock - AFromBlock + 1;
     TLog.NewLog(ltInfo, Classname,
       Format('Copy Stream from AccountStorage with %d to %d (of %d sbh:%s) to AccountStorage with %d and %d',
-      [sbHeader.StartBlock, sbHeader.EndBlock, sbHeader.BlocksCount, TCrypto.ToHexaString(sbHeader.AccountStorageHash),
+      [sbHeader.StartBlock, sbHeader.EndBlock, sbHeader.BlocksCount, TBaseType.ToHexaString(sbHeader.AccountStorageHash),
       AFromBlock, AToBlock]));
     // Read Source Offset zone
     posOffsetZoneSource := ASource.Position;
@@ -1231,8 +1224,8 @@ begin
       (s1Header.Protocol <> s2Header.Protocol) then
     begin
       RErrors := Format('Source1 and Source2 have diff. Source 1 %d %s (protocol %d) Source 2 %d %s (protocol %d)',
-        [s1Header.BlocksCount, TCrypto.ToHexaString(s1Header.AccountStorageHash), s1Header.Protocol,
-        s2Header.BlocksCount, TCrypto.ToHexaString(s2Header.AccountStorageHash), s2Header.Protocol]);
+        [s1Header.BlocksCount, TBaseType.ToHexaString(s1Header.AccountStorageHash), s1Header.Protocol,
+        s2Header.BlocksCount, TBaseType.ToHexaString(s2Header.AccountStorageHash), s2Header.Protocol]);
       exit;
     end;
     // Save dest heaer
@@ -1411,11 +1404,11 @@ begin
     if (cGenesisBlockPoW <> '') then
     begin
       // Check if valid Zero block
-      if not(AnsiSameText(TCrypto.ToHexaString(ANewOperationBlock.proof_of_work), cGenesisBlockPoW))
+      if not(AnsiSameText(TBaseType.ToHexaString(ANewOperationBlock.proof_of_work), cGenesisBlockPoW))
       then
       begin
         RErrors := 'Zero block not valid, Proof of Work invalid: ' +
-          TCrypto.ToHexaString(ANewOperationBlock.proof_of_work) + '<>' + cGenesisBlockPoW;
+          TBaseType.ToHexaString(ANewOperationBlock.proof_of_work) + '<>' + cGenesisBlockPoW;
         exit;
       end;
     end;
@@ -1451,15 +1444,15 @@ begin
     // TODO: Can use FSafeBoxHash instead of CalcSafeBoxHash ???? Quick speed if possible
     if (ANewOperationBlock.initial_safe_box_hash <> FAccountStorageHash) then
     begin
-      RErrors := 'BlockChain Safe box hash invalid: ' + TCrypto.ToHexaString(ANewOperationBlock.initial_safe_box_hash) +
-        ' var: ' + TCrypto.ToHexaString(FAccountStorageHash) + ' Calculated:' + TCrypto.ToHexaString(CalculateHash);
+      RErrors := 'BlockChain Safe box hash invalid: ' + TBaseType.ToHexaString(ANewOperationBlock.initial_safe_box_hash) +
+        ' var: ' + TBaseType.ToHexaString(FAccountStorageHash) + ' Calculated:' + TBaseType.ToHexaString(CalculateHash);
       exit;
     end;
   end;
   // operations_hash: NOT CHECKED WITH OPERATIONS!
   if (length(ANewOperationBlock.transactionHash) <> 32) then
   begin
-    RErrors := 'Invalid Operations hash value: ' + TCrypto.ToHexaString(ANewOperationBlock.transactionHash) + ' length=' +
+    RErrors := 'Invalid Operations hash value: ' + TBaseType.ToHexaString(ANewOperationBlock.transactionHash) + ' length=' +
       inttostr(length(ANewOperationBlock.transactionHash));
     exit;
   end;
@@ -1468,14 +1461,14 @@ begin
   if (PoW <> ANewOperationBlock.proof_of_work) then
   begin
 //  ANewOperationBlock := Pow;
-    RErrors := 'Proof of work is bad calculated ' + TCrypto.ToHexaString(ANewOperationBlock.proof_of_work) + ' <> Good: '
-      + TCrypto.ToHexaString(PoW);
+    RErrors := 'Proof of work is bad calculated ' + TBaseType.ToHexaString(ANewOperationBlock.proof_of_work) + ' <> Good: '
+      + TBaseType.ToHexaString(PoW);
     exit;
   end;
   if (ANewOperationBlock.proof_of_work > target_hash) then
   begin
-    RErrors := 'Proof of work is higher than target ' + TCrypto.ToHexaString(ANewOperationBlock.proof_of_work) + ' > ' +
-      TCrypto.ToHexaString(target_hash);
+    RErrors := 'Proof of work is higher than target ' + TBaseType.ToHexaString(ANewOperationBlock.proof_of_work) + ' > ' +
+      TBaseType.ToHexaString(target_hash);
     exit;
   end;
   Result := true;
@@ -1687,12 +1680,12 @@ begin
         end;
       end;
       TLog.NewLog(ltDebug, Classname, Format('Adding account key (%d of %d) %s', [j, FAccountStorage.AccountsCount,
-        TCrypto.ToHexaString(AAccountKey.ToRawString)]));
+        TBaseType.ToHexaString(AAccountKey.ToRawString)]));
     end
     else
     begin
       TLog.NewLog(ltDebug, Classname, Format('Adding account key (no Account List) %s',
-        [TCrypto.ToHexaString(AAccountKey.ToRawString)]));
+        [TBaseType.ToHexaString(AAccountKey.ToRawString)]));
     end;
   end;
 end;
@@ -1966,7 +1959,7 @@ end;
 function TAccountStorageEntry.ToString: AnsiString;
 begin
   Result := Format('Block:%d Timestamp:%d BlockHash:%s', [BlockHeader.block, BlockHeader.timestamp,
-    TCrypto.ToHexaString(BlockHash)]);
+    TBaseType.ToHexaString(BlockHash)]);
 end;
 
 { TAccountStorageHeader }

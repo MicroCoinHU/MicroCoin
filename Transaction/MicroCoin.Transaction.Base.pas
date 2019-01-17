@@ -39,7 +39,7 @@ unit MicroCoin.Transaction.Base;
 
 interface
 
-uses SysUtils, Classes, UCrypto, MicroCoin.Common.Config, MicroCoin.Account.AccountKey;
+uses SysUtils, Classes, UCrypto, UBaseTypes, MicroCoin.Common.Config, MicroCoin.Account.AccountKey;
 
 const
   CT_Op_Transaction = $01;

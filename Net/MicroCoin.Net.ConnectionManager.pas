@@ -44,7 +44,7 @@ uses Classes, SysUtils, UThread, UCrypto,
   MicroCoin.BlockChain.BlockManager,
   MicroCoin.Net.Connection, UTime, MicroCoin.Common.Config,
   ULog, MicroCoin.Net.Events,
-  MicroCoin.Net.ConnectionBase,
+  MicroCoin.Net.ConnectionBase, UBaseTypes,
   MicroCoin.Net.INetNotificationSource, SyncObjs,
   MicroCoin.BlockChain.Blockheader, MicroCoin.Net.NodeServer;
 
@@ -1312,8 +1312,8 @@ const
           RErrors := Format
             ('Invalid received chunk based on call: Blockscount:%d %d - from:%d %d to %d %d - SafeboxHash:%s %s',
             [AAccountStorageHeader.BlocksCount, ABlockscount, AAccountStorageHeader.StartBlock, AFromBlock,
-            AAccountStorageHeader.EndBlock, c, TCrypto.ToHexaString(AAccountStorageHeader.AccountStorageHash),
-            TCrypto.ToHexaString(AHeader)]);
+            AAccountStorageHeader.EndBlock, c, TBaseType.ToHexaString(AAccountStorageHeader.AccountStorageHash),
+            TBaseType.ToHexaString(AHeader)]);
           Connection.DisconnectInvalidClient(false, 'Invalid received chunk: ' + RErrors);
           exit;
         end;

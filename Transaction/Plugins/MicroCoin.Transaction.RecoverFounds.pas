@@ -20,7 +20,7 @@ interface
 
 uses MicroCoin.Transaction.Base, MicroCoin.Transaction.Transaction,
   MicroCoin.Common, MicroCoin.Account.Transaction,
-  MicroCoin.Account.Data,
+  MicroCoin.Account.Data, UBaseTypes,
   Sysutils, classes, UCrypto, ULog, MicroCoin.Common.Config, MicroCoin.Transaction.Manager;
 
 type
@@ -207,7 +207,7 @@ begin
   if TCrypto.IsHumanReadable(TransactionData.OriginalPayload) then
     TransactionData.PrintablePayload := TransactionData.OriginalPayload
   else
-    TransactionData.PrintablePayload := TCrypto.ToHexaString(TransactionData.OriginalPayload);
+    TransactionData.PrintablePayload := TBaseType.ToHexaString(TransactionData.OriginalPayload);
   TransactionData.OperationHash := TransactionHash(Block);
   if (Block < cProtocol_Upgrade_v2_MinBlock) then
   begin

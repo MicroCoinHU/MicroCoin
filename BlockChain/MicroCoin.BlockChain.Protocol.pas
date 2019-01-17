@@ -15,7 +15,7 @@ unit MicroCoin.BlockChain.Protocol;
 
 interface
 
-uses UCrypto, SysUtils, Classes, MicroCoin.BlockChain.BlockHeader, MicroCoin.Common.Config, MicroCoin.Account.AccountKey;
+uses UCrypto, SysUtils, Classes, MicroCoin.Crypto.Bignum, UBaseTypes, MicroCoin.BlockChain.BlockHeader, MicroCoin.Common.Config, MicroCoin.Account.AccountKey;
 
 type
   TMicroCoinProtocol = class
@@ -33,7 +33,7 @@ implementation
 
 class function TMicroCoinProtocol.GetNewTarget(vteorical, vreal: Cardinal; const actualTarget: TRawBytes): TRawBytes;
 var
-  bnact, bnaux, bn: TBigNum;
+  bnact, bnaux, bn: BigInteger;
   tsTeorical, tsReal, factor1000, factor1000Min, factor1000Max: Int64;
 begin
   { Given a teorical time in seconds (vteorical>0) and a real time in seconds (vreal>0)
@@ -73,22 +73,13 @@ begin
   end;
 
   // Calc new target by increasing factor (-500 <= x <= 1000)
-  bn := TBigNum.Create(factor1000);
-  bnact := TBigNum.Create(0);
-  try
-    bnact.RawValue := actualTarget;
-    bnaux := bnact.Copy;
-    try
-      bnact.Multiply(factor1000).Divide(1000).Add(bnaux);
-    finally
-      bnaux.Free;
-    end;
-    // Adjust to TargetCompact limitations:
-    Result := TargetFromCompact(TargetToCompact(bnact.RawValue));
-  finally
-    bn.Free;
-    bnact.Free;
-  end;
+  bn := factor1000;
+  bnact := 0;
+  bnact.RawValue := actualTarget;
+  bnaux := bnact.Copy;
+  bnact.Multiply(factor1000).Divide(1000).Add(bnaux);
+  // Adjust to TargetCompact limitations:
+  Result := TargetFromCompact(TargetToCompact(bnact.RawValue));
 end;
 
 class procedure TMicroCoinProtocol.CalcProofOfWork_Part1(const operationBlock: TBlockHeader; var Part1: TRawBytes);
@@ -180,7 +171,7 @@ end;
 class function TMicroCoinProtocol.TargetFromCompact(encoded: Cardinal): TRawBytes;
 var
   nbits, offset, i: Cardinal;
-  bn: TBigNum;
+  bn: BigInteger;
   raw: TRawBytes;
 begin
   {
@@ -219,24 +210,20 @@ begin
   // Make a XOR at offset and put a "1" on the left
   offset := ((offset xor $00FFFFFF) or ($01000000));
 
-  bn := TBigNum.Create(offset);
-  try
-    bn.LShift(256 - nbits - 25);
-    raw := bn.RawValue;
-    SetLength(Result, 32);
-    FillChar(Result[1], 32, 0);
-    for i := 1 to length(raw) do
-    begin
-      Result[i + 32 - length(raw)] := raw[i];
-    end;
-  finally
-    bn.Free;
+  bn := offset;
+  bn.LShift(256 - nbits - 25);
+  raw := bn.RawValue;
+  SetLength(Result, 32);
+  FillChar(Result[1], 32, 0);
+  for i := 1 to length(raw) do
+  begin
+    Result[i + 32 - length(raw)] := raw[i];
   end;
 end;
 
 class function TMicroCoinProtocol.TargetToCompact(target: TRawBytes): Cardinal;
 var
-  bn, bn2: TBigNum;
+  bn, bn2: BigInteger;
   i: Int64;
   nbits: Cardinal;
   raw: TRawBytes;
@@ -246,7 +233,7 @@ begin
   Result := 0;
   if length(target) > 32 then
   begin
-    raise Exception.Create('Invalid target to compact: ' + TCrypto.ToHexaString(target) + ' (' +
+    raise Exception.Create('Invalid target to compact: ' + TBaseType.ToHexaString(target) + ' (' +
       inttostr(length(target)) + ')');
   end;
   SetLength(raw, 32);
@@ -257,29 +244,24 @@ begin
   end;
   target := raw;
 
-  bn := TBigNum.Create(0);
-  bn2 := TBigNum.Create('8000000000000000000000000000000000000000000000000000000000000000');
+  bn := 0;
+  bn2 := '8000000000000000000000000000000000000000000000000000000000000000';
   // First bit 1 followed by 0
-  try
-    bn.RawValue := target;
-    nbits := 0;
-    while (bn.CompareTo(bn2) < 0) and (nbits < 231) do
-    begin
-      bn2.RShift(1);
-      inc(nbits);
-    end;
-    i := cMinimumDifficulty shr 24;
-    if (nbits < i) then
-    begin
-      Result := cMinimumDifficulty;
-      exit;
-    end;
-    bn.RShift((256 - 25) - nbits);
-    Result := (nbits shl 24) + ((bn.value and $00FFFFFF) xor $00FFFFFF);
-  finally
-    bn.Free;
-    bn2.Free;
+  bn.RawValue := target;
+  nbits := 0;
+  while (bn.CompareTo(bn2) < 0) and (nbits < 231) do
+  begin
+    bn2.RShift(1);
+    inc(nbits);
   end;
+  i := cMinimumDifficulty shr 24;
+  if (nbits < i) then
+  begin
+    Result := cMinimumDifficulty;
+    exit;
+  end;
+  bn.RShift((256 - 25) - nbits);
+  Result := (nbits shl 24) + ((bn.value and $00FFFFFF) xor $00FFFFFF);
 end;
 
 end.

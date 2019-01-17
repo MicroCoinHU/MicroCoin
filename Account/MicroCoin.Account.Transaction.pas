@@ -41,7 +41,7 @@ interface
 
 uses Sysutils, classes, UCrypto, MicroCoin.Common.Lists, MicroCoin.Common.Config,
   MicroCoin.Account.AccountKey, MicroCoin.Account.Data, MicroCoin.Common,
-  MicroCoin.Account.Storage, MicroCoin.BlockChain.BlockHeader, ULog;
+  MicroCoin.Account.Storage, UbaseTypes, MicroCoin.BlockChain.BlockHeader, ULog;
 
 type
 

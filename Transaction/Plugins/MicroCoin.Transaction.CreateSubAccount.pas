@@ -31,7 +31,7 @@ interface
 uses ucrypto, MicroCoin.Transaction.Transaction, SysUtils,
   MicroCoin.Account.Data, MicroCoin.Account.Storage, MicroCoin.BlockChain.BlockHeader, MicroCoin.Account.Transaction,
   MicroCoin.Common, Classes, MicroCoin.Account.AccountKey, MicroCoin.Transaction.Base, MicroCoin.Common.Config, ULog,
-  MicroCoin.Transaction.Manager;
+  MicroCoin.Transaction.Manager, UBaseTypes;
 
 type
 
@@ -303,7 +303,7 @@ begin
   if TCrypto.IsHumanReadable(TransactionData.OriginalPayload) then
     TransactionData.PrintablePayload := TransactionData.OriginalPayload
   else
-    TransactionData.PrintablePayload := TCrypto.ToHexaString(TransactionData.OriginalPayload);
+    TransactionData.PrintablePayload := TBaseType.ToHexaString(TransactionData.OriginalPayload);
   TransactionData.OperationHash := TransactionHash(Block);
   if (Block < cProtocol_Upgrade_v2_MinBlock) then
   begin
