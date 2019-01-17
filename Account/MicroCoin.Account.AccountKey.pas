@@ -29,8 +29,6 @@
 | File:       MicroCoin.Account.AccountKey.pas                                 |
 | Created at: 2018-08-22                                                       |
 | Purpose:    Account Key managment and helper routines                        |
-| Todo:                                                                        |
-|   - Eliminate TStreamOp                                                      |
 |==============================================================================}
 
 unit MicroCoin.Account.AccountKey;
@@ -42,7 +40,7 @@ unit MicroCoin.Account.AccountKey;
 
 interface
 
-uses UCrypto, sysutils, classes, ubasetypes, MicroCoin.Crypto.BigNum, MicroCoin.Common.Config, OpenSSL, ULog, MicroCoin.Common.Lists;
+uses UCrypto, MicroCoin.Crypto.Keys, sysutils, classes, ubasetypes, MicroCoin.Crypto.BigNum, MicroCoin.Common.Config, OpenSSL, ULog, MicroCoin.Common.Lists;
 
 type
 

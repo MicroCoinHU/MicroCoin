@@ -67,8 +67,6 @@ type
     function ToInt64(var int: Int64): BigInteger;
     function ToDecimal: AnsiString;
 
-    procedure CleanUp;
-
     property hexaValue: AnsiString read GetHexaValue write SetHexaValue;
     property RawValue: TRawBytes read GetRawValue write SetRawValue;
     property DecimalValue: AnsiString read GetDecimalValue write SetDecimalValue;
@@ -95,6 +93,8 @@ type
     class operator Implicit(AInteger : Int64) : BigInteger;
     class operator Implicit(ABN : BigInteger) : Int64;
 
+    class operator Explicit(ABigNum : PBIGNUM) : BigInteger;
+
     class operator Add(ABN : BigInteger; BBN: BigInteger) : BigInteger;
     class operator Subtract(ABN : BigInteger; BBN: BigInteger) : BigInteger;
     class operator Multiply(ABN, BBN: BigInteger) : BigInteger;
@@ -111,10 +111,10 @@ type
 
   TBigIntegerDestructor = class(TInterfacedObject, IBigIntegerDestructor)
   private
-    FDestoyer : TProc<BigInteger>;
-    FData : BigInteger;
+    FDestoyer : TProc<PBIGNUM>;
+    FData : PBIGNUM;
   public
-    constructor Create(ADestructor : TProc<BigInteger>; AData : BigInteger);
+    constructor Create(ADestructor : TProc<PBIGNUM>; AData : PBIGNUM);
     destructor Destroy; override;
   end;
 
@@ -144,11 +144,6 @@ begin
   BN_add(Result, ABN, BBN);
 end;
 
-procedure BigInteger.CleanUp;
-begin
-  BN_free(FBN);
-end;
-
 function BigInteger.CompareTo(BN: BigInteger): Integer;
 begin
   Result := BN_cmp(FBN, BN);
@@ -156,6 +151,7 @@ end;
 
 function BigInteger.Copy: BigInteger;
 begin
+  Result := BigInteger.Create(0);
   BN_copy(Result, FBN);
 end;
 
@@ -168,7 +164,7 @@ end;
 constructor BigInteger.Create(initialValue: Int64);
 begin
   FBN := BN_new;
-  FDestructor := TBigIntegerDestructor.Create(procedure(ABN : BigInteger) begin ABN.CleanUp; end, FBN);
+  FDestructor := TBigIntegerDestructor.Create(procedure(ABN : PBIGNUM) begin BN_free(ABN); end, FBN);
   SetValue(initialValue);
 end;
 
@@ -469,7 +465,7 @@ end;
 
 { TRecordDestructor }
 
-constructor TBigIntegerDestructor.Create(ADestructor: TProc<BigInteger>; AData : BigInteger);
+constructor TBigIntegerDestructor.Create(ADestructor: TProc<PBIGNUM>; AData : PBIGNUM);
 begin
   FDestoyer := ADestructor;
   FData := AData;
@@ -502,6 +498,12 @@ end;
 class operator BigInteger.Equal(ABN, BBN: BigInteger): boolean;
 begin
   Result := BN_cmp(ABN, BBN) = 0;
+end;
+
+class operator BigInteger.Explicit(ABigNum: PBIGNUM): BigInteger;
+begin
+  Result := BigInteger.Create(0);
+  Result.FBN := ABigNum;
 end;
 
 class operator BigInteger.Implicit(ABN: BigInteger): Int64;

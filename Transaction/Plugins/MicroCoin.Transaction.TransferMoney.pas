@@ -18,7 +18,7 @@ unit MicroCoin.Transaction.TransferMoney;
 interface
 
 uses MicroCoin.Transaction.Base,
-  MicroCoin.Common,
+  MicroCoin.Common, MicroCoin.Crypto.Keys,
   MicroCoin.Account.Data, UBaseTypes,
   MicroCoin.Account.AccountKey,
   MicroCoin.Transaction.Transaction, MicroCoin.Account.Transaction,

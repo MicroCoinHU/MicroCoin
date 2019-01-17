@@ -18,6 +18,7 @@ unit MicroCoin.RPC.Handler;
 interface
 
 uses UThread, SysUtils, Classes, blcksock,
+  MicroCoin.Crypto.Keys,
   Synautil, Math, UCrypto, MicroCoin.RPC.MethodHandler,
   MicroCoin.Account.Data, MicroCoin.BlockChain.Block,
   MicroCoin.RPC.PluginManager, MicroCoin.Node.Node,

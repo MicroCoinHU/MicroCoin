@@ -29,6 +29,7 @@ unit MicroCoin.Transaction.CreateSubAccount;
 interface
 
 uses ucrypto, MicroCoin.Transaction.Transaction, SysUtils,
+  MicroCoin.Crypto.Keys,
   MicroCoin.Account.Data, MicroCoin.Account.Storage, MicroCoin.BlockChain.BlockHeader, MicroCoin.Account.Transaction,
   MicroCoin.Common, Classes, MicroCoin.Account.AccountKey, MicroCoin.Transaction.Base, MicroCoin.Common.Config, ULog,
   MicroCoin.Transaction.Manager, UBaseTypes;

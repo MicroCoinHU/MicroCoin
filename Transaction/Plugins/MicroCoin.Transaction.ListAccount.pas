@@ -20,7 +20,7 @@ interface
 uses MicroCoin.Transaction.Base,
   MicroCoin.Common,
   MicroCoin.Account.Data, MicroCoin.Account.Transaction,
-  MicroCoin.Account.AccountKey,
+  MicroCoin.Account.AccountKey,MicroCoin.Crypto.Keys,
   MicroCoin.Transaction.Transaction,
   Sysutils, classes, UCrypto, UBaseTypes,
   ULog, MicroCoin.Common.Config, MicroCoin.Transaction.Manager;

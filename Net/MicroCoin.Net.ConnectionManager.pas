@@ -39,7 +39,7 @@ unit MicroCoin.Net.ConnectionManager;
 interface
 
 uses Classes, SysUtils, UThread, UCrypto,
-  MicroCoin.Net.Statistics,
+  MicroCoin.Net.Statistics, MicroCoin.Crypto.Keys,
   MicroCoin.Net.Time, MicroCoin.Net.Protocol,
   MicroCoin.BlockChain.BlockManager,
   MicroCoin.Net.Connection, UTime, MicroCoin.Common.Config,

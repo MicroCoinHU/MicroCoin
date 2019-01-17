@@ -19,7 +19,7 @@ unit UWalletKeys;
 
 interface
 
-uses Classes, MicroCoin.Account.AccountKey, UCrypto, UBaseTypes;
+uses Classes, MicroCoin.Account.AccountKey, MicroCoin.Crypto.Keys, UCrypto, UBaseTypes;
 
 type
   PWalletKey = ^TWalletKey;

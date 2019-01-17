@@ -39,7 +39,7 @@ unit MicroCoin.Keys.KeyManager;
 
 interface
 
-uses SysUtils, Classes, MicroCoin.BlockChain.BlockManager, MicroCoin.Account.AccountKey, UCrypto,
+uses SysUtils, Classes, MicroCoin.Crypto.Keys, MicroCoin.BlockChain.BlockManager, MicroCoin.Account.AccountKey, UCrypto,
   MicroCoin.Account.Storage, MicroCoin.BlockChain.BlockHeader, UWalletKeys;
 
 type
