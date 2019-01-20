@@ -788,9 +788,9 @@ begin
       TLog.NewLog(ltdebug, Classname, 'Start discovering up to ' + Inttostr(j + 1) + ' servers... (max:' +
         Inttostr(l.Count) + ')');
       //
+      FIsDiscoveringServers := true;
       for i := 0 to j do
       begin
-        FIsDiscoveringServers := true;
         P := PNodeServerAddress(l[i]);
         tdc := TThreadDiscoverConnection.Create(P^, DiscoverServersTerminated);
       end;

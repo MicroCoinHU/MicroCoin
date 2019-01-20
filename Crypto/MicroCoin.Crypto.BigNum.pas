@@ -30,19 +30,25 @@
 | Created at: 2019-01-17                                                       |
 | Purpose:    Wrapper types for openssl bignum routines                        |
 |==============================================================================}
+{$IFDEF FPC}
+  {$MODE DELPHI}
+{$ENDIF}
 
 unit MicroCoin.Crypto.BigNum;
 
 interface
 
-uses Classes, SysUtils, OpenSSL, OpenSSLdef, Ubasetypes, MicroCoin.Crypto.Errors;
+uses Classes, SysUtils, OpenSSL, OpenSSLdef, Ulog, UBaseTypes, MicroCoin.Crypto.Errors;
 
 type
+  TProc<T> = procedure (Arg1: T);
   IBigIntegerDestructor = interface
     ['{DD3C21C5-5523-439E-9A37-E8752E94047E}']
   end;
 
   TBigIntegerDestructor = class;
+
+  { BigInteger }
 
   BigInteger = record
   private
@@ -58,6 +64,7 @@ type
     procedure SetRawValue(const Value: TRawBytes);
     constructor Create(initialValue: Int64); overload;
     constructor Create(hexaValue: AnsiString); overload;
+    class procedure cleanup(ABN:PBIGNUM); static;
   public
     function Copy: BigInteger;
     procedure Divide(dividend, remainder: BigInteger); overload;
@@ -87,6 +94,7 @@ type
 
     // Operators
     class operator Implicit(ABigNum : BigInteger) : PBIGNUM;
+    class operator Implicit(ABigNum : BigInteger) : PPBIGNUM;
     class operator Implicit(ABigNum : PBIGNUM) : BigInteger;
     class operator Implicit(AInteger : integer) : BigInteger;
     class operator Implicit(AHexa : AnsiString) : BigInteger;
@@ -138,7 +146,7 @@ begin
   Result := Add(BN);
 end;
 
-class operator BigInteger.Add(ABN, BBN: BigInteger): BigInteger;
+class operator BigInteger.Add(ABN: BigInteger; BBN: BigInteger): BigInteger;
 begin
   Result := 0;
   BN_add(Result, ABN, BBN);
@@ -161,10 +169,15 @@ begin
   SetHexaValue(hexaValue);
 end;
 
+class procedure BigInteger.cleanup(ABN: PBIGNUM);
+begin
+  BN_free(ABN);
+end;
+
 constructor BigInteger.Create(initialValue: Int64);
 begin
   FBN := BN_new;
-  FDestructor := TBigIntegerDestructor.Create(procedure(ABN : PBIGNUM) begin BN_free(ABN); end, FBN);
+  FDestructor := TBigIntegerDestructor.Create(cleanup, FBN);
   SetValue(initialValue);
 end;
 
@@ -266,6 +279,11 @@ begin
   Result := ABigNum.FBN;
 end;
 
+class operator BigInteger.Implicit(ABigNum: BigInteger): PPBIGNUM;
+begin
+  Result := @ABigNum.FBN;
+end;
+
 class operator BigInteger.Implicit(ABigNum: PBIGNUM): BigInteger;
 begin
   Result.FBN := ABigNum;
@@ -346,11 +364,18 @@ end;
 procedure BigInteger.SetHexaValue(const Value: AnsiString);
 var
   i: Integer;
+  bf: PAnsiChar;
+  bn:PBignum;
 begin
-  i := BN_hex2bn(@FBN, PAnsiChar(Value));
+  BN := BN_new;
+  i := BN_hex2bn(@BN, PAnsiChar(value));
+  FBN := BN;
   if i = 0 then
   begin
-    raise ECryptoException.Create('Invalid Hexadecimal value:' + Value);
+    bf := PansiChar(stralloc(500));
+    ERR_error_string(ERR_get_error(),bf);
+    TLog.NewLog(lterror, 'OpenSSL', 'Invalid Hexadecimal value:' + Value+' '+bf);
+    raise ECryptoException.Create('Invalid Hexadecimal value:' + Value+' '+bf);
   end;
 end;
 
@@ -380,7 +405,8 @@ begin
     BN_set_negative(FBN, 0);
 end;
 
-class operator BigInteger.Subtract(ABN, BBN: BigInteger): BigInteger;
+class operator BigInteger.Subtract(ABN: BigInteger; BBN: BigInteger
+  ): BigInteger;
 begin
   BN_sub(Result, ABN, BBN);
 end;

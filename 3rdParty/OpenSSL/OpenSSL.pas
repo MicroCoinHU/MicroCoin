@@ -30,7 +30,11 @@ var
 {$ELSE}
   {$IFDEF FPC}
   // Windows + Lazarus uses a OpenSSL v1.0 32 or 64 bits
-     SSL_C_LIB : AnsiString = 'libeay32.dll';
+     {$IFDEF OpenSSL10}
+       SSL_C_LIB : AnsiString = 'libeay32.dll';
+     {$ELSE}
+       SSL_C_LIB : AnsiString = 'libcrypto-1_1-x64.dll';
+     {$ENDIF}
   {$ELSE}
   {$IFDEF CPU64BITS}
   // Windows + Delphi only allows OpenSSL v1.0 32 bits

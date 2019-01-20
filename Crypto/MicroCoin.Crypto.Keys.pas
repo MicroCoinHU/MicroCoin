@@ -30,6 +30,9 @@
 | Created at: 2019-01-17                                                       |
 | Purpose:    ECDSA Key managment and helper routines                          |
 |==============================================================================}
+{$IFDEF FPC}
+  {$MODE DELPHI}
+{$ENDIF}
 
 unit MicroCoin.Crypto.Keys;
 
