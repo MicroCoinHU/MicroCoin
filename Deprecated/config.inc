@@ -56,16 +56,17 @@
   {$IFDEF FPC}
     // With Free Pascal Compiler, only Synapse + OpenSSLv1.0 for Delphi or OpenSSLv1.1 for Linux
     {$DEFINE Synapse}
-    {$IFDEF LINUX}
-    {$DEFINE OpenSSL10}
-    {.$UNDEF OpenSSL10}
+    {$IFDEF WINDOWS}
+      {$DEFINE OpenSSL11}
+      {$UNDEF OpenSSL10}
     {$ELSE}
-    {$DEFINE OpenSSL10}
+      {$UNDEF OpenSSL11}
+      {$DEFINE OpenSSL10}
     {$ENDIF}
   {$ELSE}
     // Delphi, Synapse + OpenSSL v1.0
     {$DEFINE Synapse}
-    {$DEFINE OpenSSL11}
+    {$DEFINE OpenSSL10}
   {$ENDIF}
   {$IFDEF DelphiSockets_OpenSSLv10}{$Message 'Fatal You selected more than 1 option'}{$ENDIF}
   {$IFDEF Synapse_OpenSSLv10}{$Message Fatal 'You selected more than 1 option'}{$ENDIF}
@@ -95,9 +96,10 @@
     {$ENDIF}
   {$ENDIF}
 {$ENDIF}
-
+{$IFnDEF FPC}
 {$ifdef OpenSSL11}
   {$undef OpenSSL11}
 {$endif}
-
 {$define OpenSSL10}
+{$ENDIF}
+

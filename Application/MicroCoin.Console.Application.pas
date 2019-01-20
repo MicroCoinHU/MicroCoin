@@ -39,13 +39,14 @@ unit MicroCoin.Console.Application;
 
 interface
 
-uses Classes, SysUtils, {$IFDEF MSWINDOWS}Windows, {$ifndef fpc}Threading,{$endif} {$ELSE}{$ENDIF}
+uses Classes, SysUtils, {$IFDEF MSWINDOWS}Windows, {$ifndef fpc}Threading, {$endif} {$ELSE}{$ENDIF}
+  {$IFDEF FPC}{$ENDIF}
   SyncObjs, OpenSSL, UCrypto, MicroCoin.Node.Node, MicroCoin.BlockChain.FileStorage,
-  UFolderHelper, UWalletKeys, UConst, ULog, MicroCoin.Net.Protocol,
+  UWalletKeys, ULog, MicroCoin.Net.Protocol, MicroCoin.Crypto.Keys,
   IniFiles, MicroCoin.Account.AccountKey, MicroCoin.Net.ConnectionManager,
   MicroCoin.RPC.Server, MicroCoin.Mining.Server, MicroCoin.Account.Data,
-  MicroCoin.Common.AppSettings, MicroCoin.Common.InifileSettings,
-  MicroCoin.Keys.KeyManager;
+  MicroCoin.Common.AppSettings, MicroCoin.Common.InifileSettings, OpenSSLDef,
+  MicroCoin.Keys.KeyManager, MicroCoin.Common.Config;
 
 type
 
@@ -82,13 +83,18 @@ type
     property Started : boolean read FStarted default false;
   end;
 
+  { TMicroCoinApplication }
+
   TMicroCoinApplication = class(TThread)
-  strict protected
+  private
+    FOnLog: TNewLogEvent;
+  protected
     procedure Execute; override;
     procedure OnMicroCoinInThreadLog(logtype: TLogType; Time: TDateTime; AThreadID: Cardinal; const sender, logtext: AnsiString);
   public
     constructor Create;
     destructor Destroy; override;
+    property OnLog : TNewLogEvent read FOnLog write FOnLog;
   end;
 
 var
@@ -101,21 +107,20 @@ begin
   MicroCoin.OnLog := OnMicroCoinInThreadLog;
   MicroCoin.Start;
   repeat
-    Sleep(100);
+   Sleep(1);
   until Terminated;
 end;
 
 constructor TMicroCoinApplication.Create;
 begin
   MicroCoin := TMicroCoin.Create;
+  FreeOnTerminate := true;
   inherited Create(false);
-  WriteLn('');
-  WriteLn(formatDateTime('dd/mm/yyyy hh:nn:ss.zzz', now) + ' Starting MicroCoin server');
 end;
 
 destructor TMicroCoinApplication.Destroy;
 begin
-   FreeAndNil(MicroCoin);
+  FreeAndNil(MicroCoin);
   inherited Destroy;
 end;
 
@@ -123,10 +128,12 @@ procedure TMicroCoinApplication.OnMicroCoinInThreadLog(logtype: TLogType; Time: 
   const sender, logtext: AnsiString);
 var
   s: AnsiString;
-{$IFDEF MSWINDOWS}
   color: word;
-{$ENDIF}
 begin
+  if Assigned(FOnLog) then begin
+    FOnLog(logtype, Time, AThreadID, sender, logtext);
+    exit;
+  end;
   if AThreadID = MainThreadID then
     s := ' MAIN:'
   else
@@ -136,17 +143,19 @@ begin
     lterror:
       color := FOREGROUND_INTENSITY or FOREGROUND_RED;
     ltinfo:
-      color := FOREGROUND_BLUE or FOREGROUND_INTENSITY;
+      color := FOREGROUND_RED or FOREGROUND_GREEN or FOREGROUND_BLUE or FOREGROUND_INTENSITY;
     ltdebug:
       color := FOREGROUND_RED or FOREGROUND_GREEN or FOREGROUND_BLUE;
     ltupdate:
       color := FOREGROUND_INTENSITY or FOREGROUND_GREEN;
   end;
   SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color);
+{$ELSE}
 {$ENDIF}
   WriteLn(formatDateTime('dd/mm/yyyy hh:nn:ss.zzz', Time) + s + IntToHex(AThreadID, 8) + ' [' + CT_LogType[logtype] +
     '] <' + sender + '> ' + logtext);
 end;
+
 
 { TMicroCoin }
 
@@ -172,9 +181,9 @@ begin
   FSettings.Free;
   FRPC.Free;
   FMinerServer.Free;
-  TNode.Node.Free;
   FWalletKeys.Free;
   TConnectionManager.ReleaseInstance;
+  TNode.Node.Free;
   inherited;
 end;
 
@@ -194,8 +203,10 @@ end;
 
 procedure TMicroCoin.InitKeys;
 begin
+  ForceDirectories(MicroCoinDataFolder);
   FWalletKeys := TKeyManager.Create(nil);
-  FWalletKeys.WalletFileName := TFolderHelper.GetMicroCoinDataFolder + PathDelim + 'WalletKeys.dat';
+  TLog.newlog(ltdebug, classname, MicroCoinDataFolder + PathDelim + 'WalletKeys.dat');
+  FWalletKeys.WalletFileName := MicroCoinDataFolder + PathDelim + 'WalletKeys.dat';
 end;
 
 procedure TMicroCoin.InitLog;
@@ -204,23 +215,25 @@ begin
   if FSettings.SaveLogs then
   begin
     FLog.SaveTypes := CT_TLogTypes_ALL;
-    FLog.FileName := TFolderHelper.GetMicroCoinDataFolder + PathDelim + 'microcoin_' +
+    FLog.FileName := MicroCoinDataFolder + PathDelim + 'microcoin_' +
       formatDateTime('yyyymmddhhnn', now) + '.log';
   end;
 end;
 
 procedure TMicroCoin.InitNode;
+var
+  xIPAddresses: AnsiString;
 begin
   TNode.Node.BlockManager.StorageClass := TFileStorage;
-  TFileStorage(TNode.Node.BlockManager.Storage).DatabaseFolder := TFolderHelper.GetMicroCoinDataFolder + PathDelim + 'Data';
-
-  TNode.Node.BlockManager.DiskRestoreFromTransactions(cMaxBlocks);
-
+  TFileStorage(TNode.Node.BlockManager.Storage).DatabaseFolder := MicroCoinDataFolder + PathDelim + 'Data';
+  TFileStorage(TNode.Node.BlockManager.Storage).Initialize;
   FWalletKeys.AccountStorage := TNode.Node.BlockManager.AccountStorage;
+  TNode.Node.BlockManager.DiskRestoreFromTransactions(cMaxBlocks);
+  TConnectionManager.Instance.DiscoverFixedServersOnly([]);
 
   TNode.Node.NetServer.Port := FSettings.Port;
   TNode.Node.NetServer.MaxConnections := FSettings.MaxConnections;
-  TNode.Node.AutoDiscoverNodes(CT_Discover_IPs);
+  TNode.Node.AutoDiscoverNodes(cDiscover_IPs);
   TNode.Node.NetServer.Active := true;
 
   FStarted := True;
@@ -233,7 +246,7 @@ var
   s: string;
   pubkey: TAccountKey;
   errors: AnsiString;
-  ECPK: TECPrivateKey;
+  ECPK: TECKeyPair;
 begin
   i := FSettings.MinerServerPort;
   if (i < 0) then
@@ -241,24 +254,24 @@ begin
   if (i > 0) then
   begin
     Port := i;
-    pubkey := CT_TECDSA_Public_Nul;
+    pubkey := TAccountKey.Empty;
     s := Trim(FSettings.PublicKey);
     if (s = '') or (not TAccountKey.AccountKeyFromImport(s, pubkey, errors)) then
     begin
       if s <> '' then
         TLog.NewLog(lterror, ClassName, 'Invalid INI file public key: ' + errors);
       i := 0;
-      while (i < FWalletKeys.Count) and (pubkey.EC_OpenSSL_NID = CT_TECDSA_Public_Nul.EC_OpenSSL_NID) do
+      while (i < FWalletKeys.Count) and (pubkey.EC_OpenSSL_NID = TAccountKey.Empty.EC_OpenSSL_NID) do
       begin
         if (FWalletKeys.Key[i].CryptedKey <> '') then
           pubkey := FWalletKeys[i].AccountKey
         else
           inc(i);
       end;
-      if (pubkey.EC_OpenSSL_NID = CT_TECDSA_Public_Nul.EC_OpenSSL_NID) then
+      if (pubkey.EC_OpenSSL_NID = TAccountKey.Empty.EC_OpenSSL_NID) then
       begin
         // New key
-        ECPK := TECPrivateKey.Create;
+        ECPK := TECKeyPair.Create;
         try
           ECPK.GenerateRandomPrivateKey(cDefault_EC_OpenSSL_NID);
           FWalletKeys.AddPrivateKey('RANDOM NEW BY DAEMON ' + formatDateTime('yyyy-mm-dd hh:nn:dd', now), ECPK);
@@ -321,7 +334,7 @@ begin
   TLog.NewLog(ltinfo, ClassName, 'RPC server is active on port ' + IntToStr(Port));
   if FSettings.SaveRPCLogs then
   begin
-    FRPC.LogFileName := TFolderHelper.GetMicroCoinDataFolder + PathDelim + 'microcoin_rpc.log';
+    FRPC.LogFileName := MicroCoinDataFolder + PathDelim + 'microcoin_rpc.log';
     TLog.NewLog(ltinfo, ClassName, 'Activating RPC logs on file ' + FRPC.LogFileName);
   end
   else
@@ -340,14 +353,19 @@ end;
 procedure TMicroCoin.Start;
 begin
   InitCrypto;
+  TLog.NewLog(ltdebug, classname, 'InitCrypto');
   InitKeys;
+  TLog.NewLog(ltdebug, classname, 'InitKeys');
   InitRPCServer;
+  TLog.NewLog(ltdebug, classname, 'InitRPCServer');
   {$ifndef fpc}
   FInitTask := TTask.Run(InitNode);
   {$else}
   InitNode;
+  TLog.NewLog(ltdebug, classname, 'InitNode');
   {$endif}
   InitRPCMinerServer;
+  TLog.NewLog(ltdebug, classname, 'InitRPCMinerServer');
 end;
 
 initialization
