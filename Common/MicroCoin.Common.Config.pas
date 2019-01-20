@@ -40,7 +40,7 @@ unit MicroCoin.Common.Config;
 interface
 
 {$IFNDEF LINUX}
-uses Windows, Winapi.ShlObj;
+uses Windows, {$IFNDEF FPC}{$ENDIF}ShlObj;
 {$ENDIF}
 
 {$I config.inc}
