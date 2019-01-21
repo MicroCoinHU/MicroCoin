@@ -21,8 +21,7 @@ unit UCrypto;
 
 interface
 
-uses
-  Classes, SysUtils, MicroCoin.Crypto.Keys, OpenSSL, OpenSSLdef, UBasetypes,
+uses Classes, SysUtils, MicroCoin.Crypto.Keys, OpenSSL, OpenSSLdef, UBasetypes,
   MicroCoin.Crypto.Errors, MicroCoin.Crypto.BigNum;
 
 type
@@ -34,33 +33,26 @@ type
 
   TCrypto = class
   private
-    class function ECDSAVerify(EC_OpenSSL_NID: Word; PubKey: EC_POINT;
-      const digest: AnsiString; Signature: TECDSA_SIG): Boolean; overload;
+    class function ECDSAVerify(EC_OpenSSL_NID: Word; PubKey: EC_POINT; const digest: AnsiString; Signature: TECDSA_SIG)
+      : Boolean; overload;
   public
-    class function DoSha256(p: PAnsiChar; plength: Cardinal)
-      : TRawBytes; overload;
+    class function DoSha256(p: PAnsiChar; plength: Cardinal): TRawBytes; overload;
     class function DoSha256(const TheMessage: AnsiString): TRawBytes; overload;
-    class procedure DoDoubleSha256(p: PAnsiChar; plength: Cardinal;
-      var ResultSha256: TRawBytes); overload;
-    class function DoRipeMD160_HEXASTRING(const TheMessage: AnsiString)
-      : TRawBytes; overload;
-    class function DoRipeMD160AsRaw(p: PAnsiChar; plength: Cardinal)
-      : TRawBytes; overload;
-    class function DoRipeMD160AsRaw(const TheMessage: AnsiString)
-      : TRawBytes; overload;
+    class procedure DoDoubleSha256(p: PAnsiChar; plength: Cardinal; var ResultSha256: TRawBytes); overload;
+    class function DoRipeMD160_HEXASTRING(const TheMessage: AnsiString): TRawBytes; overload;
+    class function DoRipeMD160AsRaw(p: PAnsiChar; plength: Cardinal): TRawBytes; overload;
+    class function DoRipeMD160AsRaw(const TheMessage: AnsiString): TRawBytes; overload;
     class function PrivateKey2Hexa(Key: TECKeyPair): AnsiString;
-    class function ECDSASign(Key: TECKeyPair; const digest: AnsiString)
-      : TECDSA_SIG;
-    class function ECDSAVerify(PubKey: TECPublicKey; const digest: AnsiString;
-      Signature: TECDSA_SIG): Boolean; overload;
+    class function ECDSASign(Key: TECKeyPair; const digest: AnsiString): TECDSA_SIG;
+    class function ECDSAVerify(PubKey: TECPublicKey; const digest: AnsiString; Signature: TECDSA_SIG): Boolean;
+      overload;
     class procedure InitCrypto;
     class function IsHumanReadable(const ReadableText: TRawBytes): Boolean;
   end;
 
 implementation
 
-uses
-  ULog, MicroCoin.Common.Config, MicroCoin.Account.AccountKey,
+uses ULog, MicroCoin.Common.Config, MicroCoin.Account.AccountKey,
   MicroCoin.Common.Stream;
 
 var
@@ -77,8 +69,7 @@ end;
 
 { TCrypto }
 
-class procedure TCrypto.DoDoubleSha256(p: PAnsiChar; plength: Cardinal;
-  var ResultSha256: TRawBytes);
+class procedure TCrypto.DoDoubleSha256(p: PAnsiChar; plength: Cardinal; var ResultSha256: TRawBytes);
 var
   PS: PAnsiChar;
 begin
@@ -89,8 +80,7 @@ begin
   SHA256(PS, 32, PS);
 end;
 
-class function TCrypto.DoRipeMD160_HEXASTRING(const TheMessage: AnsiString)
-  : TRawBytes;
+class function TCrypto.DoRipeMD160_HEXASTRING(const TheMessage: AnsiString): TRawBytes;
 var
   PS: PAnsiChar;
   PC: PAnsiChar;
@@ -108,8 +98,7 @@ begin
   FreeMem(PS, 33);
 end;
 
-class function TCrypto.DoRipeMD160AsRaw(p: PAnsiChar; plength: Cardinal)
-  : TRawBytes;
+class function TCrypto.DoRipeMD160AsRaw(p: PAnsiChar; plength: Cardinal): TRawBytes;
 var
   PS: PAnsiChar;
 begin
@@ -118,8 +107,7 @@ begin
   RIPEMD160(p, plength, PS);
 end;
 
-class function TCrypto.DoRipeMD160AsRaw(const TheMessage: AnsiString)
-  : TRawBytes;
+class function TCrypto.DoRipeMD160AsRaw(const TheMessage: AnsiString): TRawBytes;
 var
   PS: PAnsiChar;
 begin
@@ -147,8 +135,7 @@ begin
   PS := nil;
 end;
 
-class function TCrypto.ECDSASign(Key: TECKeyPair; const digest: AnsiString)
-  : TECDSA_SIG;
+class function TCrypto.ECDSASign(Key: TECKeyPair; const digest: AnsiString): TECDSA_SIG;
 var
   PECS: PECDSA_SIG;
 {$IFDEF OpenSSL10}
@@ -173,8 +160,8 @@ begin
   end;
 end;
 
-class function TCrypto.ECDSAVerify(EC_OpenSSL_NID: Word; PubKey: EC_POINT;
-  const digest: AnsiString; Signature: TECDSA_SIG): Boolean;
+class function TCrypto.ECDSAVerify(EC_OpenSSL_NID: Word; PubKey: EC_POINT; const digest: AnsiString;
+  Signature: TECDSA_SIG): Boolean;
 var
   PECS: PECDSA_SIG;
   PK: PEC_KEY;
@@ -186,21 +173,23 @@ begin
   PECS := ECDSA_SIG_new;
   try
 {$IFDEF OpenSSL10}
-    BN_bin2bn(PAnsiChar(Signature.r),length(Signature.r),PECS^._r);
-    BN_bin2bn(PAnsiChar(Signature.s),length(Signature.s),PECS^._s);
+    BN_bin2bn(PAnsiChar(Signature.r), length(Signature.r), PECS^._r);
+    BN_bin2bn(PAnsiChar(Signature.s), length(Signature.s), PECS^._s);
 {$ELSE}
     bnr := BN_bin2bn(PAnsiChar(Signature.r), length(Signature.r), nil);
     bns := BN_bin2bn(PAnsiChar(Signature.s), length(Signature.s), nil);
     if ECDSA_SIG_set0(PECS, bnr, bns) <> 1 then
-      raise Exception.Create('Dev error 20161019-1 ' +
-        ERR_error_string(ERR_get_error(), nil));
+      raise Exception.Create('Dev error 20161019-1 ' + ERR_error_string(ERR_get_error(), nil));
 {$ENDIF}
     PK := EC_KEY_new_by_curve_name(EC_OpenSSL_NID);
     EC_KEY_set_public_key(PK, @PubKey);
     case ECDSA_do_verify(PAnsiChar(digest), length(digest), PECS, PK) of
-      1: Result := true;
-      0: Result := false;
-      else raise ECryptoException.Create('Error on Verify');
+      1:
+        Result := true;
+      0:
+        Result := false;
+    else
+      raise ECryptoException.Create('Error on Verify');
     end;
     EC_KEY_free(PK);
   finally
@@ -208,8 +197,7 @@ begin
   end;
 end;
 
-class function TCrypto.ECDSAVerify(PubKey: TECPublicKey;
-  const digest: AnsiString; Signature: TECDSA_SIG): Boolean;
+class function TCrypto.ECDSAVerify(PubKey: TECPublicKey; const digest: AnsiString; Signature: TECDSA_SIG): Boolean;
 var
   BNx, BNy: PBIGNUM;
   ECG: PEC_GROUP;
