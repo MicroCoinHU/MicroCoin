@@ -15,6 +15,8 @@ unit MicroCoin.Net.NodeServer;
 
 interface
 
+uses classes, MicroCoin.Common.Stream;
+
 type
   TNodeServer = record
     ip: AnsiString;
@@ -27,17 +29,38 @@ type
     total_failed_attemps_to_connect: Integer;
     is_blacklisted: Boolean; // Build 1.4.4
     BlackListText: string;
+    class function LoadFromStream(AStream : TStream) : TNodeServer; static;
+    class function Empty : TNodeServer; static;
   end;
 
   TNodeServerAddressArray = array of TNodeServer;
 
   PNodeServerAddress = ^TNodeServer;
 
-const
-  CT_TNodeServerAddress_NUL: TNodeServer = (ip: ''; port: 0; last_connection: 0; last_connection_by_server: 0;
-    { netConnection: nil; } its_myself: false; last_attempt_to_connect: 0; total_failed_attemps_to_connect: 0;
-    is_blacklisted: false; BlackListText: '');
-
 implementation
+
+{ TNodeServer }
+
+class function TNodeServer.Empty: TNodeServer;
+begin
+  Result.ip := '';
+  Result.port := 0;
+  Result.last_connection := 0;
+  Result.last_connection_by_server := 0;
+  Result.netConnection := nil;
+  Result.its_myself := false;
+  Result.last_attempt_to_connect := 0;
+  Result.total_failed_attemps_to_connect := 0;
+  Result.is_blacklisted := false;
+  Result.BlackListText := '';
+end;
+
+class function TNodeServer.LoadFromStream(AStream: TStream): TNodeServer;
+begin
+  Result := Empty;
+  AStream.ReadAnsiString(Result.ip);
+  AStream.Read(Result.port, 2);
+  AStream.Read(Result.last_connection_by_server, 4);
+end;
 
 end.

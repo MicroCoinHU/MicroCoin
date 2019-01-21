@@ -40,7 +40,9 @@ unit MicroCoin.Net.Protocol;
 interface
 
 uses MicroCoin.BlockChain.BlockHeader,
-  MicroCoin.Net.NodeServer, SysUtils;
+  UECIES,
+  MicroCoin.Net.NodeServer, SysUtils, MicroCoin.Account.AccountKey,
+  MicroCoin.Common.Stream, Classes, MicroCoin.BlockChain.Block;
 
 const
 
@@ -101,11 +103,34 @@ type
   end;
 
   TNetMessage_Hello = record
+    server_port : word;
+    accountKey : TAccountKey;
+    timestamp: UInt32;
+    RemoteHost: string;
     last_operation: TBlockHeader;
     servers_address: array of TNodeServer;
+    Block : TBlock;
+    nodeserver_count: UInt32;
+    nodeservers : array of TNodeServer;
+    client_version: ansiString;
+    remote_work: UInt64;
+    class function LoadFromStream(AStream : TStream) : TNetMessage_Hello; static;
+  end;
+
+  TNetMessage_Message = record
+    Message : AnsiString;
+    class function LoadFromStream(AStream : TStream) : TNetMessage_Message; static;
+  end;
+
+  TNetMessage_NewBlock = record
+    NewBlock : TBlock;
+    RemoteWork : UInt64;
+    class function LoadFromStream(AStream : TStream) : TNetMessage_NewBlock; static;
   end;
 
 implementation
+
+uses MicroCoin.Net.ConnectionManager, MicroCoin.Node.Node;
 
 { TNetHeaderData }
 
@@ -158,6 +183,78 @@ begin
     Result := Result + ' ReqId:' + Inttostr(RequestId) + ' BufferSize:' +
       Inttostr(BufferDataLength);
   end;
+end;
+
+{ TNetMessage_Hello }
+
+class function TNetMessage_Hello.LoadFromStream(AStream: TStream): TNetMessage_Hello;
+var
+  xErrors: ansiString;
+  i: Integer;
+  xTmp: AnsiString;
+begin
+
+  if AStream.Read(Result.server_port, sizeof(Result.server_port)) <> sizeof(result.server_port)
+  then raise Exception.Create('Invalid hello');
+
+  Result.accountKey := TAccountKey.Empty;
+  AStream.ReadAnsiString(xTmp);
+  Result.accountKey := TAccountKey.FromRawString(xTmp);
+
+  if not Result.accountKey.IsValidAccountKey(xErrors)
+  then raise Exception.Create(xErrors);
+
+  if AStream.Read(Result.timestamp, sizeof(result.timestamp)) <> sizeof(result.timestamp)
+  then raise Exception.Create('Invalid hello');
+
+  Result.Block := TBlock.Create(nil);
+
+  if not Result.Block.LoadBlockFromStream(AStream, xErrors)
+  then raise Exception.Create(xErrors);
+
+  if AStream.Size >= AStream.Position + SizeOf(Result.nodeserver_count)
+  then begin
+    AStream.Read( Result.nodeserver_count, SizeOf(Result.nodeserver_count));
+    SetLength(Result.nodeservers, Result.nodeserver_count);
+    for i := 0 to Result.nodeserver_count - 1 do begin
+      Result.nodeservers[i] := TNodeServer.LoadFromStream(AStream);
+    end;
+    AStream.ReadAnsiString(Result.client_version);
+    AStream.Read(Result.remote_work, sizeof(Result.remote_work))
+  end;
+
+end;
+
+{ TNetMessage_Message }
+
+class function TNetMessage_Message.LoadFromStream(
+  AStream: TStream): TNetMessage_Message;
+var
+  xMsg : AnsiString;
+begin
+  AStream.ReadAnsiString(xMsg);
+  if not ECIESDecrypt(TConnectionManager.Instance.NodePrivateKey.EC_OpenSSL_NID,
+    TConnectionManager.Instance.NodePrivateKey.PrivateKey, false, xMsg, Result.Message)
+  then raise Exception.Create('Can''''t decrypt message');
+end;
+
+{ TNetMessage_NewBlock }
+
+
+{ TNetMessage_NewBlock }
+
+class function TNetMessage_NewBlock.LoadFromStream(
+  AStream: TStream): TNetMessage_NewBlock;
+var
+  xErrors: ansiString;
+begin
+  Result.RemoteWork := 0;
+  Result.NewBlock := TBlock.Create(nil);
+  Result.NewBlock.BlockManager := TNode.Node.BlockManager;
+ if not Result.NewBlock.LoadBlockFromStream(AStream, xErrors)
+  then raise Exception.Create(xErrors);
+  if AStream.Size > AStream.Position + SizeOf(Result.RemoteWork)
+  then AStream.Read(Result.RemoteWork, SizeOf(Result.RemoteWork));
 end;
 
 end.

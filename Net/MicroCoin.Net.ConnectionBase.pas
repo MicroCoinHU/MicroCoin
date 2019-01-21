@@ -44,7 +44,7 @@ interface
 
 uses SysUtils, Classes, UTCPIP, MicroCoin.BlockChain.BlockHeader, UThread,
   MicroCoin.Account.AccountKey, MicroCoin.Common.Lists, MicroCoin.Net.Protocol,
-  MicroCoin.Net.NodeServer,
+  MicroCoin.Net.NodeServer, Generics.Collections, MicroCoin.Net.CommandHandler,
   MicroCoin.Transaction.HashTree, MicroCoin.BlockChain.Block, ULog;
 
 type
@@ -66,6 +66,7 @@ type
     FHasReceivedData: Boolean;
     FRandomWaitSecondsSendHello: Cardinal;
     FClientTimestampIp: AnsiString;
+    class var FHandlers : TDictionary<Word, TClass>;
     function GetConnected: Boolean;
     procedure SetConnected(const Value: Boolean);
     procedure TcpClient_OnConnect(Sender: TObject);
@@ -80,12 +81,9 @@ type
     procedure Send(NetTranferType: TNetTransferType; operation, errorcode: Word; request_id: Integer;
       DataBuffer: TStream);
 
-    procedure DoProcess_Hello(HeaderData: TNetHeaderData; DataBuffer: TStream); virtual; abstract;
-    procedure DoProcess_Message(HeaderData: TNetHeaderData; DataBuffer: TStream); virtual; abstract;
     procedure DoProcess_GetBlocks_Request(HeaderData: TNetHeaderData; DataBuffer: TStream); virtual; abstract;
     procedure DoProcess_GetBlocks_Response(HeaderData: TNetHeaderData; DataBuffer: TStream); virtual; abstract;
     procedure DoProcess_GetOperationsBlock_Request(HeaderData: TNetHeaderData; DataBuffer: TStream); virtual; abstract;
-    procedure DoProcess_NewBlock(HeaderData: TNetHeaderData; DataBuffer: TStream); virtual; abstract;
     procedure DoProcess_AddOperations(HeaderData: TNetHeaderData; DataBuffer: TStream); virtual; abstract;
     procedure DoProcess_GetAccountStorage_Request(AHeaderData: TNetHeaderData; ADataBuffer: TStream); virtual; abstract;
 
@@ -106,6 +104,8 @@ type
     function  Send_GetBlocks(StartAddress, quantity: Cardinal; var request_id: Cardinal): Boolean; virtual; abstract;
     function  Send_AddOperations(Operations: TTransactionHashTree): Boolean; virtual; abstract;
     function  Send_Message(const TheMessage: AnsiString): Boolean; virtual; abstract;
+
+    class procedure AddHandler(ACommand : word; AHandler : TClass);
 
     procedure FinalizeConnection;
 
@@ -134,6 +134,15 @@ uses UTime, MicroCoin.Net.ConnectionManager, MicroCoin.Common.Config, UCrypto,
   UChunk, MicroCoin.Net.Client, {$IFDEF MSWINDOWS} Windows, {$ENDIF} MicroCoin.Transaction.Base,
   MicroCoin.Net.Utils, MicroCoin.Common.Stream,
   MicroCoin.Transaction.Manager, MicroCoin.Node.Node, MicroCoin.Account.Storage;
+
+class procedure TNetConnectionBase.AddHandler(ACommand: word; AHandler: TClass);
+begin
+  if not Supports(AHandler, ICommandHandler)
+  then raise Exception.Create('Invalid command handler');
+  if not assigned(FHandlers)
+  then FHandlers := TDictionary<Word, TClass>.Create;
+  FHandlers.add(ACommand, AHandler);
+end;
 
 function TNetConnectionBase.ClientRemoteAddr: AnsiString;
 begin
@@ -288,7 +297,7 @@ begin
       if i < 0 then
       begin
         New(P);
-        P^ := CT_TNodeServerAddress_NUL;
+        P^ := TNodeServer.Empty;
         l.Add(P);
       end
       else
@@ -377,6 +386,8 @@ var
   was_waiting_for_response: Boolean;
   l: TList;
   i: Integer;
+  xHandler : ICommandHandler;
+  xObj : TObject;
 begin
   try
     Result := false;
@@ -431,10 +442,12 @@ begin
               end
               else
               begin
+               if FHandlers.ContainsKey(HeaderData.Operation)
+               then begin
+                 Supports(FHandlers[HeaderData.Operation].Create, ICommandHandler, xHandler);
+                 xHandler.HandleCommand(HeaderData, ReceiveDataBuffer, self);
+               end else
                 case HeaderData.Operation of
-                  cNetOp_Hello:   DoProcess_Hello(HeaderData, ReceiveDataBuffer);
-                  cNetOp_Message: DoProcess_Message(HeaderData, ReceiveDataBuffer);
-                  cNetOp_NewBlock: DoProcess_NewBlock(HeaderData, ReceiveDataBuffer);
                   cNetOp_AddOperations: DoProcess_AddOperations(HeaderData, ReceiveDataBuffer);
                   cNetOp_GetBlocks:
                     begin

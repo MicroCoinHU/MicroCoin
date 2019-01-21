@@ -556,7 +556,7 @@ class procedure TNode.DecodeIpStringToNodeServerAddressArray(const Ips: AnsiStri
     i: Integer;
     port: AnsiString;
   begin
-    nsa := CT_TNodeServerAddress_NUL;
+    nsa := TNodeServer.Empty;
     Result := false;
     if length(trim(ips_string)) = 0 then
     begin

@@ -45,7 +45,7 @@ interface
 uses SysUtils, Classes, UTCPIP, MicroCoin.BlockChain.BlockHeader, UThread,
   MicroCoin.Account.AccountKey, MicroCoin.Common.Lists, MicroCoin.Net.Protocol,
   MicroCoin.Net.NodeServer, UBaseTypes,
-  MicroCoin.Transaction.Itransaction,
+  MicroCoin.Transaction.ITransaction,
   MicroCoin.Transaction.HashTree, MicroCoin.BlockChain.Block, ULog,
   MicroCoin.Net.ConnectionBase;
 
@@ -62,12 +62,9 @@ type
     FTimestampDiff: Integer;
     FClientAppVersion: AnsiString;
   strict protected
-    procedure DoProcess_Hello(HeaderData: TNetHeaderData; DataBuffer: TStream); override;
-    procedure DoProcess_Message(HeaderData: TNetHeaderData; DataBuffer: TStream); override;
     procedure DoProcess_GetBlocks_Request(HeaderData: TNetHeaderData; DataBuffer: TStream); override;
     procedure DoProcess_GetBlocks_Response(HeaderData: TNetHeaderData; DataBuffer: TStream); override;
     procedure DoProcess_GetOperationsBlock_Request(HeaderData: TNetHeaderData; DataBuffer: TStream); override;
-    procedure DoProcess_NewBlock(HeaderData: TNetHeaderData; DataBuffer: TStream); override;
     procedure DoProcess_AddOperations(HeaderData: TNetHeaderData; DataBuffer: TStream); override;
     procedure DoProcess_GetAccountStorage_Request(HeaderData: TNetHeaderData; DataBuffer: TStream); override;
   public
@@ -83,10 +80,10 @@ type
     function Send_Message(const TheMessage: AnsiString): Boolean; override;
 
     property IsDownloadingBlocks: Boolean read FIsDownloadingBlocks write FIsDownloadingBlocks;
-    property RemoteOperationBlock: TBlockHeader read FRemoteOperationBlock;
+    property RemoteOperationBlock: TBlockHeader read FRemoteOperationBlock write FRemoteOperationBlock;
     property RemoteAccumulatedWork: UInt64 read FRemoteAccumulatedWork write FRemoteAccumulatedWork;
     property ClientPublicKey: TAccountKey read FClientPublicKey write FClientPublicKey;
-    property TimestampDiff: Integer read FTimestampDiff;
+    property TimestampDiff: Integer read FTimestampDiff write FTimestampDiff;
     property ClientAppVersion: AnsiString read FClientAppVersion write FClientAppVersion;
   end;
 
@@ -524,295 +521,6 @@ begin
     end;
   finally
     FreeAndNil(xAccountStorageStream);
-  end;
-end;
-
-procedure TNetConnection.DoProcess_Hello(HeaderData: TNetHeaderData; DataBuffer: TStream);
-var
-  op, myLastOp: TBlock;
-  errors: AnsiString;
-  connection_has_a_server: Word;
-  i, c: Integer;
-  nsa: TNodeServer;
-  rid: Cardinal;
-  connection_ts: Cardinal;
-  Duplicate: TNetConnectionBase;
-  RawAccountKey: TRawBytes;
-  other_version: AnsiString;
-begin
-  FRemoteAccumulatedWork := 0;
-  op := TBlock.Create(nil);
-  try
-    DataBuffer.Position := 0;
-    if DataBuffer.Read(connection_has_a_server, 2) < 2 then
-    begin
-      DisconnectInvalidClient(false, 'Invalid data on buffer: ' + (HeaderData.ToString));
-      exit;
-    end;
-    if DataBuffer.ReadAnsiString(RawAccountKey) < 0 then
-    begin
-      DisconnectInvalidClient(false, 'Invalid data on buffer. No Public key: ' + (HeaderData.ToString));
-      exit;
-    end;
-    FClientPublicKey := TAccountKey.FromRawString(RawAccountKey);
-    if not FClientPublicKey.IsValidAccountKey(errors) then
-    begin
-      DisconnectInvalidClient(false, 'Invalid Public key: ' + (HeaderData.ToString) +
-        ' errors: ' + errors);
-      exit;
-    end;
-    if DataBuffer.Read(connection_ts, 4) < 4
-    then begin
-      DisconnectInvalidClient(false, 'Invalid data on buffer. No TS: ' + (HeaderData.ToString));
-      exit;
-    end;
-    FTimestampDiff := Integer(Int64(connection_ts) -
-      Int64(TConnectionManager.Instance.NetworkAdjustedTime.GetAdjustedTime));
-    if ClientTimestampIp = '' then
-    begin
-      ClientTimestampIp := RemoteHost;
-      TConnectionManager.Instance.NetworkAdjustedTime.AddNewIp(ClientTimestampIp, connection_ts);
-      if (Abs(TConnectionManager.Instance.NetworkAdjustedTime.TimeOffset) > cBlockTimeStampTolerance) then
-      begin
-        TNode.Node.NotifyNetClientMessage(nil, 'The detected network time is different from this system time in ' +
-          Inttostr(TConnectionManager.Instance.NetworkAdjustedTime.TimeOffset) +
-          ' seconds! Please check your local time/timezone');
-      end;
-      //
-      if (Abs(FTimestampDiff) > cBlockTimeStampTolerance) then
-      begin
-        TLog.NewLog(ltError, Classname, 'Detected a node (' + ClientRemoteAddr + ') with incorrect timestamp: ' +
-          Inttostr(connection_ts) + ' offset ' + Inttostr(FTimestampDiff));
-      end;
-    end;
-    if (connection_has_a_server > 0) and (not SameText(Client.RemoteHost, 'localhost')) and
-      (not SameText(Client.RemoteHost, '127.0.0.1')) and (not SameText('192.168.', Copy(Client.RemoteHost, 1, 8))) and
-      (not SameText('10.', Copy(Client.RemoteHost, 1, 3))) and
-      (not TAccountKey.EqualAccountKeys(FClientPublicKey, TConnectionManager.Instance.NodePrivateKey.PublicKey)) then
-    begin
-      nsa := CT_TNodeServerAddress_NUL;
-      nsa.ip := Client.RemoteHost;
-      nsa.port := connection_has_a_server;
-      nsa.last_connection := UnivDateTimeToUnix(DateTime2UnivDateTime(now));
-      TConnectionManager.Instance.AddServer(nsa);
-    end;
-
-    if op.LoadBlockFromStream(DataBuffer, errors) then
-    begin
-      FRemoteOperationBlock := op.BlockHeader;
-      if (DataBuffer.Size - DataBuffer.Position >= 4) then
-      begin
-        DataBuffer.Read(c, 4);
-        for i := 1 to c do
-        begin
-          nsa := CT_TNodeServerAddress_NUL;
-          DataBuffer.ReadAnsiString(nsa.ip);
-          DataBuffer.Read(nsa.port, 2);
-          DataBuffer.Read(nsa.last_connection_by_server, 4);
-          if (nsa.last_connection_by_server > 0) and (i <= cMAX_NODESERVERS_ON_HELLO) then // Protect massive data
-            TConnectionManager.Instance.AddServer(nsa);
-        end;
-        if DataBuffer.ReadAnsiString(other_version) >= 0 then
-        begin
-          // Captures version
-          ClientAppVersion := other_version;
-          if (DataBuffer.Size - DataBuffer.Position >= SizeOf(FRemoteAccumulatedWork)) then
-          begin
-            DataBuffer.Read(FRemoteAccumulatedWork, SizeOf(FRemoteAccumulatedWork));
-            TLog.NewLog(ltdebug, Classname, 'Received HELLO with height: ' + Inttostr(op.BlockHeader.Block) +
-              ' Accumulated work ' + Inttostr(FRemoteAccumulatedWork));
-          end;
-        end;
-        //
-        if (FRemoteAccumulatedWork > TNode.Node.BlockManager.AccountStorage.WorkSum) or
-          ((FRemoteAccumulatedWork = 0) and (TConnectionManager.Instance.MaxRemoteOperationBlock.Block <
-          FRemoteOperationBlock.Block)) then
-        begin
-          TConnectionManager.Instance.MaxRemoteOperationBlock := FRemoteOperationBlock;
-          if TPCThread.ThreadClassFound(TThreadGetNewBlockChainFromClient, nil) < 0 then
-          begin
-            TThreadGetNewBlockChainFromClient.Create(false).FreeOnTerminate := true;
-          end;
-        end;
-      end;
-
-      TLog.NewLog(ltdebug, Classname, 'Hello received: ' + FRemoteOperationBlock.ToString());
-      if (HeaderData.HeaderType in [ntp_request, ntp_response]) then
-      begin
-        // Response:
-        if (HeaderData.HeaderType = ntp_request) then
-        begin
-          Send_Hello(ntp_response, HeaderData.RequestId);
-        end;
-        if (TAccountKey.EqualAccountKeys(FClientPublicKey, TConnectionManager.Instance.NodePrivateKey.PublicKey)) then
-        begin
-          DisconnectInvalidClient(true, 'MySelf disconnecting...');
-          exit;
-        end;
-        Duplicate := TConnectionManager.Instance.FindConnectionByClientRandomValue(Self);
-        if (Duplicate <> nil) and (Duplicate.Connected) then
-        begin
-          DisconnectInvalidClient(true, 'Duplicate connection with ' + Duplicate.ClientRemoteAddr);
-          exit;
-        end;
-        TConnectionManager.Instance.NotifyReceivedHelloMessage;
-      end
-      else
-      begin
-        DisconnectInvalidClient(false, 'Invalid header type > ' + (HeaderData.ToString));
-      end;
-    end
-    else
-    begin
-      TLog.NewLog(ltError, Classname, 'Error decoding operations of HELLO: ' + errors);
-      DisconnectInvalidClient(false, 'Error decoding operations of HELLO: ' + errors);
-    end;
-  finally
-    op.Free;
-  end;
-end;
-
-procedure TNetConnection.DoProcess_Message(HeaderData: TNetHeaderData; DataBuffer: TStream);
-var
-  errors: AnsiString;
-  decrypted, messagecrypted: AnsiString;
-  DoDisconnect: Boolean;
-begin
-  errors := '';
-  DoDisconnect := true;
-  try
-    if HeaderData.HeaderType <> ntp_autosend then
-    begin
-      errors := 'Not autosend';
-      exit;
-    end;
-    if DataBuffer.ReadAnsiString(messagecrypted) < 0 then
-    begin
-      errors := 'Invalid message data';
-      exit;
-    end;
-    if not ECIESDecrypt(TConnectionManager.Instance.NodePrivateKey.EC_OpenSSL_NID,
-      TConnectionManager.Instance.NodePrivateKey.PrivateKey, false, messagecrypted, decrypted) then
-    begin
-      errors := 'Error on decrypting message';
-      exit;
-    end;
-
-    DoDisconnect := false;
-    if TCrypto.IsHumanReadable(decrypted) then
-      TLog.NewLog(ltInfo, Classname, 'Received new message from ' + ClientRemoteAddr + ' Message (' +
-        Inttostr(length(decrypted)) + ' bytes): ' + decrypted)
-    else
-      TLog.NewLog(ltInfo, Classname, 'Received new message from ' + ClientRemoteAddr + ' Message (' +
-        Inttostr(length(decrypted)) + ' bytes) in hexadecimal: ' + TBaseType.ToHexaString(decrypted));
-    try
-      TNode.Node.NotifyNetClientMessage(Self, decrypted);
-    except
-      on E: Exception do
-      begin
-        TLog.NewLog(ltError, Classname, 'Error processing received message. ' + E.Classname + ' ' + E.Message);
-      end;
-    end;
-  finally
-    if DoDisconnect then
-    begin
-      DisconnectInvalidClient(false, errors + ' > ' + (HeaderData.ToString) + ' BuffSize: ' +
-        Inttostr(DataBuffer.Size));
-    end;
-  end;
-end;
-
-procedure TNetConnection.DoProcess_NewBlock(HeaderData: TNetHeaderData; DataBuffer: TStream);
-var
-  xStorageEntry: TAccountStorageEntry;
-  xBlock: TBlock;
-  xErrors: AnsiString;
-  xDoDisconnect: Boolean;
-begin
-  xErrors := '';
-  xDoDisconnect := true;
-  try
-    if HeaderData.HeaderType <> ntp_autosend then
-    begin
-      xErrors := 'Not autosend';
-      exit;
-    end;
-    xBlock := TBlock.Create(nil);
-    try
-      xBlock.BlockManager := TNode.Node.BlockManager;
-      if not xBlock.LoadBlockFromStream(DataBuffer, xErrors) then
-      begin
-        xErrors := 'Error decoding new account: ' + xErrors;
-        exit;
-      end
-      else
-      begin
-        xDoDisconnect := false;
-        if DataBuffer.Size - DataBuffer.Position >= SizeOf(FRemoteAccumulatedWork) then
-        begin
-          DataBuffer.Read(FRemoteAccumulatedWork, SizeOf(FRemoteAccumulatedWork));
-          TLog.NewLog(ltdebug, Classname, 'Received NEW BLOCK with height: ' + Inttostr(xBlock.BlockHeader.Block) +
-            ' Accumulated work ' + Inttostr(FRemoteAccumulatedWork));
-        end
-        else
-          FRemoteAccumulatedWork := 0;
-        FRemoteOperationBlock := xBlock.BlockHeader;
-        //
-        if FRemoteAccumulatedWork = 0 then
-        begin
-          // Old version. No data
-          if (xBlock.BlockHeader.Block > TNode.Node.BlockManager.BlocksCount) then
-          begin
-            TConnectionManager.Instance.GetNewBlockChainFromClient(Self, Format('BlocksCount:%d > my BlocksCount:%d',
-              [xBlock.BlockHeader.Block + 1, TNode.Node.BlockManager.BlocksCount]));
-          end
-          else if (xBlock.BlockHeader.Block = TNode.Node.BlockManager.BlocksCount) then
-          begin
-            // New block candidate:
-            if not TNode.Node.AddNewBlockChain(Self, xBlock, xStorageEntry, xErrors) then
-            begin
-              // Received a new invalid block... perhaps I'm an orphan blockchain
-              TConnectionManager.Instance.GetNewBlockChainFromClient(Self, 'Has a distinct block. ' + xErrors);
-            end;
-          end;
-        end
-        else
-        begin
-          if (FRemoteAccumulatedWork > TNode.Node.BlockManager.AccountStorage.WorkSum) then
-          begin
-            if (xBlock.BlockHeader.Block = TNode.Node.BlockManager.BlocksCount) then
-            begin
-              // New block candidate:
-              if not TNode.Node.AddNewBlockChain(Self, xBlock, xStorageEntry, xErrors) then
-              begin
-                // Really is a new block? (Check it)
-                if (xBlock.BlockHeader.Block = TNode.Node.BlockManager.BlocksCount) then
-                begin
-                  // Received a new invalid block... perhaps I'm an orphan blockchain
-                  TConnectionManager.Instance.GetNewBlockChainFromClient(Self,
-                    'Higher Work with same block height. I''m a orphan blockchain candidate');
-                end;
-              end;
-            end
-            else
-            begin
-              // Received a new higher work
-              TConnectionManager.Instance.GetNewBlockChainFromClient(Self,
-                Format('Higher Work and distinct blocks count. Need to download BlocksCount:%d  my BlocksCount:%d',
-                [xBlock.BlockHeader.Block + 1, TNode.Node.BlockManager.BlocksCount]));
-            end;
-          end;
-        end;
-      end;
-    finally
-      xBlock.Free;
-    end;
-  finally
-    if xDoDisconnect then
-    begin
-      DisconnectInvalidClient(false, xErrors + ' > ' + (HeaderData.ToString) + ' BuffSize: ' +
-        Inttostr(DataBuffer.Size));
-    end;
   end;
 end;
 
