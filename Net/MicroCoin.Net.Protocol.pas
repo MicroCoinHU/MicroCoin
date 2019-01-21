@@ -128,6 +128,20 @@ type
     class function LoadFromStream(AStream : TStream) : TNetMessage_NewBlock; static;
   end;
 
+  TNetMessage_GetBlocks = record
+    StartBlock: Cardinal;
+    EndBlock: Cardinal;
+    class function LoadFromStream(AStream : TStream) : TNetMessage_GetBlocks; static;
+  end;
+
+  TNetMessage_GetBlocks_Response = record
+    Count: Int32;
+    Blocks: array of TBlock;
+    class function LoadFromStream(AStream : TStream) : TNetMessage_GetBlocks_Response; static;
+    procedure SaveToStream(AStream : TStream);
+  end;
+
+
 implementation
 
 uses MicroCoin.Net.ConnectionManager, MicroCoin.Node.Node;
@@ -255,6 +269,55 @@ begin
   then raise Exception.Create(xErrors);
   if AStream.Size > AStream.Position + SizeOf(Result.RemoteWork)
   then AStream.Read(Result.RemoteWork, SizeOf(Result.RemoteWork));
+end;
+
+{ TNetMessage_GetBlocks }
+
+class function TNetMessage_GetBlocks.LoadFromStream(
+  AStream: TStream): TNetMessage_GetBlocks;
+begin
+  AStream.Read(Result.StartBlock, SizeOf(Result.StartBlock));
+  AStream.Read(Result.EndBlock, SizeOf(Result.EndBlock));
+  if (Result.StartBlock<0) or (Result.StartBlock > Result.EndBlock)
+  then raise Exception.CreateFmt('Invalid structure start or end %d, %d',[Result.StartBlock, Result.EndBlock]);
+end;
+
+{ TNetMessage_GetBlocks_Response }
+
+class function TNetMessage_GetBlocks_Response.LoadFromStream(
+  AStream: TStream): TNetMessage_GetBlocks_Response;
+var
+  i: integer;
+  xErrors: AnsiString;
+begin
+  AStream.Read(Result.Count, SizeOf(Result.Count));
+  SetLength(Result.Blocks, Result.Count);
+  for i := Low(Result.Blocks) to High(Result.Blocks)
+  do begin
+    Result.Blocks[i] := TBlock.Create(nil);
+    Result.Blocks[i].BlockManager := TNode.Node.BlockManager;
+    if not Result.Blocks[i].LoadBlockFromStream(AStream, xErrors)
+    then raise Exception.Create(xErrors);
+  end;
+end;
+
+procedure TNetMessage_GetBlocks_Response.SaveToStream(AStream: TStream);
+var
+  xBlock: TBlock;
+  xCnt : integer;
+begin
+  AStream.Write(Count, SizeOf(Count));
+  xCnt := 0;
+  for xBlock in Blocks do begin
+    xBlock.SaveBlockToStream(false, AStream);
+    inc(xCnt);
+    if (AStream.Size > (1024 * 1024 * 2)) then begin
+      AStream.Position := 0;
+      AStream.Write(xCnt, SizeOf(xCnt));
+      AStream.Position := AStream.Size;
+      break;
+    end;
+  end;
 end;
 
 end.

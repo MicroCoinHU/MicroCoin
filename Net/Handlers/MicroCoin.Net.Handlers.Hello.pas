@@ -110,9 +110,7 @@ begin
     then begin
       TConnectionManager.Instance.MaxRemoteOperationBlock := Connection.RemoteOperationBlock;
       if TPCThread.ThreadClassFound(TThreadGetNewBlockChainFromClient, nil) < 0
-      then begin
-        TThreadGetNewBlockChainFromClient.Create(false).FreeOnTerminate := true;
-      end;
+      then TThreadGetNewBlockChainFromClient.Create(false).FreeOnTerminate := true;
     end;
     TLog.NewLog(ltdebug, Classname, 'Received HELLO with height: ' + Inttostr(xHello.Block.BlockHeader.block) +
       ' Accumulated work ' + Inttostr(Connection.RemoteAccumulatedWork));
@@ -120,7 +118,6 @@ begin
     TLog.NewLog(ltdebug, Classname, 'Hello received: ' + Connection.RemoteOperationBlock.ToString());
     if (AHeader.HeaderType in [ntp_request, ntp_response])
     then begin
-      // Response:
       if (AHeader.HeaderType = ntp_request)
       then Connection.Send_Hello(ntp_response, AHeader.RequestId);
 

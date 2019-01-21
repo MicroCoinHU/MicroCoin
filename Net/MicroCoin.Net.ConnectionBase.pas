@@ -78,11 +78,7 @@ type
     function GetRemoteHost: AnsiString;
   protected
     procedure Notification(AComponent: TComponent; operation: TOperation); override;
-    procedure Send(NetTranferType: TNetTransferType; operation, errorcode: Word; request_id: Integer;
-      DataBuffer: TStream);
 
-    procedure DoProcess_GetBlocks_Request(HeaderData: TNetHeaderData; DataBuffer: TStream); virtual; abstract;
-    procedure DoProcess_GetBlocks_Response(HeaderData: TNetHeaderData; DataBuffer: TStream); virtual; abstract;
     procedure DoProcess_GetOperationsBlock_Request(HeaderData: TNetHeaderData; DataBuffer: TStream); virtual; abstract;
     procedure DoProcess_AddOperations(HeaderData: TNetHeaderData; DataBuffer: TStream); virtual; abstract;
     procedure DoProcess_GetAccountStorage_Request(AHeaderData: TNetHeaderData; ADataBuffer: TStream); virtual; abstract;
@@ -91,6 +87,8 @@ type
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
 
+    procedure Send(NetTranferType: TNetTransferType; operation, errorcode: Word; request_id: Integer;
+      DataBuffer: TStream);
     function DoSendAndWaitForResponse(operation: Word; RequestId: Integer; SendDataBuffer, ReceiveDataBuffer: TStream;
       MaxWaitTime: Cardinal; var HeaderData: TNetHeaderData): Boolean;
     procedure DisconnectInvalidClient(ItsMyself: Boolean; const why: AnsiString);
@@ -444,20 +442,15 @@ begin
               begin
                if FHandlers.ContainsKey(HeaderData.Operation)
                then begin
+               try
                  Supports(FHandlers[HeaderData.Operation].Create, ICommandHandler, xHandler);
                  xHandler.HandleCommand(HeaderData, ReceiveDataBuffer, self);
+               except on E:Exception do
+                  DisconnectInvalidClient(false, e.Message);
+               end;
                end else
                 case HeaderData.Operation of
                   cNetOp_AddOperations: DoProcess_AddOperations(HeaderData, ReceiveDataBuffer);
-                  cNetOp_GetBlocks:
-                    begin
-                      if HeaderData.HeaderType = ntp_request then
-                        DoProcess_GetBlocks_Request(HeaderData, ReceiveDataBuffer)
-                      else if HeaderData.HeaderType = ntp_response then
-                        DoProcess_GetBlocks_Response(HeaderData, ReceiveDataBuffer)
-                      else
-                        DisconnectInvalidClient(false, 'Not resquest or response: ' + (HeaderData.ToString));
-                    end;
                   cNetOp_GetOperationsBlock:
                     begin
                       if HeaderData.HeaderType = ntp_request then
