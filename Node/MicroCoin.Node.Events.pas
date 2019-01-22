@@ -153,25 +153,21 @@ begin
     if FNotifyBlocksChanged then
     begin
       FNotifyBlocksChanged := false;
-      DebugStep := 'Notify OnBlocksChanged';
       if Assigned(FNodeNotifyEvents) and (Assigned(FNodeNotifyEvents.FOnBlocksChanged)) then
         FNodeNotifyEvents.FOnBlocksChanged(FNodeNotifyEvents);
     end;
     if FNotifyOperationsChanged then
     begin
       FNotifyOperationsChanged := false;
-      DebugStep := 'Notify OnOperationsChanged';
       if Assigned(FNodeNotifyEvents) and (Assigned(FNodeNotifyEvents.FOnTransactionsChanged)) then
         FNodeNotifyEvents.FOnTransactionsChanged(FNodeNotifyEvents);
     end;
     if FNodeNotifyEvents.FMessages.Count > 0 then
     begin
-      DebugStep := 'Notify OnNodeMessageEvent';
       if Assigned(FNodeNotifyEvents) and (Assigned(FNodeNotifyEvents.FOnNodeMessageEvent)) then
       begin
         for i := 0 to FNodeNotifyEvents.FMessages.Count - 1 do
         begin
-          DebugStep := 'Notify OnNodeMessageEvent ' + IntToStr(i + 1) + '/' +
             IntToStr(FNodeNotifyEvents.FMessages.Count);
           FNodeNotifyEvents.FOnNodeMessageEvent(TNetConnection(FNodeNotifyEvents.FMessages.Objects[i]),
             FNodeNotifyEvents.FMessages.Strings[i]);
@@ -182,8 +178,7 @@ begin
   except
     on e: Exception do
     begin
-      TLog.NewLog(lterror, Classname, 'Exception inside a Synchronized process: ' + e.Classname + ':' + e.Message +
-        ' Step:' + DebugStep);
+      TLog.NewLog(lterror, Classname, 'Exception inside a Synchronized process: ' + e.Classname + ':' + e.Message);
     end;
   end;
 end;

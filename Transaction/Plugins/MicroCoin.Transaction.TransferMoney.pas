@@ -229,10 +229,6 @@ begin
         [FData.AccountPrice, xTargetAccount.accountInfo.Price]);
       Exit;
     end;
-    {$IFDEF OpenSSL11}
-    if FData.NewAccountKey.x <> FData.NewAccountKey.y
-    then
-    {$ENDIF}
     if not(FData.NewAccountKey.IsValidAccountKey(errors)) then
       Exit; // BUG 20171511
     _IsBuyTransaction := true;

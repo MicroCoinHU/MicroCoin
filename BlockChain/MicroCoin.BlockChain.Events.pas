@@ -38,33 +38,25 @@ uses MicroCoin.Net.ConnectionManager;
 
 procedure TNotifyNewBlockThread.BCExecute;
 begin
-  DebugStep := 'Locking';
   if TConnectionManager.Instance.ConnectionLock(Self, FNetConnection, 500) then
   begin
     try
-      DebugStep := 'Checking connected';
       if not FNetConnection.Connected then
         exit;
       TLog.NewLog(ltdebug, Classname, 'Sending new block found to ' + FNetConnection.Client.ClientRemoteAddr);
-      DebugStep := 'Sending';
       FNetConnection.Send_NewBlockFound(FNewBlockTransactions);
-      DebugStep := 'Checking connected again';
       if not FNetConnection.Connected then
         exit;
-      DebugStep := 'Need send opreations?';
       if FSanitizedHashTree.TransactionCount > 0 then
       begin
-        DebugStep := 'Sending ' + IntToStr(FSanitizedHashTree.TransactionCount) + ' sanitized operations';
         TLog.NewLog(ltdebug, Classname, 'Sending ' + IntToStr(FSanitizedHashTree.TransactionCount) +
           ' sanitized operations to ' + FNetConnection.ClientRemoteAddr);
         TNotifyTransactionThread.Create(FNetConnection, FSanitizedHashTree);
       end;
-      DebugStep := 'Unlocking';
     finally
       TConnectionManager.Instance.ConnectionUnlock(FNetConnection);
     end;
   end;
-  DebugStep := 'Finalizing';
 end;
 
 constructor TNotifyNewBlockThread.Create(NetConnection: TNetConnection; MakeACopyOfNewBlockOperations: TBlock;

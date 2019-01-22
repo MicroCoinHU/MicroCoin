@@ -39,8 +39,9 @@ unit MicroCoin.Net.Protocol;
 
 interface
 
-uses MicroCoin.BlockChain.BlockHeader,
-  UECIES,
+uses MicroCoin.BlockChain.BlockHeader, UbaseTypes,
+  UECIES, MicroCoin.Common, MicroCoin.Transaction.HashTree,
+  MicroCoin.Transaction.Manager, MicroCoin.Transaction.ITransaction,
   MicroCoin.Net.NodeServer, SysUtils, MicroCoin.Account.AccountKey,
   MicroCoin.Common.Stream, Classes, MicroCoin.BlockChain.Block;
 
@@ -93,7 +94,6 @@ type
     Operation: Word;
     RequestId: Cardinal;
     BufferDataLength: Cardinal;
-    //
     IsError: Boolean;
     ErrorCode: Integer;
     ErrorText: AnsiString;
@@ -108,13 +108,13 @@ type
     timestamp: UInt32;
     RemoteHost: string;
     last_operation: TBlockHeader;
-    servers_address: array of TNodeServer;
     Block : TBlock;
     nodeserver_count: UInt32;
-    nodeservers : array of TNodeServer;
+    nodeservers : TNodeServerAddressArray;
     client_version: ansiString;
     remote_work: UInt64;
     class function LoadFromStream(AStream : TStream) : TNetMessage_Hello; static;
+    procedure SaveToStream(AStream : TStream);
   end;
 
   TNetMessage_Message = record
@@ -126,6 +126,40 @@ type
     NewBlock : TBlock;
     RemoteWork : UInt64;
     class function LoadFromStream(AStream : TStream) : TNetMessage_NewBlock; static;
+  end;
+
+  TNetMessage_GetBlocks = record
+    StartBlock: Cardinal;
+    EndBlock: Cardinal;
+    class function LoadFromStream(AStream : TStream) : TNetMessage_GetBlocks; static;
+  end;
+
+  TNetMessage_NewTransaction = record
+    Count: Cardinal;
+    Transactions: TTransactionHashTree;
+    class function LoadFromStream(AStream : TStream) : TNetMessage_NewTransaction; static;
+  end;
+
+  TNetMessage_AccountStorage_Request = record
+    Count: Cardinal;
+    Hash: TRawBytes;
+    StartBlock, EndBlock: Cardinal;
+    class function LoadFromStream(AStream : TStream) : TNetMessage_AccountStorage_Request; static;
+  end;
+
+  TBlockArray = array of TBlock;
+  TNetMessage_GetBlocks_Response = record
+  private
+    FCount: Int32;
+    FBlocks: TBlockArray;
+    FDestructor : IDestructor;
+    procedure SetCount(const Value: Int32);
+    class procedure CleanUp(ABlocks : TBlockArray); static;
+  public
+    class function LoadFromStream(AStream : TStream) : TNetMessage_GetBlocks_Response; static;
+    procedure SaveToStream(AStream : TStream);
+    property Count : Int32 read FCount Write SetCount;
+    property Blocks: TBlockArray read FBlocks;
   end;
 
 implementation
@@ -174,15 +208,10 @@ end;
 function TNetHeaderData.ToString: AnsiString;
 begin
   Result := CT_NetTransferType[HeaderType] + ' Operation:' + OperationTxt;
-  if IsError then
-  begin
-    Result := Result + ' ERRCODE:' + Inttostr(ErrorCode) + ' ERROR:' + ErrorText;
-  end
-  else
-  begin
-    Result := Result + ' ReqId:' + Inttostr(RequestId) + ' BufferSize:' +
+  if IsError
+  then Result := Result + ' ERRCODE:' + Inttostr(ErrorCode) + ' ERROR:' + ErrorText
+  else Result := Result + ' ReqId:' + Inttostr(RequestId) + ' BufferSize:' +
       Inttostr(BufferDataLength);
-  end;
 end;
 
 { TNetMessage_Hello }
@@ -225,6 +254,24 @@ begin
 
 end;
 
+procedure TNetMessage_Hello.SaveToStream(AStream: TStream);
+var
+  xNs: TNodeServer;
+begin
+  AStream.Write( server_port, SizeOf(server_port) );
+  AStream.WriteAnsiString( accountKey.ToRawString );
+  AStream.Write(timestamp, sizeof(timestamp));
+  TBlock.SaveBlockToStream(Block.BlockHeader, AStream);
+  AStream.Write(nodeserver_count, SizeOf(nodeserver_count));
+  for xNs in nodeservers do begin
+    AStream.WriteAnsiString(xNs.ip);
+    AStream.Write(xNs.port, SizeOf(xNs.port));
+    AStream.Write(xNs.last_connection, SizeOf(xNs.last_connection));
+  end;
+  AStream.WriteAnsiString(client_version);
+  AStream.Write(remote_work, SizeOf(remote_work));
+end;
+
 { TNetMessage_Message }
 
 class function TNetMessage_Message.LoadFromStream(
@@ -240,9 +287,6 @@ end;
 
 { TNetMessage_NewBlock }
 
-
-{ TNetMessage_NewBlock }
-
 class function TNetMessage_NewBlock.LoadFromStream(
   AStream: TStream): TNetMessage_NewBlock;
 var
@@ -251,10 +295,115 @@ begin
   Result.RemoteWork := 0;
   Result.NewBlock := TBlock.Create(nil);
   Result.NewBlock.BlockManager := TNode.Node.BlockManager;
- if not Result.NewBlock.LoadBlockFromStream(AStream, xErrors)
+  if not Result.NewBlock.LoadBlockFromStream(AStream, xErrors)
   then raise Exception.Create(xErrors);
   if AStream.Size > AStream.Position + SizeOf(Result.RemoteWork)
   then AStream.Read(Result.RemoteWork, SizeOf(Result.RemoteWork));
+end;
+
+{ TNetMessage_GetBlocks }
+
+class function TNetMessage_GetBlocks.LoadFromStream(
+  AStream: TStream): TNetMessage_GetBlocks;
+begin
+  AStream.Read(Result.StartBlock, SizeOf(Result.StartBlock));
+  AStream.Read(Result.EndBlock, SizeOf(Result.EndBlock));
+  if (Result.StartBlock<0) or (Result.StartBlock > Result.EndBlock)
+  then raise Exception.CreateFmt('Invalid structure start or end %d, %d',[Result.StartBlock, Result.EndBlock]);
+end;
+
+{ TNetMessage_GetBlocks_Response }
+
+class procedure TNetMessage_GetBlocks_Response.CleanUp(ABlocks : TBlockArray);
+var
+  i : integer;
+begin
+  if Assigned(ABlocks) then
+  for i := Low(ABlocks) to High(ABlocks) do begin
+    if Assigned(ABlocks[i]) then ABlocks[i].Free;
+  end;
+  SetLength(ABlocks, 0);
+end;
+
+class function TNetMessage_GetBlocks_Response.LoadFromStream(
+  AStream: TStream): TNetMessage_GetBlocks_Response;
+var
+  i: integer;
+  xErrors: AnsiString;
+begin
+  AStream.Read(Result.FCount, SizeOf(Result.FCount));
+  SetLength(Result.FBlocks, Result.FCount);
+  for i := Low(Result.Blocks) to High(Result.Blocks)
+  do begin
+    Result.Blocks[i] := TBlock.Create(nil);
+    Result.Blocks[i].BlockManager := TNode.Node.BlockManager;
+    if not Result.Blocks[i].LoadBlockFromStream(AStream, xErrors)
+    then raise Exception.Create(xErrors);
+  end;
+  if not Assigned(Result.FDestructor)
+  then Result.FDestructor := TDestructor<TBlockArray>.Create(Result.Cleanup, Result.FBlocks);
+end;
+
+procedure TNetMessage_GetBlocks_Response.SaveToStream(AStream: TStream);
+var
+  xBlock: TBlock;
+  xCnt : integer;
+begin
+  AStream.Write(FCount, SizeOf(FCount));
+  xCnt := 0;
+  for xBlock in Blocks do begin
+    xBlock.SaveBlockToStream(false, AStream);
+    inc(xCnt);
+    if (AStream.Size > (1024 * 1024 * 2)) then begin
+      AStream.Position := 0;
+      AStream.Write(xCnt, SizeOf(xCnt));
+      AStream.Position := AStream.Size;
+      break;
+    end;
+  end;
+end;
+
+procedure TNetMessage_GetBlocks_Response.SetCount(const Value: Int32);
+begin
+  FCount := Value;
+  SetLength(FBlocks, Value);
+  if not Assigned(FDestructor)
+  then FDestructor := TDestructor<TBlockArray>.Create(Cleanup, FBlocks);
+end;
+
+{ TNetMessage_NewTransaction }
+
+class function TNetMessage_NewTransaction.LoadFromStream(
+  AStream: TStream): TNetMessage_NewTransaction;
+var
+  i:integer;
+  xType: byte;
+  xTransactionClass: TTransactionClass;
+  xTransaction: ITransaction;
+begin
+  AStream.Read(Result.Count, SizeOf(Result.Count));
+  Result.Transactions := TTransactionHashTree.Create;
+  for I := 0 to Result.Count - 1
+  do begin
+    AStream.Read(xType, 1);
+    xTransactionClass := TTransactionManager.GetTransactionPlugin(xType);
+    if not Assigned(xTransactionClass) then
+      exit;
+    xTransaction := xTransactionClass.Create;
+    xTransaction.LoadFromNettransfer(AStream);
+    Result.Transactions.AddTransactionToHashTree(xTransaction);
+  end;
+end;
+
+{ TNetMessage_AccountStorage_Request }
+
+class function TNetMessage_AccountStorage_Request.LoadFromStream(
+  AStream: TStream): TNetMessage_AccountStorage_Request;
+begin
+  AStream.Read(Result.Count, SizeOf(Result.Count));
+  AStream.ReadAnsiString(Result.Hash);
+  AStream.Read(Result.StartBlock, SizeOf(Result.StartBlock));
+  AStream.Read(Result.EndBlock, SizeOf(Result.EndBlock));
 end;
 
 end.

@@ -22,6 +22,7 @@ uses SysUtils, UCrypto, Classes, MicroCoin.Transaction.Base, UThread,
   MicroCoin.Transaction.Manager, MicroCoin.Transaction.Transaction, SyncObjs;
 
 type
+  //TODO: Refcount
   TTransactionHashTree = class
   private
     FHashTreeTransactions: TPCThreadList;

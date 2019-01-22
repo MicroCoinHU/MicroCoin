@@ -9,7 +9,7 @@ unit MicroCoin.Net.Events;
 }
 
 {$ifdef FPC}
-  {$mode delphi}
+{$mode delphi}
 {$endif}
 
 interface
@@ -50,9 +50,7 @@ begin
   begin
     if (FNotifyOnReceivedHelloMessage) or (FNotifyOnStatisticsChanged) or (FNotifyOnNetConnectionsUpdated) or
       (FNotifyOnNodeServersUpdated) or (FNotifyOnBlackListUpdated) then
-    begin
       Synchronize(SynchronizedNotify);
-    end;
     sleep(10);
   end;
 end;
@@ -70,9 +68,7 @@ end;
 
 procedure TNetDataNotifyEventsThread.SynchronizedNotify;
 begin
-  if Terminated then
-    exit;
-  if not Assigned(FNetData) then
+  if Terminated or (not Assigned(FNetData)) then
     exit;
 
   if FNotifyOnReceivedHelloMessage then

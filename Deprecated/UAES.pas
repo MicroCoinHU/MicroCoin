@@ -81,9 +81,7 @@ end;
 function EVP_GetKeyIV(APassword: TBytes; ACipher: PEVP_CIPHER; const ASalt: TBytes; out Key, IV: TBytes): Boolean;
 var
   pctx: PEVP_MD_CTX;
-{$IFDEF OpenSSL10}
   ctx: EVP_MD_CTX;
-{$ENDIF}
   hash: PEVP_MD;
   mdbuff: TBytes;
   mds: integer;
@@ -114,12 +112,8 @@ begin
   // This method relies on the fact that the hashing method produces a key of
   // the correct size. EVP_BytesToKey goes through muptiple hashing passes if
   // necessary to make the key big enough when using smaller hashes.
-{$IFDEF OpenSSL10}
   EVP_MD_CTX_init(@ctx);
   pctx := @ctx;
-{$ELSE}
-  pctx := EVP_MD_CTX_new;
-{$ENDIF}
   try
     // Key first
     if EVP_DigestInit_ex(pctx, hash, nil) <> 1 then
@@ -152,11 +146,7 @@ begin
     SetLength(IV, niv);
     result := true;
   finally
-{$IFDEF OpenSSL10}
     EVP_MD_CTX_cleanup(pctx);
-{$ELSE}
-    EVP_MD_CTX_free(pctx);
-{$ENDIF}
   end;
 end;
 
@@ -184,9 +174,7 @@ class function TAESComp.EVP_Decrypt_AES256(const Value: TBytes; APassword: TByte
 var
   cipher: PEVP_CIPHER;
   pctx: PEVP_CIPHER_CTX;
-{$IFDEF OpenSSL10}
   ctx: EVP_CIPHER_CTX;
-{$ENDIF}
   salt, Key, IV, buf: TBytes;
   l: integer;
   src_start, buf_start, out_len: integer;
@@ -208,7 +196,6 @@ begin
       exit;
     src_start := 0;
   end;
-  {$IFDEF OpenSSL10}
     {$IFDEF LINUX}
       new(pctx);
       EVP_CIPHER_CTX_init(pctx);
@@ -216,9 +203,6 @@ begin
       EVP_CIPHER_CTX_init(@ctx);
       pctx := @ctx;
     {$ENDIF}
-  {$ELSE}
-  pctx := EVP_CIPHER_CTX_new;
-  {$ENDIF}
   try
     if EVP_DecryptInit(pctx, cipher, @Key[0], @IV[0]) <> 1 then
       exit;
@@ -234,11 +218,7 @@ begin
     Decrypted := buf;
     result := true;
   finally
-{$IFDEF OpenSSL10}
     EVP_CIPHER_CTX_cleanup(pctx);
-{$ELSE}
-    EVP_CIPHER_CTX_free(pctx);
-{$ENDIF}
   end;
 end;
 
@@ -259,9 +239,7 @@ class function TAESComp.EVP_Encrypt_AES256(Value, APassword: TBytes): TBytes;
 var
   cipher: PEVP_CIPHER;
   pctx: PEVP_CIPHER_CTX;
-{$IFDEF OpenSSL10}
   ctx: EVP_CIPHER_CTX;
-{$ENDIF}
   salt, Key, IV, buf: TBytes;
   block_size: integer;
   buf_start, out_len: integer;
@@ -269,18 +247,13 @@ begin
   cipher := EVP_aes_256_cbc;
   salt := EVP_GetSalt;
   EVP_GetKeyIV(APassword, cipher, salt, Key, IV);
-
-  {$IFDEF OpenSSL10}
-    {$IFDEF LINUX}
-      new(pctx);
-      EVP_CIPHER_CTX_init(pctx);
-    {$ELSE}
-      EVP_CIPHER_CTX_init(@ctx);
-      pctx := @ctx;
-    {$ENDIF}
-  {$ELSE}
-  pctx := EVP_CIPHER_CTX_new;
-  {$ENDIF}
+{$IFDEF LINUX}
+  new(pctx);
+  EVP_CIPHER_CTX_init(pctx);
+{$ELSE}
+  EVP_CIPHER_CTX_init(@ctx);
+  pctx := @ctx;
+{$ENDIF}
   try
     EVP_EncryptInit(pctx, cipher, @Key[0], @IV[0]);
     block_size := EVP_CIPHER_CTX_block_size(pctx);
@@ -297,11 +270,7 @@ begin
     SetLength(buf, buf_start);
     result := buf;
   finally
-{$IFDEF OpenSSL10}
     EVP_CIPHER_CTX_cleanup(pctx);
-{$ELSE}
-    EVP_CIPHER_CTX_free(pctx);
-{$ENDIF}
   end;
 end;
 

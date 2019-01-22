@@ -30,8 +30,8 @@ unit MicroCoin.Account.Editors;
 interface
 
 uses
-  System.SysUtils, System.Classes,
-  Vcl.ExtCtrls, Forms, Vcl.Buttons, Graphics,
+  SysUtils, Classes,
+  ExtCtrls, Forms, Buttons, Graphics,
   MicroCoin.Forms.AccountSelectDialog,
   MicroCoin.Account.Data, Vcl.Imaging.pngimage, PngSpeedButton,
   Vcl.Controls, Vcl.StdCtrls, MicroCoin.Node.Node;

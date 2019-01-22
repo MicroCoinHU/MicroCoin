@@ -64,10 +64,7 @@ begin
       P^.counter := 0;
       l.Add(P);
     end
-    else
-    begin
-      P := l[i];
-    end;
+    else P := l[i];
     P^.TimeOffset := clientTimestamp - UnivDateTimeToUnix(DateTime2UnivDateTime(now));
     Inc(P^.counter);
     Inc(FTotalCounter);
@@ -127,11 +124,9 @@ end;
 
 function TNetworkAdjustedTime.IndexOfClientIp(list: TList; const clientIp: AnsiString): Integer;
 begin
-  for Result := 0 to list.Count - 1 do
-  begin
-    if AnsiSameStr(PNetworkAdjustedTimeReg(list[Result])^.clientIp, clientIp) then
-      exit;
-  end;
+  for Result := 0 to list.Count - 1
+  do if AnsiSameStr(PNetworkAdjustedTimeReg(list[Result])^.clientIp, clientIp)
+     then exit;
   Result := -1;
 end;
 
@@ -156,12 +151,9 @@ begin
       dec(FTotalCounter);
     end;
     UpdateMedian(l);
-    if (i >= 0) then
-      TLog.NewLog(ltdebug, Classname, Format('RemoveIp (%s) - Total:%d/%d Offset:%d', [clientIp, l.Count, FTotalCounter,
-        FTimeOffset]))
-    else
-      TLog.NewLog(ltError, Classname, Format('RemoveIp not found (%s) - Total:%d/%d Offset:%d',
-        [clientIp, l.Count, FTotalCounter, FTimeOffset]))
+    if (i >= 0)
+    then TLog.NewLog(ltdebug, Classname, Format('RemoveIp (%s) - Total:%d/%d Offset:%d', [clientIp, l.Count, FTotalCounter, FTimeOffset]))
+    else TLog.NewLog(ltError, Classname, Format('RemoveIp not found (%s) - Total:%d/%d Offset:%d', [clientIp, l.Count, FTotalCounter, FTimeOffset]))
   finally
     FTimesList.UnlockList;
   end;
@@ -180,26 +172,16 @@ var
 begin
   last := FTimeOffset;
   list.Sort(SortPNetworkAdjustedTimeReg);
-  if list.Count < cMinimumNodeCountToCalculateNAT then
-  begin
-    FTimeOffset := 0;
-  end
-  else if ((list.Count mod 2) = 0) then
-  begin
-    FTimeOffset := (PNetworkAdjustedTimeReg(list[(list.Count div 2) - 1])^.TimeOffset +
-      PNetworkAdjustedTimeReg(list[(list.Count div 2)])^.TimeOffset) div 2;
-  end
-  else
-  begin
-    FTimeOffset := PNetworkAdjustedTimeReg(list[list.Count div 2])^.TimeOffset;
-  end;
+  if list.Count < cMinimumNodeCountToCalculateNAT
+  then FTimeOffset := 0
+  else if ((list.Count mod 2) = 0)
+      then FTimeOffset := (PNetworkAdjustedTimeReg(list[(list.Count div 2) - 1])^.TimeOffset + PNetworkAdjustedTimeReg(list[(list.Count div 2)])^.TimeOffset) div 2
+      else FTimeOffset := PNetworkAdjustedTimeReg(list[list.Count div 2])^.TimeOffset;
   if (last <> FTimeOffset) then
   begin
     s := '';
-    for i := 0 to list.Count - 1 do
-    begin
-      s := s + ',' + Inttostr(PNetworkAdjustedTimeReg(list[i])^.TimeOffset);
-    end;
+    for i := 0 to list.Count - 1
+    do s := s + ',' + Inttostr(PNetworkAdjustedTimeReg(list[i])^.TimeOffset);
     TLog.NewLog(ltInfo, Classname,
       Format('Updated NAT median offset. My offset is now %d (before %d) based on %d/%d connections %s',
       [FTimeOffset, last, list.Count, FTotalCounter, s]));

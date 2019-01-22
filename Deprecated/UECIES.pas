@@ -258,10 +258,8 @@ Var PK,PEphemeral : PEC_KEY;
   pcipher : PEVP_CIPHER_CTX;
   body,aux : Pointer;
   phmac : PHMAC_CTX;
-  {$IFDEF OpenSSL10}
   cipher : EVP_CIPHER_CTX;
   hmac : HMAC_CTX;
-  {$ENDIF}
   group0: PEC_GROUP;
   key0: PEC_POINT;
   result_len : integer;
@@ -335,12 +333,8 @@ begin
       {$ENDIF}
       // Setup the cipher context, the body length, and store a pointer to the body buffer location.
 
-      {$IFDEF OpenSSL10}
       EVP_CIPHER_CTX_init(@cipher);
       pcipher := @cipher;
-      {$ELSE}
-      pcipher := EVP_CIPHER_CTX_new;
-      {$ENDIF}
       try
         body := secure_body_data(cryptex);
         body_length := secure_body_length(cryptex);
@@ -398,19 +392,11 @@ begin
           exit;
         end;
       finally
-        {$IFDEF OpenSSL10}
         EVP_CIPHER_CTX_cleanup(pcipher);
-        {$ELSE}
-        EVP_CIPHER_CTX_free(pcipher);
-        {$ENDIF}
       end;
       // Generate an authenticated hash which can be used to validate the data during decryption.
-      {$IFDEF OpenSSL10}
       HMAC_CTX_init(@hmac);
       phmac := @hmac;
-      {$ELSE}
-      phmac := HMAC_CTX_new;
-      {$ENDIF}
       Try
         mac_length := secure_mac_length(cryptex);
         // At the moment we are generating the hash using encrypted data. At some point we may want to validate the original text instead.
@@ -423,11 +409,7 @@ begin
           exit;
         end;
       Finally
-        {$IFDEF OpenSSL10}
         HMAC_CTX_cleanup(phmac);
-        {$ELSE}
-        HMAC_CTX_free(phmac);
-        {$ENDIF}
       End;
       SetLength(Result,secure_total_length(cryptex));
       CopyMemory(@Result[1],cryptex,length(Result));
@@ -480,10 +462,8 @@ var
   aux : Pointer;
   output_length : Integer;
   pcipher : PEVP_CIPHER_CTX;
-  {$IFDEF OpenSSL10}
   cipher : EVP_CIPHER_CTX;
   hmac : HMAC_CTX;
-  {$ENDIF}
 Begin
   Result := false;
   Decrypted := '';
@@ -520,12 +500,8 @@ Begin
     EC_KEY_free(ephemeral);
   end;
   // Use the authenticated hash of the ciphered data to ensure it was not modified after being encrypted.
-  {$IFDEF OpenSSL10}
   HMAC_CTX_init(@hmac);
   phmac := @hmac;
-  {$ELSE}
-  phmac := HMAC_CTX_new;
-  {$ENDIF}
   try
     // At the moment we are generating the hash using encrypted data. At some point we may want to validate the original text instead.
     aux := Pointer(PtrInt(@envelope_key) + key_length);
@@ -537,11 +513,7 @@ Begin
        exit;
     end;
   finally
-    {$IFDEF OpenSSL10}
     HMAC_CTX_cleanup(phmac);
-    {$ELSE}
-    HMAC_CTX_free(phmac);
-    {$ENDIF}
   end;
   // We can use the generated hash to ensure the encrypted data was not altered after being encrypted.
   if (mac_length<>secure_mac_length(cryptex)) OR ( Not CompareMem(@md,secure_mac_data(cryptex), mac_length)) then begin
@@ -561,12 +533,8 @@ Begin
     FillMemory(@iv,EVP_MAX_IV_LENGTH,0);
     FillMemory(output,output_length+1,0);
     {$ENDIF}
-    {$IFDEF OpenSSL10}
     EVP_CIPHER_CTX_init(@cipher);
     pcipher := @cipher;
-    {$ELSE}
-    pcipher := EVP_CIPHER_CTX_new;
-    {$ENDIF}
     try
       // Decrypt the data using the chosen symmetric cipher.
       if (EVP_DecryptInit_ex(pcipher, EVP_aes_256_cbc, nil,@envelope_key, @iv)<>1) Or
@@ -589,11 +557,7 @@ Begin
       CopyMemory(@Decrypted[1],output,length(Decrypted));
       Result := true;
     finally
-      {$IFDEF OpenSSL10}
       EVP_CIPHER_CTX_cleanup(pcipher);
-      {$ELSE}
-      EVP_CIPHER_CTX_free(pcipher);
-      {$ENDIF}
     end;
   finally
     FreeMemory(output);

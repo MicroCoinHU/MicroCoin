@@ -1,43 +1,42 @@
-{==============================================================================|
-| MicroCoin                                                                    |
-| Copyright (c) 2018 MicroCoin Developers                                      |
-|==============================================================================|
-| Permission is hereby granted, free of charge, to any person obtaining a copy |
-| of this software and associated documentation files (the "Software"), to     |
-| deal in the Software without restriction, including without limitation the   |
-| rights to use, copy, modify, merge, publish, distribute, sublicense, and/or  |
-| sell opies of the Software, and to permit persons to whom the Software is    |
-| furnished to do so, subject to the following conditions:                     |
-|                                                                              |
-| The above copyright notice and this permission notice shall be included in   |
-| all copies or substantial portions of the Software.                          |
-|------------------------------------------------------------------------------|
-| THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR   |
-| IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,     |
-| FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE  |
-| AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER       |
-| LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING      |
-| FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER          |
-| DEALINGS IN THE SOFTWARE.                                                    |
-|==============================================================================|
-| This unit contains portions from PascalCoin                                  |
-| Copyright (c) Albert Molina 2016 - 2018                                      |
-|                                                                              |
-| Distributed under the MIT software license, see the accompanying file        |
-| LICENSE or visit http://www.opensource.org/licenses/mit-license.php.         |
-|==============================================================================|
-| File:       MicroCoin.Net.ConnectionBase.pas                                 |
-| Created at: 2018-08-31                                                       |
-| Purpose:    Base class for net communication                                 |
-| Todo:                                                                        |
-|   - Convert abstract methods to Handlers                                     |
-|   - Clean up uses                                                            |
-|==============================================================================}
+{ ==============================================================================|
+  | MicroCoin                                                                    |
+  | Copyright (c) 2018 MicroCoin Developers                                      |
+  |==============================================================================|
+  | Permission is hereby granted, free of charge, to any person obtaining a copy |
+  | of this software and associated documentation files (the "Software"), to     |
+  | deal in the Software without restriction, including without limitation the   |
+  | rights to use, copy, modify, merge, publish, distribute, sublicense, and/or  |
+  | sell opies of the Software, and to permit persons to whom the Software is    |
+  | furnished to do so, subject to the following conditions:                     |
+  |                                                                              |
+  | The above copyright notice and this permission notice shall be included in   |
+  | all copies or substantial portions of the Software.                          |
+  |------------------------------------------------------------------------------|
+  | THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR   |
+  | IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,     |
+  | FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE  |
+  | AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER       |
+  | LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING      |
+  | FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER          |
+  | DEALINGS IN THE SOFTWARE.                                                    |
+  |==============================================================================|
+  | This unit contains portions from PascalCoin                                  |
+  | Copyright (c) Albert Molina 2016 - 2018                                      |
+  |                                                                              |
+  | Distributed under the MIT software license, see the accompanying file        |
+  | LICENSE or visit http://www.opensource.org/licenses/mit-license.php.         |
+  |==============================================================================|
+  | File:       MicroCoin.Net.ConnectionBase.pas                                 |
+  | Created at: 2018-08-31                                                       |
+  | Purpose:    Base class for net communication                                 |
+  | Todo:                                                                        |
+  |   - Convert abstract methods to Handlers                                     |
+  |   - Clean up uses                                                            |
+  |============================================================================== }
 
-{$ifdef fpc}
- {$mode delphi}
-{$endif}
-
+{$IFDEF fpc}
+{$MODE delphi}
+{$ENDIF}
 unit MicroCoin.Net.ConnectionBase;
 
 interface
@@ -66,7 +65,7 @@ type
     FHasReceivedData: Boolean;
     FRandomWaitSecondsSendHello: Cardinal;
     FClientTimestampIp: AnsiString;
-    class var FHandlers : TDictionary<Word, TClass>;
+    class var FHandlers: TDictionary<Word, TClass>;
     function GetConnected: Boolean;
     procedure SetConnected(const Value: Boolean);
     procedure TcpClient_OnConnect(Sender: TObject);
@@ -78,19 +77,14 @@ type
     function GetRemoteHost: AnsiString;
   protected
     procedure Notification(AComponent: TComponent; operation: TOperation); override;
-    procedure Send(NetTranferType: TNetTransferType; operation, errorcode: Word; request_id: Integer;
-      DataBuffer: TStream);
-
-    procedure DoProcess_GetBlocks_Request(HeaderData: TNetHeaderData; DataBuffer: TStream); virtual; abstract;
-    procedure DoProcess_GetBlocks_Response(HeaderData: TNetHeaderData; DataBuffer: TStream); virtual; abstract;
-    procedure DoProcess_GetOperationsBlock_Request(HeaderData: TNetHeaderData; DataBuffer: TStream); virtual; abstract;
-    procedure DoProcess_AddOperations(HeaderData: TNetHeaderData; DataBuffer: TStream); virtual; abstract;
-    procedure DoProcess_GetAccountStorage_Request(AHeaderData: TNetHeaderData; ADataBuffer: TStream); virtual; abstract;
-
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
+    class constructor Create;
+    class destructor Destroy;
 
+    procedure Send(NetTranferType: TNetTransferType; operation, errorcode: Word; request_id: Integer;
+      DataBuffer: TStream);
     function DoSendAndWaitForResponse(operation: Word; RequestId: Integer; SendDataBuffer, ReceiveDataBuffer: TStream;
       MaxWaitTime: Cardinal; var HeaderData: TNetHeaderData): Boolean;
     procedure DisconnectInvalidClient(ItsMyself: Boolean; const why: AnsiString);
@@ -98,14 +92,15 @@ type
     procedure SetClient(const Value: TNetTcpIpClient);
     function ConnectTo(ServerIP: string; ServerPort: Word): Boolean;
 
-    procedure Send_Error(NetTranferType: TNetTransferType; operation, request_id: Integer; error_code: Integer; error_text: AnsiString);
-    function  Send_Hello(NetTranferType: TNetTransferType; request_id: Integer): Boolean; virtual; abstract;
-    function  Send_NewBlockFound(const NewBlock: TBlock): Boolean; virtual; abstract;
-    function  Send_GetBlocks(StartAddress, quantity: Cardinal; var request_id: Cardinal): Boolean; virtual; abstract;
-    function  Send_AddOperations(Operations: TTransactionHashTree): Boolean; virtual; abstract;
-    function  Send_Message(const TheMessage: AnsiString): Boolean; virtual; abstract;
+    procedure Send_Error(NetTranferType: TNetTransferType; operation, request_id: Integer; error_code: Integer;
+      error_text: AnsiString);
+    function Send_Hello(NetTranferType: TNetTransferType; request_id: Integer): Boolean; virtual; abstract;
+    function Send_NewBlockFound(const NewBlock: TBlock): Boolean; virtual; abstract;
+    function Send_GetBlocks(StartAddress, quantity: Cardinal; var request_id: Cardinal): Boolean; virtual; abstract;
+    function Send_AddOperations(Operations: TTransactionHashTree): Boolean; virtual; abstract;
+    function Send_Message(const TheMessage: AnsiString): Boolean; virtual; abstract;
 
-    class procedure AddHandler(ACommand : word; AHandler : TClass);
+    class procedure AddHandler(ACommand: Word; AHandler: TClass);
 
     procedure FinalizeConnection;
 
@@ -135,21 +130,21 @@ uses UTime, MicroCoin.Net.ConnectionManager, MicroCoin.Common.Config, UCrypto,
   MicroCoin.Net.Utils, MicroCoin.Common.Stream,
   MicroCoin.Transaction.Manager, MicroCoin.Node.Node, MicroCoin.Account.Storage;
 
-class procedure TNetConnectionBase.AddHandler(ACommand: word; AHandler: TClass);
+class procedure TNetConnectionBase.AddHandler(ACommand: Word; AHandler: TClass);
 begin
-  if not Supports(AHandler, ICommandHandler)
-  then raise Exception.Create('Invalid command handler');
-  if not assigned(FHandlers)
-  then FHandlers := TDictionary<Word, TClass>.Create;
-  FHandlers.add(ACommand, AHandler);
+  if not Supports(AHandler, ICommandHandler) then
+    raise Exception.Create('Invalid command handler');
+  if not assigned(FHandlers) then
+    FHandlers := TDictionary<Word, TClass>.Create;
+  if FHandlers.ContainsKey(ACommand) then
+    raise Exception.Create('Duplicated command handler');
+  FHandlers.Add(ACommand, AHandler);
 end;
 
 function TNetConnectionBase.ClientRemoteAddr: AnsiString;
 begin
-  if Assigned(FTcpIpClient) then
-  begin
+  if assigned(FTcpIpClient) then
     Result := FTcpIpClient.ClientRemoteAddr
-  end
   else
     Result := 'NIL';
 end;
@@ -173,7 +168,7 @@ begin
         Pnsa := lns[i]
       else
         Pnsa := nil;
-      if Assigned(Pnsa) then
+      if assigned(Pnsa) then
         Pnsa^.netConnection := Self;
     finally
       TConnectionManager.Instance.NodeServersAddresses.UnlockList;
@@ -203,6 +198,11 @@ begin
   finally
     FIsConnecting := false;
   end;
+end;
+
+class constructor TNetConnectionBase.Create;
+begin
+  FHandlers := TDictionary<Word, TClass>.Create;
 end;
 
 constructor TNetConnectionBase.Create(AOwner: TComponent);
@@ -259,14 +259,19 @@ begin
   if not TConnectionManager.Destroying then
     TConnectionManager.Instance.UnRegisterRequest(Self, 0, 0);
   try
-  if not TConnectionManager.Destroying then
-    TConnectionManager.Instance.NotifyNetConnectionUpdated;
+    if not TConnectionManager.Destroying then
+      TConnectionManager.Instance.NotifyNetConnectionUpdated;
   finally
     FreeAndNil(FNetLock);
     FreeAndNil(FClientBufferRead);
     FreeAndNil(FTcpIpClient);
     inherited;
   end;
+end;
+
+class destructor TNetConnectionBase.Destroy;
+begin
+  FreeAndNil(FHandlers);
 end;
 
 procedure TNetConnectionBase.DisconnectInvalidClient(ItsMyself: Boolean; const why: AnsiString);
@@ -386,8 +391,8 @@ var
   was_waiting_for_response: Boolean;
   l: TList;
   i: Integer;
-  xHandler : ICommandHandler;
-  xObj : TObject;
+  xHandler: ICommandHandler;
+  xObj: TObject;
 begin
   try
     Result := false;
@@ -397,7 +402,7 @@ begin
       TLog.NewLog(ltdebug, Classname, 'Is waiting for response ...');
       exit;
     end;
-    if not Assigned(FTcpIpClient) then
+    if not assigned(FTcpIpClient) then
       exit;
     if not Client.Connected then
       exit;
@@ -434,45 +439,26 @@ begin
                 TConnectionManager.Instance.NodeServersAddresses.UnlockList;
               end;
               TLog.NewLog(ltdebug, Classname, 'Received ' + CT_NetTransferType[HeaderData.HeaderType] + ' operation:' +
-                HeaderData.OperationTxt + ' id:' + Inttostr(HeaderData.RequestId) +
-                ' Buffer size:' + Inttostr(HeaderData.BufferDataLength));
+                HeaderData.OperationTxt + ' id:' + Inttostr(HeaderData.RequestId) + ' Buffer size:' +
+                Inttostr(HeaderData.BufferDataLength));
               if (RequestId = HeaderData.RequestId) and (HeaderData.HeaderType = ntp_response) then
               begin
                 Result := true;
               end
               else
               begin
-               if FHandlers.ContainsKey(HeaderData.Operation)
-               then begin
-                 Supports(FHandlers[HeaderData.Operation].Create, ICommandHandler, xHandler);
-                 xHandler.HandleCommand(HeaderData, ReceiveDataBuffer, self);
-               end else
-                case HeaderData.Operation of
-                  cNetOp_AddOperations: DoProcess_AddOperations(HeaderData, ReceiveDataBuffer);
-                  cNetOp_GetBlocks:
-                    begin
-                      if HeaderData.HeaderType = ntp_request then
-                        DoProcess_GetBlocks_Request(HeaderData, ReceiveDataBuffer)
-                      else if HeaderData.HeaderType = ntp_response then
-                        DoProcess_GetBlocks_Response(HeaderData, ReceiveDataBuffer)
-                      else
-                        DisconnectInvalidClient(false, 'Not resquest or response: ' + (HeaderData.ToString));
-                    end;
-                  cNetOp_GetOperationsBlock:
-                    begin
-                      if HeaderData.HeaderType = ntp_request then
-                        DoProcess_GetOperationsBlock_Request(HeaderData, ReceiveDataBuffer)
-                      else
-                        TLog.NewLog(ltdebug, Classname, 'Received old response of: ' + (HeaderData.ToString));
-                    end;
-                  cNetOp_GetAccountStorage:
-                    begin
-                      if HeaderData.HeaderType = ntp_request then
-                        DoProcess_GetAccountStorage_Request(HeaderData, ReceiveDataBuffer)
-                      else
-                        DisconnectInvalidClient(false, 'Received ' + (HeaderData.ToString));
-                    end
+                if FHandlers.ContainsKey(HeaderData.operation) then
+                begin
+                  try
+                    Supports(FHandlers[HeaderData.operation].Create, ICommandHandler, xHandler);
+                    xHandler.HandleCommand(HeaderData, ReceiveDataBuffer, Self);
+                  except
+                    on E: Exception do
+                      DisconnectInvalidClient(false, E.Message);
+                  end;
+                end
                 else
+                begin
                   DisconnectInvalidClient(false, 'Invalid operation: ' + (HeaderData.ToString));
                 end;
               end;
@@ -507,7 +493,7 @@ end;
 
 function TNetConnectionBase.GetClient: TNetTcpIpClient;
 begin
-  if not Assigned(FTcpIpClient) then
+  if not assigned(FTcpIpClient) then
   begin
     TLog.NewLog(ltError, Classname, 'TcpIpClient=NIL');
     raise Exception.Create('TcpIpClient=NIL');
@@ -517,7 +503,7 @@ end;
 
 function TNetConnectionBase.GetConnected: Boolean;
 begin
-  Result := Assigned(FTcpIpClient) and (FTcpIpClient.Connected);
+  Result := assigned(FTcpIpClient) and (FTcpIpClient.Connected);
 end;
 
 function TNetConnectionBase.GetRemoteHost: AnsiString;
@@ -529,9 +515,7 @@ procedure TNetConnectionBase.Notification(AComponent: TComponent; operation: TOp
 begin
   inherited;
   if (operation = OpRemove) and (AComponent = FTcpIpClient) then
-  begin
     FTcpIpClient := nil;
-  end;
 end;
 
 function TNetConnectionBase.ReadTcpClientBuffer(MaxWaitMiliseconds: Cardinal; var HeaderData: TNetHeaderData;
@@ -580,8 +564,8 @@ begin
         end
         else
         begin
-          if (FNetProtocolVersion.protocol_available > cNetProtocol_Available) and
-            (not FAlertedForNewProtocolAvailable) then
+          if (FNetProtocolVersion.protocol_available > cNetProtocol_Available) and (not FAlertedForNewProtocolAvailable)
+          then
           begin
             FAlertedForNewProtocolAvailable := true;
             TNode.Node.NotifyNetClientMessage(nil, 'Detected a new Net protocol version at ' + ClientRemoteAddr + ' (v '
@@ -606,10 +590,7 @@ begin
       begin
         sleep(1);
         if not Client.WaitForData(100) then
-        begin
           exit;
-        end;
-
         auxstream := (Client as TBufferedNetTcpIpClient).ReadBufferLock;
         try
           last_bytes_read := auxstream.Size;
@@ -647,7 +628,8 @@ begin
         begin
           TLog.NewLog(ltdebug, Classname,
             Format('Not enough data received - Received %d bytes from TcpClient buffer of %s after max %d miliseconds. Elapsed: %d - HeaderData: %s',
-            [FClientBufferRead.Size, Client.ClientRemoteAddr, MaxWaitMiliseconds, GetTickCount - tc, (HeaderData.ToString)]));
+            [FClientBufferRead.Size, Client.ClientRemoteAddr, MaxWaitMiliseconds, GetTickCount - tc,
+            (HeaderData.ToString)]));
         end;
       end;
     finally
@@ -670,9 +652,7 @@ begin
     end;
   end;
   if (Result) and (HeaderData.HeaderType = ntp_response) then
-  begin
-    TConnectionManager.Instance.UnRegisterRequest(Self, HeaderData.Operation, HeaderData.RequestId);
-  end;
+    TConnectionManager.Instance.UnRegisterRequest(Self, HeaderData.operation, HeaderData.RequestId);
 end;
 
 procedure TNetConnectionBase.Send(NetTranferType: TNetTransferType; operation, errorcode: Word; request_id: Integer;
@@ -722,7 +702,7 @@ begin
     buffer.Write(l, 2);
     l := cNetProtocol_Available;
     buffer.Write(l, 2);
-    if Assigned(DataBuffer) then
+    if assigned(DataBuffer) then
     begin
       l := DataBuffer.Size;
       buffer.Write(l, 4);
@@ -739,9 +719,9 @@ begin
     buffer.Position := 0;
     TPCThread.ProtectEnterCriticalSection(Self, FNetLock);
     try
-      TLog.NewLog(ltdebug, ClassName, 'Sending: ' + CT_NetTransferType[NetTranferType] + ' operation:' +
-        IntToStr(operation) + ' id:' + Inttostr(request_id) + ' errorcode:' +
-        Inttostr(errorcode) + ' Size:' + Inttostr(buffer.Size) + 'b ' + s + 'to ' + ClientRemoteAddr);
+      TLog.NewLog(ltdebug, Classname, 'Sending: ' + CT_NetTransferType[NetTranferType] + ' operation:' +
+        Inttostr(operation) + ' id:' + Inttostr(request_id) + ' errorcode:' + Inttostr(errorcode) + ' Size:' +
+        Inttostr(buffer.Size) + 'b ' + s + 'to ' + ClientRemoteAddr);
       (Client as TBufferedNetTcpIpClient).WriteBufferToSend(buffer);
       FLastDataSendedTS := GetTickCount;
       FRandomWaitSecondsSendHello := 90 + Random(60);
@@ -774,7 +754,7 @@ var
 begin
   if FTcpIpClient <> Value then
   begin
-    if Assigned(FTcpIpClient) then
+    if assigned(FTcpIpClient) then
     begin
       FTcpIpClient.OnConnect := nil;
       FTcpIpClient.OnDisconnect := nil;
@@ -783,7 +763,7 @@ begin
     TConnectionManager.Instance.UnRegisterRequest(Self, 0, 0);
     old := FTcpIpClient;
     FTcpIpClient := Value;
-    if Assigned(old) then
+    if assigned(old) then
     begin
       if old.Owner = Self then
       begin
@@ -791,7 +771,7 @@ begin
       end;
     end;
   end;
-  if Assigned(FTcpIpClient) then
+  if assigned(FTcpIpClient) then
   begin
     FTcpIpClient.FreeNotification(Self);
     FTcpIpClient.OnConnect := TcpClient_OnConnect;

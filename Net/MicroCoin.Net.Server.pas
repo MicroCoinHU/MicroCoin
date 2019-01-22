@@ -16,10 +16,9 @@ unit MicroCoin.Net.Server;
 interface
 
 uses UTCPIP, Sysutils, classes, ULog, UTime
-{$IFNDEF FPC}
+{$IFDEF MSWINDOWS}
     , Windows
-{$ENDIF}
-    ;
+{$ENDIF};
 
 type
 
@@ -48,23 +47,17 @@ end;
 procedure TNetServer.OnNewIncommingConnection(Sender: TObject; Client: TNetTcpIpClient);
 var
   n: TNetServerClient;
-  DebugStep: string;
   tc: Cardinal;
 begin
-  DebugStep := '';
   try
-    if not Client.Connected then
-      exit;
-    // NOTE: I'm in a separate thread
-    // While in this function the ClientSocket connection will be active, when finishes the ClientSocket will be destroyed
+    if not Client.Connected
+    then exit;
     TLog.NewLog(ltInfo, Classname, 'Starting ClientSocket accept ' + Client.ClientRemoteAddr);
     n := TNetServerClient.Create(nil);
     try
-      DebugStep := 'Assigning client';
       n.SetClient(Client);
       TConnectionManager.Instance.IncStatistics(1, 1, 0, 0, 0, 0);
       TConnectionManager.Instance.CleanBlackList;
-      DebugStep := 'Checking blacklisted';
       if (TConnectionManager.Instance.IsBlackListed(Client.RemoteHost, 0)) then
       begin
         // Invalid!
@@ -76,7 +69,6 @@ begin
       end
       else
       begin
-        DebugStep := 'Processing buffer and sleep...';
         while (n.Connected) and (Active) do
         begin
           n.DoProcessBuffer;
@@ -86,7 +78,6 @@ begin
     finally
       try
         TLog.NewLog(ltdebug, Classname, 'Finalizing ServerAccept ' + IntToHex(PtrInt(n), 8) + ' ' + n.ClientRemoteAddr);
-        DebugStep := 'Disconnecting NetServerClient';
         n.Connected := false;
         tc := GetTickCount;
         repeat
@@ -94,10 +85,8 @@ begin
           // 1.5.4 -> To prevent that not client disconnected (and not called OnDisconnect), increase sleep time
         until (not n.Connected) or (tc + 5000 < GetTickCount);
         sleep(5);
-        DebugStep := 'Assigning old client';
         n.SetClient(NetTcpIpClientClass.Create(nil));
         sleep(500); // Delay - Sleep time before destroying (1.5.3)
-        DebugStep := 'Freeing NetServerClient';
       finally
         n.Free;
       end;
@@ -105,7 +94,7 @@ begin
   except
     on E: Exception do
     begin
-      TLog.NewLog(ltError, Classname, 'Exception processing client thread at step: ' + DebugStep + ' - (' + E.Classname
+      TLog.NewLog(ltError, Classname, 'Exception processing client thread at ' + ' - (' + E.Classname
         + ') ' + E.Message);
     end;
   end;
@@ -113,23 +102,14 @@ end;
 
 procedure TNetServer.SetActive(const Value: Boolean);
 begin
-  if Value then
-  begin
-    TLog.NewLog(ltInfo, Classname, 'Activating server on port ' + Inttostr(port));
-  end
-  else
-  begin
-    TLog.NewLog(ltInfo, Classname, 'Closing server');
-  end;
+  if Value
+  then TLog.NewLog(ltInfo, Classname, 'Activating server on port ' + Inttostr(port))
+  else TLog.NewLog(ltInfo, Classname, 'Closing server');
+
   inherited;
-  if Active then
-  begin
-    // TNode.Node.AutoDiscoverNodes(CT_Discover_IPs);
-  end
-  else if TConnectionManager.NetDataExists then
-  begin
-    TConnectionManager.Instance.DisconnectClients;
-  end;
+
+  if (not Active) and TConnectionManager.NetDataExists
+  then TConnectionManager.Instance.DisconnectClients;
 end;
 
 procedure TNetServer.SetMaxConnections(AValue: Integer);

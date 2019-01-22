@@ -1,6 +1,6 @@
 { ==============================================================================|
   | MicroCoin                                                                    |
-  | Copyright (c) 2018 MicroCoin Developers                                      |
+  | Copyright (c) 2019 MicroCoin Developers                                      |
   |==============================================================================|
   | Permission is hereby granted, free of charge, to any person obtaining a copy |
   | of this software and associated documentation files (the "Software"), to     |
@@ -20,11 +20,11 @@
   | FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER          |
   | DEALINGS IN THE SOFTWARE.                                                    |
   |==============================================================================|
-  | File:       MicroCoin.Net.Handlers.Message.pas                               |
-  | Created at: 2018-09-21                                                       |
-  | Purpose:    Message message handler                                          |
+  | File:       MicroCoin.Net.Handlers.NewTransaction.pas
+  | Created at: 2019-01-22
+  | Purpose:
   |============================================================================== }
-unit MicroCoin.Net.Handlers.Message;
+unit MicroCoin.Net.Handlers.NewTransaction;
 
 interface
 
@@ -32,49 +32,55 @@ uses Classes, SysUtils, MicroCoin.Net.CommandHandler,
   MicroCoin.Net.ConnectionManager, MicroCoin.Common.Config, ULog,
   MicroCoin.Account.AccountKey, MicroCoin.Net.NodeServer, UTime,
   UThread, MicroCoin.Net.Utils, UCrypto, UBaseTypes,
+  MicroCoin.Transaction.Manager, MicroCoin.Transaction.ITransaction,
+  MicroCoin.Transaction.HashTree,
   MicroCoin.Net.Protocol, MicroCoin.Net.Connection, MicroCoin.Node.Node;
 
 type
-  TMessageHandler = class(TInterfacedObject, ICommandHandler)
+  TNewTransactionHandler = class(TInterfacedObject, ICommandHandler)
   public
     procedure HandleCommand(AHeader: TNetHeaderData; AData: TStream; AConnection: TObject);
   end;
 
 implementation
 
-{ TMessageHandler }
+{ TNewTransactionHandler }
 
-procedure TMessageHandler.HandleCommand(AHeader: TNetHeaderData; AData: TStream; AConnection: TObject);
+procedure TNewTransactionHandler.HandleCommand(AHeader: TNetHeaderData; AData: TStream; AConnection: TObject);
 var
+  c, i: Integer;
+  errors: AnsiString;
+  xMessage: TNetMessage_NewTransaction;
   Connection: TNetConnection;
-  xMessage: TNetMessage_Message;
+  xTransaction: ITransaction;
 begin
+  Connection := AConnection as TNetConnection;
   if AHeader.HeaderType <> ntp_autosend then
     raise Exception.Create('Not autosend');
+  xMessage := TNetMessage_NewTransaction.LoadFromStream(AData);
 
-  Connection := AConnection as TNetConnection;
-  xMessage := TNetMessage_Message.LoadFromStream(AData);
-  if Length(xMessage.Message) < 1 then
-    raise Exception.Create('Invalid Message');
-
-  if TCrypto.IsHumanReadable(xMessage.Message) then
-    TLog.NewLog(ltInfo, Classname, 'Received new message from ' + Connection.ClientRemoteAddr + ' Message (' +
-      Inttostr(Length(xMessage.Message)) + ' bytes): ' + xMessage.Message)
-  else
-    TLog.NewLog(ltInfo, Classname, 'Received new message from ' + Connection.ClientRemoteAddr + ' Message (' +
-      Inttostr(Length(xMessage.Message)) + ' bytes) in hexadecimal: ' + TBaseType.ToHexaString(xMessage.Message));
   try
-    TNode.Node.NotifyNetClientMessage(Connection, xMessage.Message);
-  except
-    on E: Exception do
-    begin
-      TLog.NewLog(ltError, Classname, 'Error processing received message. ' + E.Classname + ' ' + E.Message);
+    Connection.BufferLock.Acquire;
+    try
+      for i := 0 to xMessage.Transactions.TransactionCount - 1 do
+      begin
+        xTransaction := xMessage.Transactions.GetTransaction(i);
+        Connection.BufferReceivedOperationsHash.Add(xTransaction.Sha256);
+        c := Connection.BufferToSendOperations.IndexOf(xTransaction);
+        if (c >= 0) then
+          Connection.BufferToSendOperations.Delete(c);
+      end;
+    finally
+      Connection.BufferLock.Release;
     end;
+    TNode.Node.AddOperations(Connection, xMessage.Transactions, nil, errors);
+  finally
+    xMessage.Transactions.Free;
   end;
 end;
 
 initialization
 
-TNetConnection.AddHandler(cNetOp_Message, TMessageHandler);
+TNetConnection.AddHandler(cNetOp_AddOperations, TNewTransactionHandler);
 
 end.

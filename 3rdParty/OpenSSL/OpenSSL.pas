@@ -22,30 +22,16 @@ Uses OpenSSLdef;
 
 var
 {$IFDEF UNIX}
-  {$IFDEF OpenSSL10}
   SSL_C_LIB : AnsiString = 'libcrypto.so.1.0.0';
-  {$ELSE}
-  SSL_C_LIB : AnsiString = 'libcrypto.so.1.1';
-  {$ENDIF}
 {$ELSE}
   {$IFDEF FPC}
-  // Windows + Lazarus uses a OpenSSL v1.0 32 or 64 bits
-     {$IFDEF OpenSSL10}
        SSL_C_LIB : AnsiString = 'libeay32.dll';
-     {$ELSE}
-       SSL_C_LIB : AnsiString = 'libcrypto-1_1-x64.dll';
-     {$ENDIF}
   {$ELSE}
-  {$IFDEF CPU64BITS}
-  // Windows + Delphi only allows OpenSSL v1.0 32 bits
-    SSL_C_LIB : AnsiString = 'libeay32.dll';
-  {$ELSE}
-    {$IFDEF OpenSSL10}
-     SSL_C_LIB : AnsiString = 'libeay32.dll';
+    {$IFDEF CPU64BITS}
+      SSL_C_LIB : AnsiString = 'libeay32.dll';
     {$ELSE}
-    SSL_C_LIB : AnsiString = 'libcrypto-1_1.dll';
+       SSL_C_LIB : AnsiString = 'libeay32.dll';
     {$ENDIF}
-  {$ENDIF}
   {$ENDIF}
 {$ENDIF}
 
@@ -127,11 +113,6 @@ var
   ECDSA_do_sign: function(const _dgst: PAnsiChar; _dgst_len: TC_INT; _eckey: PEC_KEY): PECDSA_SIG; cdecl = nil;
   ECDSA_do_sign_ex: function(const _dgst: PAnsiChar; _dgstlen: TC_INT; const _kinv: PBIGNUM; const _rp: Pointer; _eckey: PEC_KEY): PECDSA_SIG; cdecl = nil;
   ECDSA_do_verify: function(const _dgst: PAnsiChar; _dgst_len: TC_INT; const _sig: PECDSA_SIG; _eckey: PEC_KEY): TC_INT; cdecl = nil;
-  {$IFDEF OpenSSL10}
-  {$ELSE}
-  ECDSA_SIG_get0: procedure(const _sig : PECDSA_SIG; const pr: PPBIGNUM; const ps:PPBIGNUM); cdecl;
-  ECDSA_SIG_set0: function(_sig : PECDSA_SIG; r,s : PBIGNUM): TC_INT; cdecl = nil;
-  {$ENDIF}
   ECDSA_size: function(const _eckey: PEC_KEY): TC_INT; cdecl = nil;
   ECDSA_sign_setup: function(_eckey: PEC_KEY; _ctx: PBN_CTX; _kinv: PPBIGNUM; _rp: PPBIGNUM): TC_INT; cdecl = nil;
   ECDSA_sign: function(_type: TC_INT; const _dgst: PAnsiChar; _dgstlen: TC_INT; _sig: PAnsiChar; var _siglen: TC_UINT; _eckey: PEC_KEY): TC_INT; cdecl = nil;
@@ -141,17 +122,12 @@ var
   RAND_pseudo_bytes: function(buf: PAnsiChar; num: TC_INT): TC_INT; cdecl = nil;
 
   EVP_sha256: function: PEVP_MD; cdecl = nil;
-  {$IFDEF OpenSSL10}
   EVP_MD_CTX_init: procedure(ctx: PEVP_MD_CTX); cdecl = nil;
   EVP_MD_CTX_cleanup: function(ctx: PEVP_MD_CTX): TC_INT; cdecl = nil;
   EVP_MD_CTX_create: function: PEVP_MD_CTX; cdecl = nil;
   EVP_MD_CTX_destroy: procedure(ctx: PEVP_MD_CTX); cdecl = nil;
   EVP_CIPHER_CTX_init: procedure(a: PEVP_CIPHER_CTX); cdecl = nil;
   EVP_CIPHER_CTX_cleanup: function(a: PEVP_CIPHER_CTX): TC_INT; cdecl = nil;
-  {$ELSE}
-  EVP_MD_CTX_new: function : PEVP_MD_CTX; cdecl = nil;
-  EVP_MD_CTX_free: function(ctx: PEVP_MD_CTX): TC_INT; cdecl = nil;
-  {$ENDIF}
   EVP_DigestInit_ex: function(ctx: PEVP_MD_CTX; const _type: PEVP_MD; impl: PENGINE): TC_INT; cdecl = nil;
   EVP_DigestUpdate: function(ctx: PEVP_MD_CTX;const d: Pointer; cnt: TC_SIZE_T): TC_INT; cdecl = nil;
   EVP_DigestFinal_ex: function(ctx: PEVP_MD_CTX;md: PAnsiChar;var s: TC_INT): TC_INT; cdecl = nil;
@@ -177,13 +153,8 @@ var
 
   ECDH_compute_key: function(_out: Pointer; outlen: TC_SIZE_T; const _pub_key: PEC_POINT; _ecdh: PEC_KEY; KDF: ecdh_kdf): TC_INT; cdecl = nil;
 
-  {$IFDEF OpenSSL10}
   HMAC_CTX_init: procedure(_ctx: PHMAC_CTX); cdecl = nil;
   HMAC_CTX_cleanup: procedure(_ctx: PHMAC_CTX); cdecl = nil;
-  {$ELSE}
-  HMAC_CTX_new: function : PHMAC_CTX; cdecl = nil;
-  HMAC_CTX_free: procedure(_ctx: PHMAC_CTX); cdecl = nil;
-  {$ENDIF}
 
   HMAC_Init: function(_ctx: PHMAC_CTX; const _key: Pointer; _len: TC_INT;const _md: PEVP_MD): TC_INT; cdecl = nil;
   HMAC_Init_ex: function(_ctx: PHMAC_CTX; const _key: Pointer; _len: TC_INT;const _md: PEVP_MD; _impl: PENGINE): TC_INT; cdecl = nil;
@@ -327,11 +298,6 @@ Begin
     @ECDSA_do_sign:= LoadFunctionCLib('ECDSA_do_sign');
     @ECDSA_do_sign_ex:= LoadFunctionCLib('ECDSA_do_sign_ex');
     @ECDSA_do_verify:= LoadFunctionCLib('ECDSA_do_verify');
-    {$IFDEF OpenSSL10}
-    {$ELSE}
-    @ECDSA_SIG_get0:= LoadFunctionCLib('ECDSA_SIG_get0');
-    @ECDSA_SIG_set0:= LoadFunctionCLib('ECDSA_SIG_set0');
-    {$ENDIF}
     @ECDSA_size:= LoadFunctionCLib('ECDSA_size');
     @ECDSA_sign_setup:= LoadFunctionCLib('ECDSA_sign_setup');
     @ECDSA_sign:= LoadFunctionCLib('ECDSA_sign');
@@ -341,20 +307,15 @@ Begin
     @RAND_pseudo_bytes:= LoadFunctionCLib('RAND_pseudo_bytes');
 
     @EVP_sha256:= LoadFunctionCLib('EVP_sha256');
-    {$IFDEF OpenSSL10}
     @EVP_MD_CTX_init:= LoadFunctionCLib('EVP_MD_CTX_init');
     @EVP_MD_CTX_cleanup:= LoadFunctionCLib('EVP_MD_CTX_cleanup');
     @EVP_MD_CTX_create:= LoadFunctionCLib('EVP_MD_CTX_create');
     @EVP_MD_CTX_destroy:= LoadFunctionCLib('EVP_MD_CTX_destroy');
     @EVP_CIPHER_CTX_init:= LoadFunctionCLib('EVP_CIPHER_CTX_init');
     @EVP_CIPHER_CTX_cleanup:= LoadFunctionCLib('EVP_CIPHER_CTX_cleanup');
-    {$ELSE}
-    @EVP_MD_CTX_new:= LoadFunctionCLib('EVP_MD_CTX_new');
-    @EVP_MD_CTX_free:= LoadFunctionCLib('EVP_MD_CTX_free');
-    {$ENDIF}
     @EVP_DigestInit_ex:= LoadFunctionCLib('EVP_DigestInit_ex');
     @EVP_DigestUpdate:= LoadFunctionCLib('EVP_DigestUpdate');
-@EVP_DigestFinal_ex:= LoadFunctionCLib('EVP_DigestFinal_ex');
+    @EVP_DigestFinal_ex:= LoadFunctionCLib('EVP_DigestFinal_ex');
     @EVP_aes_256_cbc:= LoadFunctionCLib('EVP_aes_256_cbc');
     @EVP_CIPHER_CTX_free:= LoadFunctionCLib('EVP_CIPHER_CTX_free');
     @EVP_CIPHER_CTX_new:= LoadFunctionCLib('EVP_CIPHER_CTX_new');
@@ -376,13 +337,8 @@ Begin
     @EVP_DecryptFinal_ex:= LoadFunctionCLib('EVP_DecryptFinal_ex');
     @ECDH_compute_key:= LoadFunctionCLib('ECDH_compute_key');
 
-    {$IFDEF OpenSSL10}
     @HMAC_CTX_init:= LoadFunctionCLib('HMAC_CTX_init');
     @HMAC_CTX_cleanup:= LoadFunctionCLib('HMAC_CTX_cleanup');
-    {$ELSE}
-    @HMAC_CTX_new:= LoadFunctionCLib('HMAC_CTX_new');
-    @HMAC_CTX_free:= LoadFunctionCLib('HMAC_CTX_free');
-    {$ENDIF}
     @HMAC_Init:= LoadFunctionCLib('HMAC_Init');
     @HMAC_Init_ex:= LoadFunctionCLib('HMAC_Init_ex');
     @HMAC_Update:= LoadFunctionCLib('HMAC_Update');

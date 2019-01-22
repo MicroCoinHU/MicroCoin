@@ -60,7 +60,6 @@ Type
 
   TPCThread = Class(TThread)
   private
-    FDebugStep: String;
     FStartTickCount : Cardinal;
   protected
     procedure DoTerminate; override;
@@ -79,7 +78,6 @@ Type
     Class Procedure ThreadsListInfo(list: TStrings);
     constructor Create(CreateSuspended: Boolean);
     destructor Destroy; override;
-    Property DebugStep : String read FDebugStep write FDebugStep;
     property Terminated;
   End;
 
@@ -137,7 +135,6 @@ Var l : TList;
   i : Integer;
 begin
   FStartTickCount := GetTickCount;
-  FDebugStep := '';
   if not assigned(_threads) then exit;
   i := _threads.Add(Self);
   try
@@ -145,13 +142,12 @@ begin
     Try
       Try
         BCExecute;
-        FDebugStep := 'Finalized BCExecute';
       Finally
         Terminate;
       End;
     Except
       On E:Exception do begin
-        TLog.NewLog(lterror,Classname,'Exception inside a Thread at step: '+FDebugStep+' ('+E.ClassName+'): '+E.Message);
+        TLog.NewLog(lterror,Classname,'Exception inside a Thread at ('+E.ClassName+'): '+E.Message);
         Raise;
       end;
     End;
@@ -246,7 +242,7 @@ begin
     list.BeginUpdate;
     list.Clear;
     for i := 0 to l.Count - 1 do begin
-      list.Add(Format('%.2d/%.2d <%s> Time:%s sec - Step: %s',[i+1,l.Count,TPCThread(l[i]).ClassName,FormatFloat('0.000',(GetTickCount-TPCThread(l[i]).FStartTickCount) / 1000),TPCThread(l[i]).DebugStep] ));
+      list.Add(Format('%.2d/%.2d <%s> Time:%s sec',[i+1,l.Count,TPCThread(l[i]).ClassName,FormatFloat('0.000',(GetTickCount-TPCThread(l[i]).FStartTickCount) / 1000)] ));
     end;
     list.EndUpdate;
   finally

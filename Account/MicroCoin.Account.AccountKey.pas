@@ -83,23 +83,15 @@ class function TAccountKeyHelper.GetECInfoTxt(const EC_OpenSSL_NID: Word): AnsiS
 begin
   case EC_OpenSSL_NID of
     cNID_secp256k1:
-      begin
         Result := 'secp256k1';
-      end;
     cNID_secp384r1:
-      begin
         Result := 'secp384r1';
-      end;
     cNID_sect283k1:
-      begin
         Result := 'secp283k1';
-      end;
     cNID_secp521r1:
-      begin
         Result := 'secp521r1';
-      end
-  else
-    Result := '(Unknown ID:' + inttostr(EC_OpenSSL_NID) + ')';
+    else
+      Result := '(Unknown ID:' + inttostr(EC_OpenSSL_NID) + ')';
   end;
 end;
 
