@@ -102,7 +102,7 @@ type
 
 procedure LogDebug(const ASender, ALogText: string); inline;
 begin
-{$IFDEF DEBUG}
+{$IFDEF DEBUG1}
   TLog.NewLog(ltdebug, ASender, ALogText);
 {$ENDIF}
 end;

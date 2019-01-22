@@ -74,7 +74,7 @@ end;
 
 destructor TNetClient.Destroy;
 begin
-  TLog.NewLog(ltdebug, Classname, 'Starting TNetClient.Destroy');
+  LogDebug(Classname, 'Starting TNetClient.Destroy');
   if not assigned(FNetClientThread) then
     exit;
   FNetClientThread.OnTerminate := nil;

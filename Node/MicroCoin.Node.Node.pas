@@ -139,7 +139,7 @@ begin
     exit;
   end;
   OpBlock := NewBlockOperations.BlockHeader;
-  TLog.NewLog(ltdebug, Classname, Format('AddNewBlockChain Connection:%s NewBlock:%s',
+  LogDebug( Classname, Format('AddNewBlockChain Connection:%s NewBlock:%s',
     [Inttohex(PtrInt(SenderConnection), 8), OpBlock.ToString()]));
   if not TPCThread.TryProtectEnterCriticalSection(Self, 2000, FLockNodeOperations) then
   begin
@@ -243,9 +243,9 @@ begin
         end;
         if j > 0 then
         begin
-          TLog.NewLog(ltdebug, Classname, 'Buffer Sent operations: Deleted ' + IntToStr(j) + ' old operations');
+          LogDebug( Classname, 'Buffer Sent operations: Deleted ' + IntToStr(j) + ' old operations');
         end;
-        TLog.NewLog(ltdebug, Classname, 'Buffer Sent operations: ' + IntToStr(FSentOperations.Count));
+        LogDebug( Classname, 'Buffer Sent operations: ' + IntToStr(FSentOperations.Count));
         // Notify to clients
         j := TConnectionManager.Instance.ConnectionsCountAll;
         for i := 0 to j - 1 do
@@ -264,7 +264,7 @@ begin
     end;
   finally
     FLockNodeOperations.Release;
-    TLog.NewLog(ltdebug, Classname, Format('Finalizing AddNewBlockChain Connection:%s NewBlock:%s',
+    LogDebug( Classname, Format('Finalizing AddNewBlockChain Connection:%s NewBlock:%s',
       [Inttohex(PtrInt(SenderConnection), 8), OpBlock.ToString()]));
   end;
   if Result then
@@ -361,7 +361,7 @@ begin
   errors := '';
   xValidTransactions := TTransactionHashTree.Create;
   try
-    TLog.NewLog(ltdebug, Classname, Format('AddOperations Connection:%s Operations:%d',
+    LogDebug(Classname, Format('AddOperations Connection:%s Operations:%d',
       [Inttohex(PtrInt(SenderConnection), 8), Operations.TransactionCount]));
     if not TPCThread.TryProtectEnterCriticalSection(Self, 4000, FLockNodeOperations) then
     begin
@@ -391,7 +391,7 @@ begin
             if (errors <> '') then
               errors := errors + ' ';
             errors := errors + 'Op ' + IntToStr(j + 1) + '/' + IntToStr(Operations.TransactionCount) + ':' + xError;
-            TLog.NewLog(ltdebug, Classname, Format('AddOperation invalid/duplicated %d/%d: %s  - Error:%s',
+            LogDebug(Classname, Format('AddOperation invalid/duplicated %d/%d: %s  - Error:%s',
               [(j + 1), Operations.TransactionCount, xTransaction.ToString, xError]));
             if Assigned(OperationsResult) then
             begin
@@ -411,7 +411,7 @@ begin
             begin
               inc(Result);
               xValidTransactions.AddTransactionToHashTree(xTransaction);
-              TLog.NewLog(ltdebug, Classname, Format('AddOperation %d/%d: %s', [(j + 1), Operations.TransactionCount,
+              LogDebug(Classname, Format('AddOperation %d/%d: %s', [(j + 1), Operations.TransactionCount,
                 xTransaction.ToString]));
               if Assigned(OperationsResult) then
               begin
@@ -426,7 +426,7 @@ begin
               if (errors <> '') then
                 errors := errors + ' ';
               errors := errors + 'Op ' + IntToStr(j + 1) + '/' + IntToStr(Operations.TransactionCount) + ':' + xError;
-              TLog.NewLog(ltdebug, Classname, Format('AddOperation invalid/duplicated %d/%d: %s  - Error:%s',
+              LogDebug( Classname, Format('AddOperation invalid/duplicated %d/%d: %s  - Error:%s',
                 [(j + 1), Operations.TransactionCount, xTransaction.ToString, xError]));
               if Assigned(OperationsResult) then
               begin
@@ -463,14 +463,14 @@ begin
         else
         begin
           errors := errors + 'Unable to add operation as it has already been added.';
-{$IFDEF HIGHLOG}TLog.NewLog(ltdebug, Classname, Format('AddOperation made before %d/%d: %s', [(j + 1), Operations.OperationsCount, ActOp.ToString])); {$ENDIF}
+{$IFDEF HIGHLOG}LogDebug( Classname, Format('AddOperation made before %d/%d: %s', [(j + 1), Operations.OperationsCount, ActOp.ToString])); {$ENDIF}
         end;
       end;
     finally
       FLockNodeOperations.Release;
       if Result <> 0 then
       begin
-        TLog.NewLog(ltdebug, Classname, Format('Finalizing AddOperations Connection:%s Operations:%d valids:%d',
+        LogDebug(Classname, Format('Finalizing AddOperations Connection:%s Operations:%d valids:%d',
           [Inttohex(PtrInt(SenderConnection), 8), Operations.TransactionCount, Result]));
       end;
     end;
@@ -826,7 +826,7 @@ procedure TNode.GetStoredTransactionsFromAccount(const ATransactionList: TTransa
           xList.Clear;
           if not BlockManager.Storage.LoadBlockChainBlock(xBlock, block_number) then
           begin
-            TLog.NewLog(ltdebug, Classname, 'Block ' + IntToStr(block_number) + ' not found. Cannot read operations');
+            LogDebug( Classname, 'Block ' + IntToStr(block_number) + ' not found. Cannot read operations');
             exit;
           end;
           xBlock.TransactionHashTree.GetTransactionsAffectingAccount(AAccountNumber, xList);

@@ -386,11 +386,11 @@ begin
           end
           else
           begin
-            TLog.NewLog(ltdebug, Classname, 'Received a unexpected JSON while waiting for response Id:' + inttostr(nId)
+            LogDebug( Classname, 'Received a unexpected JSON while waiting for response Id:' + inttostr(nId)
               + ' Received:' + json.ToJSON(false));
             if Assigned(processEventOnInvalid) then
             begin
-              TLog.NewLog(ltdebug, Classname, 'Sending to process unexpected JSON:' + json.ToJSON(false));
+              LogDebug(Classname, 'Sending to process unexpected JSON:' + json.ToJSON(false));
               processEventOnInvalid(json, rm);
             end
             else

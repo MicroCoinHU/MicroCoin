@@ -1185,7 +1185,7 @@ begin
   except
     on E: Exception do
     begin
-      TLog.NewLog(ltDebug, ClassName, 'Error processing JSON: ' + E.Message);
+     LogDebug(ClassName, 'Error processing JSON: ' + E.Message);
     end;
   end;
 {$ELSE}
@@ -1194,7 +1194,7 @@ begin
   except
     on E: Exception do
     begin
-      TLog.NewLog(ltDebug, ClassName, 'Error processing JSON: ' + E.Message);
+      LogDebug(ClassName, 'Error processing JSON: ' + E.Message);
     end;
   end;
 {$ENDIF}

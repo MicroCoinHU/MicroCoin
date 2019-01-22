@@ -2360,7 +2360,7 @@ begin
   ErrorNum := 0;
   ErrorDesc := '';
   Result := false;
-  TLog.NewLog(ltdebug, Classname, 'Processing RPC-JSON method ' + method);
+  LogDebug( Classname, 'Processing RPC-JSON method ' + method);
 
   Handler := TRPCPluginManager.GetHandler(method);
 

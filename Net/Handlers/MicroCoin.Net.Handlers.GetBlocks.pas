@@ -101,7 +101,7 @@ begin
   finally
     xMemoryStream.Free;
   end;
-  TLog.NewLog(ltdebug, Classname, 'Sending operations from block ' + Inttostr(xMessage.StartBlock) + ' to ' +
+  LogDebug( Classname, 'Sending operations from block ' + Inttostr(xMessage.StartBlock) + ' to ' +
     Inttostr(xMessage.EndBlock));
 end;
 

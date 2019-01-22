@@ -309,7 +309,7 @@ var
   b: Cardinal;
 begin
   b := AAccountNumber div cAccountsPerBlock;
-  if (b < 0) or (b >= FBlockAccountsList.Count) then
+  if (b >= FBlockAccountsList.Count) then
     raise EInvalidAccountException.Create('Invalid account: ' + inttostr(AAccountNumber));
   ToTAccount(PBlockAccount(FBlockAccountsList.Items[b])^.Accounts[AAccountNumber mod cAccountsPerBlock],
     AAccountNumber, Result);
@@ -392,7 +392,7 @@ end;
 
 function TAccountStorage.GetBlock(ABlockNumber: Cardinal): TAccountStorageEntry;
 begin
-  if (ABlockNumber < 0) or (ABlockNumber >= FBlockAccountsList.Count) then
+  if (ABlockNumber >= FBlockAccountsList.Count) then
     raise Exception.Create('Invalid block number: ' + inttostr(ABlockNumber));
   ToTBlockAccount(PBlockAccount(FBlockAccountsList.Items[ABlockNumber])^, ABlockNumber, Result);
 end;
@@ -416,7 +416,7 @@ begin
       Result := 1;
       exit;
     end;
-    if (ABlockNumber < 0) or (ABlockNumber >= FBlockAccountsList.Count) then
+    if (ABlockNumber >= FBlockAccountsList.Count) then
       raise Exception.Create('Invalid block number: ' + inttostr(ABlockNumber));
     if (APreviousBlocksAverage <= 0) then
       raise Exception.Create('Dev error 20161016-1');
@@ -483,7 +483,7 @@ begin
       sb.Free;
     end;
     tc := GetTickCount - tc;
-    TLog.NewLog(ltDebug, Classname, 'Checked memory ' + inttostr(tc) + ' miliseonds');
+    LogDebug(Classname, 'Checked memory ' + inttostr(tc) + ' miliseonds');
   finally
     EndThreadSave;
   end;
@@ -1666,12 +1666,12 @@ begin
           P^.AccountNumbers.Add(i);
         end;
       end;
-      TLog.NewLog(ltDebug, Classname, Format('Adding account key (%d of %d) %s', [j, FAccountStorage.AccountsCount,
+      LogDebug(Classname, Format('Adding account key (%d of %d) %s', [j, FAccountStorage.AccountsCount,
         TBaseType.ToHexaString(AAccountKey.ToRawString)]));
     end
     else
     begin
-      TLog.NewLog(ltDebug, Classname, Format('Adding account key (no Account List) %s',
+      LogDebug(Classname, Format('Adding account key (no Account List) %s',
         [TBaseType.ToHexaString(AAccountKey.ToRawString)]));
     end;
   end;
@@ -1736,7 +1736,7 @@ constructor TOrderedAccountKeysList.Create(AAccountStorage: TAccountStorage; AAu
 var
   i: Integer;
 begin
-  TLog.NewLog(ltDebug, Classname, 'Creating an Ordered Account Keys List adding all:' + BooltoStr(AAutoAddAll, true));
+  LogDebug(Classname, 'Creating an Ordered Account Keys List adding all:' + BooltoStr(AAutoAddAll, true));
   FAutoAddAll := AAutoAddAll;
   FAccountStorage := AAccountStorage;
   FOrderedAccountKeysList := TList.Create;
@@ -1755,7 +1755,7 @@ end;
 
 destructor TOrderedAccountKeysList.Destroy;
 begin
-  TLog.NewLog(ltDebug, Classname, 'Destroying an Ordered Account Keys List adding all:' + BoolToStr(FAutoAddAll));
+  LogDebug(Classname, 'Destroying an Ordered Account Keys List adding all:' + BoolToStr(FAutoAddAll));
   if Assigned(FAccountStorage)
   then FAccountStorage.ListOfOrderedAccountKeysList.Remove(Self);
   ClearAccounts(true);
@@ -1963,12 +1963,8 @@ var
   xResult : boolean;
 begin
   Result := TAccountStorageHeader.Empty;
+  if (AStream.Size = 0) then exit;
   xResult := false;
-  if (AStream.Size = 0) then
-  begin
-    xResult := true;
-    exit;
-  end;
   initialPos := AStream.Position;
   try
     AStream.ReadAnsiString(s);

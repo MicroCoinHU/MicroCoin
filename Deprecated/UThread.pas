@@ -107,7 +107,7 @@ uses
 constructor TPCThread.Create(CreateSuspended: Boolean);
 begin
   inherited Create(CreateSuspended);
-  {$IFDEF HIGHLOG}TLog.NewLog(ltdebug,Classname,'Created Thread '+IntToHex(PtrInt(Self),8));{$ENDIF}
+  {$IFDEF HIGHLOG}LogDebug(Classname,'Created Thread '+IntToHex(PtrInt(Self),8));{$ENDIF}
 end;
 
 class constructor TPCThread.Create;
@@ -138,7 +138,7 @@ begin
   if not assigned(_threads) then exit;
   i := _threads.Add(Self);
   try
-    {$IFDEF HIGHLOG}TLog.NewLog(ltdebug,Classname,'Starting Thread '+IntToHex(PtrInt(Self),8)+' in pos '+inttostr(i+1));{$ENDIF}
+    {$IFDEF HIGHLOG}LogDebug(Classname,'Starting Thread '+IntToHex(PtrInt(Self),8)+' in pos '+inttostr(i+1));{$ENDIF}
     Try
       Try
         BCExecute;
@@ -155,7 +155,7 @@ begin
     l := _threads.LockList;
     Try
       i := l.Remove(Self);
-      {$IFDEF HIGHLOG}TLog.NewLog(ltdebug,Classname,'Finalizing Thread in pos '+inttostr(i+1)+'/'+inttostr(l.Count+1)+' working time: '+FormatFloat('0.000',(GetTickCount-FStartTickCount) / 1000)+' sec');{$ENDIF}
+      {$IFDEF HIGHLOG}LogDebug(Classname,'Finalizing Thread in pos '+inttostr(i+1)+'/'+inttostr(l.Count+1)+' working time: '+FormatFloat('0.000',(GetTickCount-FStartTickCount) / 1000)+' sec');{$ENDIF}
     Finally
       _threads.UnlockList;
     End;
@@ -282,7 +282,7 @@ begin
       lockWatingForCounter,Lock.WaitingForCounter,
       tc3
       ]);
-    TLog.NewLog(ltdebug,Classname,s);
+    LogDebug(Classname,s);
   end;
   {$ENDIF}
 end;
@@ -390,7 +390,7 @@ begin
     if (Not continue) then begin
       If (not logged) And ((FStartedTimestamp>0) And ((FStartedTimestamp+1000)<GetTickCount)) then begin
         logged := true;
-        TLog.NewLog(ltdebug,ClassName,'ALERT Critical section '+IntToHex(PtrInt(Self),8)+' '+Name+
+        LogDebug(ClassName,'ALERT Critical section '+IntToHex(PtrInt(Self),8)+' '+Name+
           ' locked by '+IntToHex(FCurrentThread,8)+' waiting '+
           IntToStr(FWaitingForCounter)+' elapsed milis: '+IntToStr(GetTickCount-FStartedTimestamp) );
         continue := true;
@@ -399,7 +399,7 @@ begin
     end;
   Until continue;
   if (logged) then begin
-    TLog.NewLog(ltdebug,Classname,'ENTER Critical section '+IntToHex(PtrInt(Self),8)+' '+Name+' elapsed milis: '+IntToStr(GetTickCount - startTC) );
+    LogDebug(Classname,'ENTER Critical section '+IntToHex(PtrInt(Self),8)+' '+Name+' elapsed milis: '+IntToStr(GetTickCount - startTC) );
   end;
   FCounterLock.Acquire;
   try
@@ -421,7 +421,7 @@ begin
   FStartedTimestamp := 0;
   FName := AName;
   inherited Create;
-  {$IFDEF HIGHLOG}TLog.NewLog(ltDebug,ClassName,'Created critical section '+IntToHex(PtrInt(Self),8)+' '+AName );{$ENDIF}
+  {$IFDEF HIGHLOG}LogDebug(ClassName,'Created critical section '+IntToHex(PtrInt(Self),8)+' '+AName );{$ENDIF}
 end;
 
 destructor TPCCriticalSection.Destroy;

@@ -205,7 +205,7 @@ procedure TMicroCoin.InitKeys;
 begin
   ForceDirectories(MicroCoinDataFolder);
   FWalletKeys := TKeyManager.Create(nil);
-  TLog.newlog(ltdebug, classname, MicroCoinDataFolder + PathDelim + 'WalletKeys.dat');
+  LogDebug( classname, MicroCoinDataFolder + PathDelim + 'WalletKeys.dat');
   FWalletKeys.WalletFileName := MicroCoinDataFolder + PathDelim + 'WalletKeys.dat';
 end;
 
@@ -353,19 +353,14 @@ end;
 procedure TMicroCoin.Start;
 begin
   InitCrypto;
-  TLog.NewLog(ltdebug, classname, 'InitCrypto');
   InitKeys;
-  TLog.NewLog(ltdebug, classname, 'InitKeys');
   InitRPCServer;
-  TLog.NewLog(ltdebug, classname, 'InitRPCServer');
   {$ifndef fpc}
   FInitTask := TTask.Run(InitNode);
   {$else}
   InitNode;
-  TLog.NewLog(ltdebug, classname, 'InitNode');
   {$endif}
   InitRPCMinerServer;
-  TLog.NewLog(ltdebug, classname, 'InitRPCMinerServer');
 end;
 
 initialization

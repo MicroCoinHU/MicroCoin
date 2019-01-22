@@ -591,7 +591,7 @@ begin
           inc(n);
           aux.AddTransactionToHashTree(ATransaction);
           inc(FBlockHeader.Fee, ATransaction.Fee);
-          TLog.NewLog(ltdebug, Classname, 'Sanitizing (pos:' + Inttostr(i + 1) + '/' + Inttostr(lastn) + '): ' +
+          LogDebug(Classname, 'Sanitizing (pos:' + Inttostr(i + 1) + '/' + Inttostr(lastn) + '): ' +
             ATransaction.ToString);
         end;
       end;
@@ -607,7 +607,7 @@ begin
   end;
   if (n > 0) then
   begin
-    TLog.NewLog(ltdebug, Classname, Format('Sanitize operations (before %d - after %d)', [lastn, n]));
+    LogDebug(Classname, Format('Sanitize operations (before %d - after %d)', [lastn, n]));
   end;
 end;
 

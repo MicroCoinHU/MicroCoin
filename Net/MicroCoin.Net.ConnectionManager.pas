@@ -255,7 +255,7 @@ begin
     l.Add(P);
     l.Sort(SortNodeServerAddress);
     Inc(FNetStatistics.NodeServersListCount);
-    TLog.NewLog(ltdebug, Classname, 'Adding new server: ' + NodeServerAddress.ip + ':' +
+    LogDebug( Classname, 'Adding new server: ' + NodeServerAddress.ip + ':' +
       Inttostr(NodeServerAddress.port));
   finally
     FNodeServersAddresses.UnlockList;
@@ -529,7 +529,7 @@ begin
         E.Classname + '): ' + E.Message);
     end;
   end;
-  TLog.NewLog(ltdebug, Classname, 'Unlocked a NetLock object out of connections list');
+  LogDebug(Classname, 'Unlocked a NetLock object out of connections list');
 end;
 
 class constructor TConnectionManager.CreateClass;
@@ -747,7 +747,7 @@ begin
   end;
   if j <= 0 then
     exit;
-{$IFDEF HIGHLOG}TLog.NewLog(ltdebug, Classname, 'Discover servers start process searching up to ' + Inttostr(j) + ' servers'); {$ENDIF}
+{$IFDEF HIGHLOG}LogDebug(Classname, 'Discover servers start process searching up to ' + Inttostr(j) + ' servers'); {$ENDIF}
   // can discover up to j servers
   l := TList.Create;
   try
@@ -785,7 +785,7 @@ begin
       sw(l);
       if j >= l.Count then
         j := l.Count - 1;
-      TLog.NewLog(ltdebug, Classname, 'Start discovering up to ' + Inttostr(j + 1) + ' servers... (max:' +
+      LogDebug(Classname, 'Start discovering up to ' + Inttostr(j + 1) + ' servers... (max:' +
         Inttostr(l.Count) + ')');
       //
       FIsDiscoveringServers := true;
@@ -811,7 +811,7 @@ begin
     exit;
   FIsDiscoveringServers := false;
   // If here, discover servers finished, so we can try to get/receive data
-  TLog.NewLog(ltdebug, Classname,
+  LogDebug(Classname,
     Format('Discovering servers finished. Now we have %d active connections and %d connections to other servers',
     [ConnectionsCount(false), ConnectionsCount(true)]));
   if TPCThread.ThreadClassFound(TThreadGetNewBlockChainFromClient, nil) >= 0 then
@@ -855,7 +855,7 @@ begin
     begin
       IsValidHeaderButNeedMoreData := true;
 {$IFDEF HIGHLOG}
-      TLog.NewLog(ltdebug, Classname, Format('Need more data! Buffer size (%d) - position (%d) < %d - Header info: %s',
+      LogDebug(Classname, Format('Need more data! Buffer size (%d) - position (%d) < %d - Header info: %s',
         [buffer.Size, buffer.Position, c, HeaderDataToText(HeaderData)]));
 {$ENDIF}
       exit;
@@ -960,7 +960,7 @@ const
       if OnlyOperationBlock
       then xNetOperationNumber := cNetOp_GetOperationsBlock
       else xNetOperationNumber := cNetOp_GetBlocks;
-      TLog.NewLog(ltdebug, CT_LogSender, Format('Sending %d from block %d to %d (Total: %d)',
+      LogDebug(CT_LogSender, Format('Sending %d from block %d to %d (Total: %d)',
         [xNetOperationNumber, block_start, block_end, block_end - block_start + 1]));
       xSendData.Write(block_start, 4);
       xSendData.Write(block_end, 4);
@@ -1090,7 +1090,7 @@ const
     IsAScam: Boolean;
   begin
     IsAScam := false;
-    TLog.NewLog(ltdebug, CT_LogSender, Format('GetNewBank(new_start_block:%d)', [start_block]));
+    LogDebug(CT_LogSender, Format('GetNewBank(new_start_block:%d)', [start_block]));
     Bank := TBlockManager.Create(nil);
     try
       Bank.StorageClass := TNode.Node.BlockManager.StorageClass;
@@ -1266,7 +1266,7 @@ const
         RErrors := 'ERROR DEV 20170727-1';
         exit;
       end;
-      TLog.NewLog(ltdebug, CT_LogSender, Format('Call to GetSafeBox from blocks %d to %d of %d',
+      LogDebug(CT_LogSender, Format('Call to GetSafeBox from blocks %d to %d of %d',
         [AFromBlock, c, ABlockscount]));
       request_id := TConnectionManager.Instance.NewRequestId;
       if Connection.DoSendAndWaitForResponse(cNetOp_GetAccountStorage, request_id, SendData, ReceiveData, 30000, HeaderData)
@@ -1418,22 +1418,22 @@ begin
   // Protection against discovering servers...
   if FIsDiscoveringServers
   then begin
-    TLog.NewLog(ltdebug, CT_LogSender, 'Is discovering servers...');
+    LogDebug(CT_LogSender, 'Is discovering servers...');
     exit;
   end;
   //
   if FIsGettingNewBlockChainFromClient
   then begin
-    TLog.NewLog(ltdebug, CT_LogSender, 'Is getting new blockchain from client...');
+    LogDebug(CT_LogSender, 'Is getting new blockchain from client...');
     exit;
   end
-  else TLog.NewLog(ltdebug, CT_LogSender, 'Starting receiving: ' + why);
+  else LogDebug(CT_LogSender, 'Starting receiving: ' + why);
   try
     FIsGettingNewBlockChainFromClient := true;
     FMaxRemoteOperationBlock := Connection.RemoteOperationBlock;
     if TNode.Node.BlockManager.BlocksCount = 0
     then begin
-      TLog.NewLog(ltdebug, CT_LogSender, 'I have no blocks');
+      LogDebug( CT_LogSender, 'I have no blocks');
       if Connection.RemoteOperationBlock.protocol_version >= cPROTOCOL_2
       then if IgnoreOldBlocks
            then DownloadAccountStorage(true)
@@ -1441,7 +1441,7 @@ begin
       else Connection.Send_GetBlocks(0, 10, rid);
       exit;
     end;
-    TLog.NewLog(ltdebug, CT_LogSender, 'Starting GetNewBlockChainFromClient at client:' + Connection.ClientRemoteAddr +
+   LogDebug( CT_LogSender, 'Starting GetNewBlockChainFromClient at client:' + Connection.ClientRemoteAddr +
       ' with OperationBlock:' + Connection.RemoteOperationBlock.ToString() + ' (My block: ' +
       TNode.Node.BlockManager.LastBlock.ToString() + ')');
     // NOTE: FRemoteOperationBlock.block >= TNode.Node.Bank.BlocksCount
@@ -1481,7 +1481,7 @@ begin
       Connection.Send_GetBlocks(xMyBlockHeader.Block + 1, 100, rid);
     end;
   finally
-    TLog.NewLog(ltdebug, CT_LogSender, 'Finalizing');
+    LogDebug( CT_LogSender, 'Finalizing');
     FIsGettingNewBlockChainFromClient := false;
   end;
 end;
@@ -1756,7 +1756,7 @@ begin
     P^.RequestId := request_id;
     P^.SendTime := now;
     l.Add(P);
-    TLog.NewLog(ltdebug, Classname, 'Registering request to ' + Sender.ClientRemoteAddr + ' Op:' +
+    LogDebug( Classname, 'Registering request to ' + Sender.ClientRemoteAddr + ' Op:' +
       IntToStr(operation) + ' Id:' + Inttostr(request_id) + ' Total pending:' + Inttostr(l.Count));
   finally
     FRegisteredRequests.UnlockList;
@@ -1792,12 +1792,12 @@ begin
         Result := true;
         if Assigned(Sender.TcpIpClient) then
         begin
-          TLog.NewLog(ltdebug, Classname, 'Unregistering request to ' + Sender.ClientRemoteAddr + ' Op:' +
+          LogDebug(Classname, 'Unregistering request to ' + Sender.ClientRemoteAddr + ' Op:' +
             IntToStr(operation) + ' Id:' + Inttostr(request_id) + ' Total pending:' + Inttostr(l.Count));
         end
         else
         begin
-          TLog.NewLog(ltdebug, Classname, 'Unregistering request to (NIL) Op:' + IntToStr(operation) + ' Id:' +
+          LogDebug(Classname, 'Unregistering request to (NIL) Op:' + IntToStr(operation) + ' Id:' +
             Inttostr(request_id) + ' Total pending:' + Inttostr(l.Count));
         end;
       end;
@@ -1934,7 +1934,7 @@ begin
       sleep(500); // Delay - Sleep time before destroying (1.5.3)
       if l_to_del.Count > 0 then
       begin
-        TLog.NewLog(ltdebug, Classname, 'Destroying NetClients: ' + Inttostr(l_to_del.Count));
+        LogDebug(Classname, 'Destroying NetClients: ' + Inttostr(l_to_del.Count));
         for i := 0 to l_to_del.Count - 1 do
         begin
           try
@@ -1965,7 +1965,7 @@ procedure TNetClientsDestroyThread.WaitForTerminatedAllConnections;
 begin
   while (not FTerminatedAllConnections) do
   begin
-    TLog.NewLog(ltdebug, Classname, 'Waiting all connections terminated');
+    LogDebug(Classname, 'Waiting all connections terminated');
     sleep(100);
   end;
 end;

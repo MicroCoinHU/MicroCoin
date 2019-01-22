@@ -405,11 +405,11 @@ begin
           while LoadBlockChainBlock(ops, b) do
           begin
             inc(b);
-            TLog.NewLog(ltDebug, ClassName, 'Moving block from "' + Orphan + '" to "' + DestOrphan + '" ' +
+            LogDebug(ClassName, 'Moving block from "' + Orphan + '" to "' + DestOrphan + '" ' +
               ops.BlockHeader.ToString());
             db.SaveBlockChainBlock(ops);
           end;
-          TLog.NewLog(ltDebug, ClassName, 'Moved blockchain from "' + Orphan + '" to "' + DestOrphan + '" from block ' +
+          LogDebug( ClassName, 'Moved blockchain from "' + Orphan + '" to "' + DestOrphan + '" from block ' +
             IntToStr(Start_Block) + ' to ' + IntToStr(b - 1));
         finally
           ops.Free;
@@ -547,7 +547,7 @@ begin
         // Yes! Positioning
         FStreamFirstBlockNumber := Operations.BlockHeader.Block;
       end;
-      TLog.NewLog(ltDebug, ClassName, Format('Saving Block %d on a newer stream, stream first position=%d',
+      LogDebug(ClassName, Format('Saving Block %d on a newer stream, stream first position=%d',
         [Operations.BlockHeader.Block, FStreamFirstBlockNumber]));
     end;
     if not GetBlockHeaderFirstBytePosition(Stream, Operations.BlockHeader.Block, True, iBlockHeaders,

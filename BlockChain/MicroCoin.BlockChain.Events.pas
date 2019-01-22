@@ -43,13 +43,13 @@ begin
     try
       if not FNetConnection.Connected then
         exit;
-      TLog.NewLog(ltdebug, Classname, 'Sending new block found to ' + FNetConnection.Client.ClientRemoteAddr);
+      LogDebug(Classname, 'Sending new block found to ' + FNetConnection.Client.ClientRemoteAddr);
       FNetConnection.Send_NewBlockFound(FNewBlockTransactions);
       if not FNetConnection.Connected then
         exit;
       if FSanitizedHashTree.TransactionCount > 0 then
       begin
-        TLog.NewLog(ltdebug, Classname, 'Sending ' + IntToStr(FSanitizedHashTree.TransactionCount) +
+        LogDebug(Classname, 'Sending ' + IntToStr(FSanitizedHashTree.TransactionCount) +
           ' sanitized operations to ' + FNetConnection.ClientRemoteAddr);
         TNotifyTransactionThread.Create(FNetConnection, FSanitizedHashTree);
       end;

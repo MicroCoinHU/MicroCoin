@@ -73,7 +73,7 @@ begin
       RErrors := Format('Cannot save a chunk from %d to %d on a stream with %d to %d!',[AFromBlock,AToBlock,sbHeader.StartBlock,sbHeader.EndBlock]);
       exit;
     end;
-    TLog.NewLog(ltDebug,ClassName,Format('Saving safebox chunk from %d to %d (current blockscount: %d)',[AFromBlock,AToBlock,sbHeader.BlocksCount]));
+    LogDebug(ClassName,Format('Saving safebox chunk from %d to %d (current blockscount: %d)',[AFromBlock,AToBlock,sbHeader.BlocksCount]));
 
     // Header:
     ADestinationStream.WriteAnsiString(CT_AccountChunkIdentificator);

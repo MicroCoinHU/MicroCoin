@@ -207,7 +207,7 @@ begin
         DoOnConnect;
       end
       else
-        TLog.NewLog(ltdebug, Classname, Format(rsCannotConnec, [ClientRemoteAddr, FTcpBlockSocket.GetErrorDescEx]));
+        LogDebug(Classname, Format(rsCannotConnec, [ClientRemoteAddr, FTcpBlockSocket.GetErrorDescEx]));
     except
       on E: Exception do
       begin
@@ -250,7 +250,7 @@ begin
   FreeAndNil(FLock);
   inherited;
   FreeAndNil(FTcpBlockSocket);
-{$IFDEF HIGHLOG}TLog.NewLog(ltdebug, Classname, 'Destroying Socket end'); {$ENDIF}
+{$IFDEF HIGHLOG}LogDebug(Classname, 'Destroying Socket end'); {$ENDIF}
 end;
 
 procedure TNetTcpIpClient.Disconnect;
@@ -330,7 +330,7 @@ begin
       Result := FTcpBlockSocket.RecvBuffer(@Buf, BufSize);
       if (Result < 0) or (FTcpBlockSocket.LastError <> 0) then
       begin
-        TLog.NewLog(ltdebug, Classname, Format(rsClosingConne, [ClientRemoteAddr, inttostr(FTcpBlockSocket.LastError),
+        LogDebug(Classname, Format(rsClosingConne, [ClientRemoteAddr, inttostr(FTcpBlockSocket.LastError),
           FTcpBlockSocket.GetErrorDescEx]));
         Result := 0;
         Disconnect;
@@ -368,7 +368,7 @@ begin
       FTcpBlockSocket.SendStreamRaw(Stream);
       if FTcpBlockSocket.LastError <> 0 then
       begin
-        TLog.NewLog(ltdebug, Classname, Format(rsClosingConne2, [ClientRemoteAddr, inttostr(FTcpBlockSocket.LastError),
+        LogDebug( Classname, Format(rsClosingConne2, [ClientRemoteAddr, inttostr(FTcpBlockSocket.LastError),
           FTcpBlockSocket.GetErrorDescEx]));
         Result := -1;
         unlocked := true;
@@ -423,7 +423,7 @@ procedure TNetTcpIpClient.SetSocketError(const Value: Integer);
 begin
   FSocketError := Value;
   if Value <> 0 then
-    TLog.NewLog(ltdebug, Classname, 'Error ' + inttohex(SocketError, 8) + ' with connection to ' + ClientRemoteAddr);
+    LogDebug(Classname, 'Error ' + inttohex(SocketError, 8) + ' with connection to ' + ClientRemoteAddr);
 end;
 
 function TNetTcpIpClient.WaitForData(WaitMilliseconds: Integer): Boolean;
@@ -479,7 +479,7 @@ var
         end;
       until (last_bytes_read < sizeof(ReceiveBuffer)) or (Terminated) or (not FBufferedNetTcpIpClient.Connected);
       if total_read > 0 then
-        TLog.NewLog(ltdebug, Classname, Format('Received %d bytes. Buffer length: %d bytes', [total_read, total_size]));
+        LogDebug(Classname, Format('Received %d bytes. Buffer length: %d bytes', [total_read, total_size]));
     end
     else
     begin
@@ -504,7 +504,7 @@ var
     begin
       SendBuffStream.Position := 0;
       FBufferedNetTcpIpClient.SendStream(SendBuffStream);
-      TLog.NewLog(ltdebug, Classname, Format('Sent %d bytes', [SendBuffStream.Size]));
+      LogDebug( Classname, Format('Sent %d bytes', [SendBuffStream.Size]));
       SendBuffStream.Size := 0;
     end;
   end;

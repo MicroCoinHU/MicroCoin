@@ -77,7 +77,7 @@ begin
       end;
     finally
       try
-        TLog.NewLog(ltdebug, Classname, 'Finalizing ServerAccept ' + IntToHex(PtrInt(n), 8) + ' ' + n.ClientRemoteAddr);
+        LogDebug(Classname, 'Finalizing ServerAccept ' + IntToHex(PtrInt(n), 8) + ' ' + n.ClientRemoteAddr);
         n.Connected := false;
         tc := GetTickCount;
         repeat

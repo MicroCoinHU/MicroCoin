@@ -154,7 +154,7 @@ begin
       end;
       if FBufferToSendOperations.TransactionCount > 0 then
       begin
-        TLog.NewLog(ltdebug, Classname, Format('Sending %d Operations to %s (inProc:%d, Received:%d)',
+        LogDebug(Classname, Format('Sending %d Operations to %s (inProc:%d, Received:%d)',
           [FBufferToSendOperations.TransactionCount, ClientRemoteAddr, xNumberOfTransactionsToSend,
           FBufferReceivedOperationsHash.Count]));
         data := TMemoryStream.Create;
@@ -175,7 +175,7 @@ begin
         end;
       end
       else
-        TLog.NewLog(ltdebug, Classname, Format('Not sending any operations to %s (inProc:%d, Received:%d, Sent:%d)',
+        LogDebug(Classname, Format('Not sending any operations to %s (inProc:%d, Received:%d, Sent:%d)',
           [ClientRemoteAddr, xNumberOfTransactionsToSend, FBufferReceivedOperationsHash.Count,
           FBufferToSendOperations.TransactionCount]));
     finally
@@ -220,7 +220,7 @@ begin
     data.Write(c2, 4);
     request_id := TConnectionManager.Instance.NewRequestId;
     TConnectionManager.Instance.RegisterRequest(Self, cNetOp_GetBlocks, request_id);
-    TLog.NewLog(ltdebug, Classname, Format('Send GET BLOCKS start:%d quantity:%d (from:%d to %d)',
+    LogDebug(Classname, Format('Send GET BLOCKS start:%d quantity:%d (from:%d to %d)',
       [StartAddress, quantity, StartAddress, quantity + StartAddress]));
     FIsDownloadingBlocks := quantity > 1;
     Send(ntp_request, cNetOp_GetBlocks, 0, request_id, data);
@@ -321,12 +321,12 @@ begin
     // Checking if operationblock is the same to prevent double messaging...
     if (TBlock.Equals(FRemoteOperationBlock, NewBlock.BlockHeader)) then
     begin
-      TLog.NewLog(ltdebug, Classname, 'This connection has the same block, does not need to send');
+      LogDebug(Classname, 'This connection has the same block, does not need to send');
       exit;
     end;
     if (TNode.Node.BlockManager.BlocksCount <> NewBlock.BlockHeader.Block + 1) then
     begin
-      TLog.NewLog(ltdebug, Classname, 'The block number ' + Inttostr(NewBlock.BlockHeader.Block) +
+      LogDebug(Classname, 'The block number ' + Inttostr(NewBlock.BlockHeader.Block) +
         ' is not equal to current blocks stored in bank (' + Inttostr(TNode.Node.BlockManager.BlocksCount) + '), finalizing');
       exit;
     end;

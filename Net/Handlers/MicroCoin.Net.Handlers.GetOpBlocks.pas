@@ -114,7 +114,7 @@ begin
   finally
     msops.Free;
   end;
-  TLog.NewLog(ltdebug, Classname, 'Sending ' + Inttostr(total_b) + ' operations block from block ' +
+  LogDebug(Classname, 'Sending ' + Inttostr(total_b) + ' operations block from block ' +
     Inttostr(xMessage.StartBlock) + ' to ' + Inttostr(xMessage.EndBlock) + ' ' + blocksstr);
 end;
 

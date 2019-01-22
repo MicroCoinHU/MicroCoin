@@ -124,7 +124,7 @@ begin
         TMethod(rpchandler).Code := method.CodeAddress;
         TMethod(rpchandler).Data := AHandler;
         RegisterHandler(RPCMethodAttribute(attr).RPCMethod, rpchandler);
-        TLog.NewLog(ltdebug, ClassName, Format('Registered RPC handler for %s -> %s.%s',
+        LogDebug(ClassName, Format('Registered RPC handler for %s -> %s.%s',
           [RPCMethodAttribute(attr).RPCMethod, AHandler.ClassName, method.Name]));
       end;
     end;
@@ -158,7 +158,7 @@ begin
         {$else}
         FHandlers.Delete(FHandlers.IndexOf(RPCMethodAttribute(attr).RPCMethod));
         {$endif}
-        TLog.NewLog(ltdebug, ClassName, Format('Removed RPC handler %s -> %s.%s', [RPCMethodAttribute(attr).RPCMethod,
+        LogDebug( ClassName, Format('Removed RPC handler %s -> %s.%s', [RPCMethodAttribute(attr).RPCMethod,
           AHandler.ClassName, method.Name]));
       end;
     end;

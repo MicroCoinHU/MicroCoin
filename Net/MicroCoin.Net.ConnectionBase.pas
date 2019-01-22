@@ -180,7 +180,7 @@ begin
       if ServerPort <= 0 then
         ServerPort := cNetServerPort;
       Client.RemotePort := ServerPort;
-      TLog.NewLog(ltdebug, Classname, 'Trying to connect to a server at: ' + ClientRemoteAddr);
+      LogDebug(Classname, 'Trying to connect to a server at: ' + ClientRemoteAddr);
       TConnectionManager.Instance.NotifyNetConnectionUpdated;
       Result := Client.Connect;
     finally
@@ -188,12 +188,12 @@ begin
     end;
     if Result then
     begin
-      TLog.NewLog(ltdebug, Classname, 'Connected to a possible server at: ' + ClientRemoteAddr);
+      LogDebug(Classname, 'Connected to a possible server at: ' + ClientRemoteAddr);
       Result := Send_Hello(ntp_request, TConnectionManager.Instance.NewRequestId);
     end
     else
     begin
-      TLog.NewLog(ltdebug, Classname, 'Cannot connect to a server at: ' + ClientRemoteAddr);
+      LogDebug( Classname, 'Cannot connect to a server at: ' + ClientRemoteAddr);
     end;
   finally
     FIsConnecting := false;
@@ -236,7 +236,7 @@ var
   i: Integer;
 begin
   try
-    TLog.NewLog(ltdebug, Classname, 'Destroying ' + Classname + ' ' + IntToHex(PtrInt(Self), 8));
+    LogDebug(Classname, 'Destroying ' + Classname + ' ' + IntToHex(PtrInt(Self), 8));
 
     Connected := false;
 
@@ -344,7 +344,7 @@ var
 begin
   if FDoFinalizeConnection then
   begin
-    TLog.NewLog(ltdebug, Classname, 'Executing DoFinalizeConnection at client ' + ClientRemoteAddr);
+    LogDebug(Classname, 'Executing DoFinalizeConnection at client ' + ClientRemoteAddr);
     Connected := false;
   end;
   if not Connected then
@@ -365,13 +365,13 @@ begin
     // Build 1.4 -> Changing wait time from 120 secs to a random seconds value
     if TConnectionManager.Instance.PendingRequest(Self, ops) >= 2 then
     begin
-      TLog.NewLog(ltdebug, Classname, 'Pending requests without response... closing connection to ' + ClientRemoteAddr +
+      LogDebug(Classname, 'Pending requests without response... closing connection to ' + ClientRemoteAddr +
         ' > ' + ops);
       Connected := false;
     end
     else
     begin
-      TLog.NewLog(ltdebug, Classname, 'Sending Hello to check connection to ' + ClientRemoteAddr + ' > ' + ops);
+      LogDebug(Classname, 'Sending Hello to check connection to ' + ClientRemoteAddr + ' > ' + ops);
       Send_Hello(ntp_request, TConnectionManager.Instance.NewRequestId);
     end;
   end
@@ -379,7 +379,7 @@ begin
   then
   begin
     // Disconnecting client without data...
-    TLog.NewLog(ltdebug, Classname, 'Disconnecting client without data ' + ClientRemoteAddr);
+    LogDebug(Classname, 'Disconnecting client without data ' + ClientRemoteAddr);
     Connected := false;
   end;
 end;
@@ -399,7 +399,7 @@ begin
     HeaderData := TNetHeaderData.Empty;
     if FIsWaitingForResponse then
     begin
-      TLog.NewLog(ltdebug, Classname, 'Is waiting for response ...');
+      LogDebug(Classname, 'Is waiting for response ...');
       exit;
     end;
     if not assigned(FTcpIpClient) then
@@ -438,7 +438,7 @@ begin
               finally
                 TConnectionManager.Instance.NodeServersAddresses.UnlockList;
               end;
-              TLog.NewLog(ltdebug, Classname, 'Received ' + CT_NetTransferType[HeaderData.HeaderType] + ' operation:' +
+              LogDebug(Classname, 'Received ' + CT_NetTransferType[HeaderData.HeaderType] + ' operation:' +
                 HeaderData.OperationTxt + ' id:' + Inttostr(HeaderData.RequestId) + ' Buffer size:' +
                 Inttostr(HeaderData.BufferDataLength));
               if (RequestId = HeaderData.RequestId) and (HeaderData.HeaderType = ntp_response) then
@@ -487,7 +487,7 @@ procedure TNetConnectionBase.FinalizeConnection;
 begin
   if FDoFinalizeConnection then
     exit;
-  TLog.NewLog(ltdebug, Classname, 'Executing FinalizeConnection to ' + ClientRemoteAddr);
+  LogDebug(Classname, 'Executing FinalizeConnection to ' + ClientRemoteAddr);
   FDoFinalizeConnection := true;
 end;
 
@@ -626,7 +626,7 @@ begin
         end
         else if (IsValidHeaderButNeedMoreData) then
         begin
-          TLog.NewLog(ltdebug, Classname,
+          LogDebug( Classname,
             Format('Not enough data received - Received %d bytes from TcpClient buffer of %s after max %d miliseconds. Elapsed: %d - HeaderData: %s',
             [FClientBufferRead.Size, Client.ClientRemoteAddr, MaxWaitMiliseconds, GetTickCount - tc,
             (HeaderData.ToString)]));
@@ -717,7 +717,7 @@ begin
     buffer.Position := 0;
     TPCThread.ProtectEnterCriticalSection(Self, FNetLock);
     try
-      TLog.NewLog(ltdebug, Classname, 'Sending: ' + CT_NetTransferType[NetTranferType] + ' operation:' +
+      LogDebug(Classname, 'Sending: ' + CT_NetTransferType[NetTranferType] + ' operation:' +
         Inttostr(operation) + ' id:' + Inttostr(request_id) + ' errorcode:' + Inttostr(errorcode) + ' Size:' +
         Inttostr(buffer.Size) + 'b ' + s + 'to ' + ClientRemoteAddr);
       (Client as TBufferedNetTcpIpClient).WriteBufferToSend(buffer);

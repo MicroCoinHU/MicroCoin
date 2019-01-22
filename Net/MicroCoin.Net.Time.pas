@@ -69,7 +69,7 @@ begin
     Inc(P^.counter);
     Inc(FTotalCounter);
     UpdateMedian(l);
-    TLog.NewLog(ltdebug, Classname, Format('AddNewIp (%s,%d) - Total:%d/%d Offset:%d', [clientIp, clientTimestamp,
+    LogDebug(Classname, Format('AddNewIp (%s,%d) - Total:%d/%d Offset:%d', [clientIp, clientTimestamp,
       l.Count, FTotalCounter, FTimeOffset]));
   finally
     FTimesList.UnlockList;
@@ -152,7 +152,7 @@ begin
     end;
     UpdateMedian(l);
     if (i >= 0)
-    then TLog.NewLog(ltdebug, Classname, Format('RemoveIp (%s) - Total:%d/%d Offset:%d', [clientIp, l.Count, FTotalCounter, FTimeOffset]))
+    then LogDebug(Classname, Format('RemoveIp (%s) - Total:%d/%d Offset:%d', [clientIp, l.Count, FTotalCounter, FTimeOffset]))
     else TLog.NewLog(ltError, Classname, Format('RemoveIp not found (%s) - Total:%d/%d Offset:%d', [clientIp, l.Count, FTotalCounter, FTimeOffset]))
   finally
     FTimesList.UnlockList;
