@@ -327,10 +327,10 @@ var
   ctx: PBN_CTX;
 begin
   n := int;
+ ctx := BN_CTX_new;
   try
-    ctx := BN_CTX_new;
-    if BN_mul(FBN, FBN, n.FBN, ctx) <> 1 then
-      raise ECryptoException.Create('Error on multiply');
+    if BN_mul(FBN, FBN, n.FBN, ctx) <> 1
+    then raise ECryptoException.Create('Error on multiply');
     Result := Self;
   finally
     BN_CTX_free(ctx);

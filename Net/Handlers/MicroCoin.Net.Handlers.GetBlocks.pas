@@ -79,6 +79,7 @@ begin
     xBlock := TBlock.Create(TConnectionManager.Instance.Bank);
     try
       xResponse.Count := xMessage.EndBlock - xMessage.StartBlock + 1;
+      c:=0;
       for b := xMessage.StartBlock to xMessage.EndBlock do
       begin
         Inc(c);

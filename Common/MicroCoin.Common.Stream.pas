@@ -53,10 +53,10 @@ implementation
 
 function TStreamHelper.ReadAccountKey(var value: TAccountKey): Integer;
 begin
+  Result := -1;
   if Size - Position < 2 then
   begin
     value := TAccountKey.Empty;
-    Result := -1;
     exit;
   end;
   Read(value.EC_OpenSSL_NID, SizeOf(value.EC_OpenSSL_NID));

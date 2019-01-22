@@ -75,7 +75,6 @@ type
     destructor Destroy; override;
     class destructor DestroyClass;
     procedure NotifyNewLog(logtype: TLogType; const sender, logtext: string);
-
     class procedure NewLog(logtype: TLogType; const sender, logtext: string);
     property OnInThreadNewLog: TNewLogEvent read FOnInThreadNewLog write FOnInThreadNewLog;
     property OnNewLog: TNewLogEvent read FOnNewLog write FOnNewLog;
@@ -89,6 +88,8 @@ const
   CT_TLogTypes_ALL: TLogTypes = [ltinfo, ltupdate, lterror, ltdebug];
   CT_TLogTypes_DEFAULT: TLogTypes = [ltinfo, ltupdate, lterror];
 
+procedure LogDebug(const ASender, ALogText: string); inline;
+
 implementation
 
 uses SysUtils;
@@ -98,6 +99,13 @@ var
 
 type
   PLogData = ^TLogData;
+
+procedure LogDebug(const ASender, ALogText: string); inline;
+begin
+{$IFDEF DEBUG}
+  TLog.NewLog(ltdebug, ASender, ALogText);
+{$ENDIF}
+end;
 
   { TLog }
 

@@ -188,11 +188,6 @@ uses MicroCoin.Common.Stream;
 {$DEFINE uselowmem}
 
 procedure ToTMemAccount(const Source: TAccount; var dest: TMemAccount);
-{.$IFDEF uselowmem}
-var
-  raw: TRawBytes;
-  i : integer;
-{.$ENDIF}
 begin
 {$IFDEF OLDVERSION}
   Source.AccountInfo.ToRawString(raw);
@@ -218,11 +213,6 @@ begin
 end;
 
 procedure ToTAccount(const Source: TMemAccount; account_number: Cardinal; var dest: TAccount);
-{$IFDEF uselowmem}
-var
-  raw: TRawBytes;
-  i: integer;
-{$ENDIF}
 begin
 {$IFDEF ouselowmem}
   dest.AccountNumber := account_number;
@@ -656,8 +646,6 @@ var
   nPos, posOffsetZone: Int64;
   offsets: array of Cardinal;
   sbHeader: TAccountStorageHeader;
-  xIsExtendedAccount: boolean;
-  b: byte;
 begin
   StartThreadSafe;
   try
@@ -914,7 +902,6 @@ class function TAccountStorage.SaveHeaderToStream(AStream: TStream; AProtocol: W
 var
   c: Cardinal;
 begin
-  Result := false;
   // Header zone
   AStream.WriteAnsiString(cMagicID);
   AStream.Write(AProtocol, Sizeof(AProtocol));
@@ -938,11 +925,12 @@ var
   b: TAccountStorageEntry;
   iacc: Integer;
   ws: UInt64;
+{$ifdef EXTENDEDACCOUNT}
   bs: byte;
   was: word;
   i: integer;
+{$endif}
 begin
-  ws := FWorkSum;
   b := Blocks[ANBlock];
   b.BlockHeader.SaveToStream(AStream);
   for iacc := low(b.Accounts) to high(b.Accounts) do
@@ -1143,7 +1131,7 @@ class function TAccountStorage.ConcatStream(ASource1, ASource2, ADestionation: T
     Result := 0;
     offsetPos := stream.Position;
     try
-      stream.Seek(4 * offsetIndex, soFromCurrent);
+      stream.Seek(4 * offsetIndex, soCurrent);
       stream.Read(c, 4);
       stream.Read(cNext, 4);
       if cNext < c then
@@ -1177,7 +1165,7 @@ class function TAccountStorage.ConcatStream(ASource1, ASource2, ADestionation: T
       end
       else
       begin
-        targetStream.Seek(4 * (offsetIndex), soFromCurrent);
+        targetStream.Seek(4 * (offsetIndex), soCurrent);
         targetStream.Read(c, 4); // c is position
       end;
       cLength := c + nBytes;
@@ -1240,7 +1228,6 @@ begin
     ADestionation.Write(destOffsets[0], ((destEndBlock - destStartBlock) + 2) * 4);
     ADestionation.Position := destOffsetPos;
     //
-    nBlock := destStartBlock;
     ms := TMemoryStream.Create;
     try
       for nBlock := destStartBlock to destEndBlock do
@@ -1693,25 +1680,20 @@ end;
 procedure TOrderedAccountKeysList.AddAccounts(const AAccountKey: TAccountKey; const AAccounts: array of Cardinal);
 var
   P: POrderedAccountKeyList;
-  i, i2: Integer;
+  i: Integer;
 begin
-  if Find(AAccountKey, i) then
-  begin
-    P := POrderedAccountKeyList(FOrderedAccountKeysList[i]);
-  end
-  else if (FAutoAddAll) then
-  begin
-    New(P);
-    P^.RawAccountKey := AAccountKey.ToRawString;
-    P^.AccountNumbers := TOrderedList.Create;
-    FOrderedAccountKeysList.Insert(i, P);
-  end
-  else
-    exit;
-  for i := low(AAccounts) to high(AAccounts) do
-  begin
-    P^.AccountNumbers.Add(AAccounts[i]);
-  end;
+  if Find(AAccountKey, i)
+  then P := POrderedAccountKeyList(FOrderedAccountKeysList[i])
+  else if (FAutoAddAll)
+       then begin
+         New(P);
+         P^.RawAccountKey := AAccountKey.ToRawString;
+         P^.AccountNumbers := TOrderedList.Create;
+         FOrderedAccountKeysList.Insert(i, P);
+       end
+       else exit;
+  for i := low(AAccounts) to high(AAccounts)
+  do P^.AccountNumbers.Add(AAccounts[i]);
 end;
 
 procedure TOrderedAccountKeysList.Clear;
@@ -1774,10 +1756,8 @@ end;
 destructor TOrderedAccountKeysList.Destroy;
 begin
   TLog.NewLog(ltDebug, Classname, 'Destroying an Ordered Account Keys List adding all:' + BoolToStr(FAutoAddAll));
-  if Assigned(FAccountStorage) then
-  begin
-    FAccountStorage.ListOfOrderedAccountKeysList.Remove(Self);
-  end;
+  if Assigned(FAccountStorage)
+  then FAccountStorage.ListOfOrderedAccountKeysList.Remove(Self);
   ClearAccounts(true);
   FreeAndNil(FOrderedAccountKeysList);
   inherited;
@@ -1879,7 +1859,7 @@ function TAccountStorageEntry.CalcBlockHash(
 var
   raw: TRawBytes;
   ms: TMemoryStream;
-  i,j: Integer;
+  i: Integer;
 begin
   ms := TMemoryStream.Create;
 //  ms.SetSize(2048);
@@ -1973,8 +1953,7 @@ begin
   Result.AccountStorageHash := '';
 end;
 
-class function TAccountStorageHeader.LoadFromStream(
-  AStream: TStream): TAccountStorageHeader;
+class function TAccountStorageHeader.LoadFromStream(AStream: TStream): TAccountStorageHeader;
 var
   w: Word;
   s: AnsiString;
@@ -1983,44 +1962,40 @@ var
   endBlocks: Cardinal;
   xResult : boolean;
 begin
+  Result := TAccountStorageHeader.Empty;
   xResult := false;
   if (AStream.Size = 0) then
   begin
     xResult := true;
     exit;
   end;
-  Result := TAccountStorageHeader.Empty;
   initialPos := AStream.Position;
   try
     AStream.ReadAnsiString(s);
-    if (s <> cMagicID) then
-      exit;
-    if AStream.Size < 8 then
-      exit;
+    if (s <> cMagicID) then exit;
+    if AStream.Size < 8 then exit;
     AStream.Read(w, Sizeof(w));
-    if not(w in [1, 2]) then
-      exit;
+    if not(w in [1, 2]) then exit;
     Result.Protocol := w;
     AStream.Read(AccountStorageVersion, 2);
-    if AccountStorageVersion <> cAccountStorageVersion then
-      exit;
+    if AccountStorageVersion <> cAccountStorageVersion then exit;
     AStream.Read(Result.BlocksCount, 4);
     AStream.Read(Result.StartBlock, 4);
     AStream.Read(Result.EndBlock, 4);
-    if (Result.BlocksCount <= 0) or (Result.BlocksCount > (cBlockTime * 2000000)) then
-      exit; // Protection for corrupted data...
+    if (Result.BlocksCount <= 0) or (Result.BlocksCount > (cBlockTime * 2000000))
+    then exit; // Protection for corrupted data...
     offsetPos := AStream.Position;
     // Go to read SafeBoxHash
-    if (AStream.Size < offsetPos + (((Result.EndBlock - Result.StartBlock) + 2) * 4)) then
-      exit;
+    if (AStream.Size < offsetPos + (((Result.EndBlock - Result.StartBlock) + 2) * 4))
+    then exit;
     AStream.Position := offsetPos + (((Result.EndBlock - Result.StartBlock) + 1) * 4);
     AStream.Read(endBlocks, 4);
     // Go to end
-    if (AStream.Size < offsetPos + (endBlocks)) then
-      exit;
+    if (AStream.Size < offsetPos + (endBlocks))
+    then exit;
     AStream.Position := offsetPos + endBlocks;
-    if AStream.ReadAnsiString(Result.AccountStorageHash) < 0 then
-      exit;
+    if AStream.ReadAnsiString(Result.AccountStorageHash) < 0
+    then exit;
     // Back
     AStream.Position := offsetPos;
     xResult := true;

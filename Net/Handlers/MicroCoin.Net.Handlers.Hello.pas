@@ -48,10 +48,8 @@ uses MicroCoin.Net.ConnectionBase;
 
 procedure THelloHandler.HandleCommand(AHeader: TNetHeaderData; AData: TStream; AConnection: TObject);
 var
-  errors: AnsiString;
-  i, c: Integer;
+  i: Integer;
   nsa: TNodeServer;
-  rid: Cardinal;
   Duplicate: TNetConnection;
   xHello: TNetMessage_Hello;
   Connection: TNetConnection;

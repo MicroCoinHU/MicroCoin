@@ -291,14 +291,16 @@ end;
 
 function TPCThreadList.Add(Item: Pointer) : Integer;
 begin
-  if not Assigned(item) then exit;
-
-  LockList;
-  Try
-    Result := FList.Add(Item);
-  Finally
-    UnlockList;
-  End;
+  Result := -1;
+  if Assigned(item)
+  then begin
+    LockList;
+    Try
+      Result := FList.Add(Item);
+    Finally
+      UnlockList;
+    End;
+  end;
 end;
 
 procedure TPCThreadList.Clear;

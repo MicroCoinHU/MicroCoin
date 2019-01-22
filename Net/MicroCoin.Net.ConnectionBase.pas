@@ -709,9 +709,7 @@ begin
       DataBuffer.Position := 0;
       buffer.CopyFrom(DataBuffer, DataBuffer.Size);
       s := '(Data:' + Inttostr(DataBuffer.Size) + 'b) ';
-    end
-    else
-    begin
+    end else begin
       l := 0;
       buffer.Write(l, 4);
       s := '';
