@@ -88,7 +88,8 @@ const
   CT_TLogTypes_ALL: TLogTypes = [ltinfo, ltupdate, lterror, ltdebug];
   CT_TLogTypes_DEFAULT: TLogTypes = [ltinfo, ltupdate, lterror];
 
-procedure LogDebug(const ASender, ALogText: string); inline;
+procedure LogDebug(const ASender, ALogText: string); inline; overload;
+procedure LogDebug(const ASender, ALogText: string; const params : array of const); overload;
 
 implementation
 
@@ -102,11 +103,17 @@ type
 
 procedure LogDebug(const ASender, ALogText: string); inline;
 begin
-{$IFDEF DEBUG1}
+{$IFDEF DEBUG}
   TLog.NewLog(ltdebug, ASender, ALogText);
 {$ENDIF}
 end;
 
+procedure LogDebug(const ASender, ALogText: string; const params : array of const);
+begin
+{$IFDEF DEBUG}
+  LogDebug(ASender, Format(ALogText, params));
+{$ENDIF}
+end;
   { TLog }
 
 constructor TLog.Create(AOwner: TComponent);

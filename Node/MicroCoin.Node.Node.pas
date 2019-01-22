@@ -64,6 +64,7 @@ type
     destructor Destroy; override;
     class constructor CreateClass;
     class destructor DestroyClass;
+    class function HasInstance : boolean;
 
     function NetServer: TNetServer;
     procedure NotifyNetClientMessage(Sender: TNetConnection; const TheMessage: AnsiString);
@@ -900,6 +901,11 @@ begin
   acc := BlockManager.AccountStorage.Accounts[AAccountNumber];
   if (acc.UpdatedBlock > 0) or (acc.AccountNumber = 0) then
     DoGetFromBlock(acc.UpdatedBlock, acc.Balance, AMaxDepth, 0);
+end;
+
+class function TNode.HasInstance: boolean;
+begin
+  Result := Assigned(_Node);
 end;
 
 function TNode.FindTransaction(const ABlock: TBlock; const AHash: TRawBytes; var RBlock: Cardinal;

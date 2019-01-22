@@ -1666,8 +1666,8 @@ begin
           P^.AccountNumbers.Add(i);
         end;
       end;
-      LogDebug(Classname, Format('Adding account key (%d of %d) %s', [j, FAccountStorage.AccountsCount,
-        TBaseType.ToHexaString(AAccountKey.ToRawString)]));
+      LogDebug(Classname, 'Adding account key (%d of %d) %s', [j, FAccountStorage.AccountsCount,
+        TBaseType.ToHexaString(AAccountKey.ToRawString)]);
     end
     else
     begin

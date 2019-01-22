@@ -39,7 +39,7 @@ unit MicroCoin.Console.Application;
 
 interface
 
-uses Classes, SysUtils, {$IFDEF MSWINDOWS}Windows, {$ifndef fpc}Threading, {$endif} {$ELSE}{$ENDIF}
+uses Classes, SysUtils, {$IFDEF MSWINDOWS}Windows, System.Console, {$ifndef fpc}Threading, {$endif} {$ELSE}{$ENDIF}
   {$IFDEF FPC}{$ENDIF}
   SyncObjs, OpenSSL, UCrypto, MicroCoin.Node.Node, MicroCoin.BlockChain.FileStorage,
   UWalletKeys, ULog, MicroCoin.Net.Protocol, MicroCoin.Crypto.Keys,
@@ -88,6 +88,7 @@ type
   TMicroCoinApplication = class(TThread)
   private
     FOnLog: TNewLogEvent;
+    FC : TCriticalSection;
   protected
     procedure Execute; override;
     procedure OnMicroCoinInThreadLog(logtype: TLogType; Time: TDateTime; AThreadID: Cardinal; const sender, logtext: AnsiString);
@@ -113,6 +114,7 @@ end;
 
 constructor TMicroCoinApplication.Create;
 begin
+  FC := TCriticalSection.Create;
   MicroCoin := TMicroCoin.Create;
   FreeOnTerminate := true;
   inherited Create(false);
@@ -121,6 +123,7 @@ end;
 destructor TMicroCoinApplication.Destroy;
 begin
   FreeAndNil(MicroCoin);
+  FC.Free;
   inherited Destroy;
 end;
 
@@ -128,8 +131,14 @@ procedure TMicroCoinApplication.OnMicroCoinInThreadLog(logtype: TLogType; Time: 
   const sender, logtext: AnsiString);
 var
   s: AnsiString;
-  color: word;
+  {$IFDEF MSWINDOWS}
+  color: TConsoleColor;
+  i, xTmp: Integer;
+
+  xStatus : AnsiString;
+  {$ENDIF}
 begin
+  FC.Enter;
   if Assigned(FOnLog) then begin
     FOnLog(logtype, Time, AThreadID, sender, logtext);
     exit;
@@ -141,19 +150,59 @@ begin
 {$IFDEF MSWINDOWS}
   case logtype of
     lterror:
-      color := FOREGROUND_INTENSITY or FOREGROUND_RED;
+      color := TConsoleColor.Red; // FOREGROUND_INTENSITY or FOREGROUND_RED;
     ltinfo:
-      color := FOREGROUND_RED or FOREGROUND_GREEN or FOREGROUND_BLUE or FOREGROUND_INTENSITY;
+      color := TConsoleColor.White; // FOREGROUND_RED or FOREGROUND_GREEN or FOREGROUND_BLUE or FOREGROUND_INTENSITY;
     ltdebug:
-      color := FOREGROUND_RED or FOREGROUND_GREEN or FOREGROUND_BLUE;
+      color := TConsoleColor.Gray; // FOREGROUND_RED or FOREGROUND_GREEN or FOREGROUND_BLUE;
     ltupdate:
-      color := FOREGROUND_INTENSITY or FOREGROUND_GREEN;
+      color := TConsoleColor.Green; // FOREGROUND_INTENSITY or FOREGROUND_GREEN;
   end;
-  SetConsoleTextAttribute(GetStdHandle(STD_OUTPUT_HANDLE), color);
+  if logtext<>''
+  then begin
+    Console.ForegroundColor := color;
+    Console.WriteLine(formatDateTime('hh:nn:ss', Time)+ ' ' + logtext);
+    if Console.CursorTop>Console.WindowHeight-4 then begin
+      Console.MoveBufferArea(0, 1, Console.BufferWidth, Console.CursorTop, 0, 0);
+      Console.Cursortop:=Console.WindowHeight-4;
+    end;
+  end;
+  xTmp := Console.CursorTop;
+  Console.BackgroundColor := TConsoleColor.White;
+  Console.ForegroundColor := TConsoleColor.Black;
+  Console.CursorLeft := 0;
+  Console.Cursortop:=Console.WindowHeight;
+
+  Console.CursorLeft := 0;
+  Console.CursorTop := Console.WindowHeight;
+  if TConnectionManager.NetDataExists
+    and TNode.HasInstance
+    and TNode.Node.isready(xStatus)
+  then begin
+   Console.Write(Format('Connections: %d | Servers: %d | Clients: %d | Up: %n kB | Down: %n kB | Block height: %d', [
+     TConnectionManager.Instance.NetStatistics.ActiveConnections,
+     TConnectionManager.Instance.NetStatistics.ServersConnections,
+     TConnectionManager.Instance.NetStatistics.ClientsConnections,
+     TConnectionManager.Instance.NetStatistics.BytesSend+0.0,
+     TConnectionManager.Instance.NetStatistics.BytesReceived+0.0,
+     TNode.Node.BlockManager.BlocksCount
+   ]));
+  end else begin
+    if TNode.HasInstance then begin
+      TNode.Node.isready(xStatus);
+      Console.Write(xStatus);
+    end else begin
+      Console.Write('Initializing...');
+    end;
+  end;
+  Console.BackgroundColor := TConsoleColor.Black;
+  Console.CursorTop := xTmp;
+  Console.CursorLeft := 0;
 {$ELSE}
-{$ENDIF}
   WriteLn(formatDateTime('dd/mm/yyyy hh:nn:ss.zzz', Time) + s + IntToHex(AThreadID, 8) + ' [' + CT_LogType[logtype] +
     '] <' + sender + '> ' + logtext);
+{$ENDIF}
+FC.Leave;
 end;
 
 
