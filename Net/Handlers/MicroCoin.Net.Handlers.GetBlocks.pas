@@ -72,17 +72,17 @@ begin
 
   if (xMessage.EndBlock >= TConnectionManager.Instance.Bank.BlocksCount) then
     xMessage.EndBlock := TConnectionManager.Instance.Bank.BlocksCount - 1;
-
   Connection := AConnection as TNetConnection;
   xMemoryStream := TMemoryStream.Create;
   try
-    xBlock := TBlock.Create(TConnectionManager.Instance.Bank);
     try
       xResponse.Count := xMessage.EndBlock - xMessage.StartBlock + 1;
       c:=0;
       for b := xMessage.StartBlock to xMessage.EndBlock do
       begin
         Inc(c);
+        xBlock := TBlock.Create(nil);
+        xBlock.BlockManager := TConnectionManager.Instance.Bank;
         if TConnectionManager.Instance.Bank.LoadTransactions(xBlock, b) then
           xResponse.Blocks[c - 1] := xBlock
         else
@@ -96,7 +96,7 @@ begin
       xMemoryStream.Position := 0;
       Connection.Send(ntp_response, AHeader.Operation, 0, AHeader.RequestId, xMemoryStream);
     finally
-      xBlock.Free;
+     // xBlock.Free;
     end;
   finally
     xMemoryStream.Free;
@@ -131,9 +131,7 @@ begin
             TNode.Node.BlockManager.AccountStorage.Blocks[TNode.Node.BlockManager.BlocksCount - 1].BlockHeader.ToString
             () + ' remote:' + xBlock.BlockHeader.ToString() + ' Errors: ' + xErrors);
         end;
-      end
-      else
-      begin
+      end else begin
         TLog.NewLog(ltError, Classname, 'Received a distinct block, finalizing: ' + xBlock.BlockHeader.ToString() +
           ' (My block: ' + TNode.Node.BlockManager.LastBlock.ToString() + ')');
         Connection.IsDownloadingBlocks := false;

@@ -33,27 +33,6 @@ uses
 
 Type
 
-  TPCCriticalSection = Class(TCriticalSection)
-  private
-    FCounterLock : TCriticalSection;
-    FWaitingForCounter : Integer;
-    FCurrentThread : Cardinal;
-    FStartedTimestamp : Cardinal;
-    FName : String;
-  public
-    Constructor Create(const AName : String);
-    Destructor Destroy; override;
-    {$IFDEF HIGHLOG}
-    procedure Acquire; override;
-    procedure Release; override;
-    function TryEnter: Boolean; override;
-    {$ENDIF}
-    Property CurrentThread : Cardinal read FCurrentThread;
-    Property WaitingForCounter : Integer read FWaitingForCounter;
-    Property StartedTimestamp : Cardinal read FStartedTimestamp;
-    //Property Name : String read FName;
-  end;
-
   TPCThreadList = class;
   TPCThread = Class;
   TPCThreadClass = Class of TPCThread;
@@ -73,8 +52,8 @@ Type
     Class function ThreadCount : Integer;
     Class function GetThread(index : Integer) : TPCThread;
     Class function GetThreadByClass(tclass : TPCThreadClass; Exclude : TObject) : TPCThread;
-    Class Procedure ProtectEnterCriticalSection(Const Sender : TObject; var Lock : TPCCriticalSection);
-    Class Function TryProtectEnterCriticalSection(Const Sender : TObject; MaxWaitMilliseconds : Cardinal; Lock : TPCCriticalSection) : Boolean;
+    Class Procedure ProtectEnterCriticalSection(Const Sender : TObject; var Lock : TCriticalSection);
+    Class Function TryProtectEnterCriticalSection(Const Sender : TObject; MaxWaitMilliseconds : Cardinal; Lock : TCriticalSection) : Boolean;
     Class Procedure ThreadsListInfo(list: TStrings);
     constructor Create(CreateSuspended: Boolean);
     destructor Destroy; override;
@@ -84,7 +63,7 @@ Type
   TPCThreadList = class
   private
     FList: TList;
-    FLock: TPCCriticalSection;
+    FLock: TCriticalSection;
   public
     constructor Create(const AName : String);
     destructor Destroy; override;
@@ -194,7 +173,7 @@ begin
   end;
 end;
 
-class procedure TPCThread.ProtectEnterCriticalSection(Const Sender : TObject; var Lock: TPCCriticalSection);
+class procedure TPCThread.ProtectEnterCriticalSection(Const Sender : TObject; var Lock: TCriticalSection);
 begin
   {$IFDEF HIGHLOG}
   if Not Lock.TryEnter then begin
@@ -251,7 +230,7 @@ begin
 end;
 
 class function TPCThread.TryProtectEnterCriticalSection(const Sender: TObject;
-  MaxWaitMilliseconds: Cardinal; Lock: TPCCriticalSection): Boolean;
+  MaxWaitMilliseconds: Cardinal; Lock: TCriticalSection): Boolean;
 Var tc : Cardinal;
   {$IFDEF HIGHLOG}
   tc2,tc3,lockCurrThread,lockWatingForCounter,lockStartedTimestamp : Cardinal;
@@ -315,7 +294,7 @@ end;
 
 constructor TPCThreadList.Create(const AName : String);
 begin
-  FLock := TPCCriticalSection.Create(AName);
+  FLock := TCriticalSection.Create();
   FList := TList.Create;
 end;
 
@@ -370,100 +349,8 @@ begin
   FLock.Release;
 end;
 
-{ TPCCriticalSection }
-
-{$IFDEF HIGHLOG}
-procedure TPCCriticalSection.Acquire;
-Var continue, logged : Boolean;
-  startTC : Cardinal;
-begin
-  startTC := GetTickCount;
-  FCounterLock.Acquire;
-  try
-    FWaitingForCounter := FWaitingForCounter + 1;
-  finally
-    FCounterLock.Release;
-  end;
-  logged := false;
-  Repeat
-    continue := inherited TryEnter;
-    if (Not continue) then begin
-      If (not logged) And ((FStartedTimestamp>0) And ((FStartedTimestamp+1000)<GetTickCount)) then begin
-        logged := true;
-        LogDebug(ClassName,'ALERT Critical section '+IntToHex(PtrInt(Self),8)+' '+Name+
-          ' locked by '+IntToHex(FCurrentThread,8)+' waiting '+
-          IntToStr(FWaitingForCounter)+' elapsed milis: '+IntToStr(GetTickCount-FStartedTimestamp) );
-        continue := true;
-        inherited;
-      end else sleep(1);
-    end;
-  Until continue;
-  if (logged) then begin
-    LogDebug(Classname,'ENTER Critical section '+IntToHex(PtrInt(Self),8)+' '+Name+' elapsed milis: '+IntToStr(GetTickCount - startTC) );
-  end;
-  FCounterLock.Acquire;
-  try
-    FWaitingForCounter := FWaitingForCounter - 1;
-  finally
-    FCounterLock.Release;
-  end;
-  FCurrentThread := TThread.CurrentThread.ThreadID;
-  FStartedTimestamp := GetTickCount;
-  inherited;
-end;
-{$ENDIF}
-
-constructor TPCCriticalSection.Create(const AName : String);
-begin
-  FCounterLock := TCriticalSection.Create;
-  FWaitingForCounter := 0;
-  FCurrentThread := 0;
-  FStartedTimestamp := 0;
-  FName := AName;
-  inherited Create;
-  {$IFDEF HIGHLOG}LogDebug(ClassName,'Created critical section '+IntToHex(PtrInt(Self),8)+' '+AName );{$ENDIF}
-end;
-
-destructor TPCCriticalSection.Destroy;
-begin
-  FCounterLock.Free;
-  inherited;
-end;
-
-{$IFDEF HIGHLOG}
-procedure TPCCriticalSection.Release;
-begin
-  FCurrentThread := 0;
-  FStartedTimestamp := 0;
-  inherited;
-end;
-
-function TPCCriticalSection.TryEnter: Boolean;
-begin
-  FCounterLock.Acquire;
-  try
-    FWaitingForCounter := FWaitingForCounter + 1;
-  finally
-    FCounterLock.Release;
-  end;
-  If inherited TryEnter then begin
-    FCurrentThread := TThread.CurrentThread.ThreadID;
-    FStartedTimestamp := GetTickCount;
-    Result := true;
-  end else Result := false;
-  FCounterLock.Acquire;
-  try
-    FWaitingForCounter := FWaitingForCounter - 1;
-  finally
-    FCounterLock.Release;
-  end;
-end;
-{$ENDIF}
-
 initialization
-//  _threads := TPCThreadList.Create('GLOBAL_THREADS');
 finalization
-//  FreeAndNil(_threads);
 end.
 
 

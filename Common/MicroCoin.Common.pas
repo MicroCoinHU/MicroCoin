@@ -51,14 +51,6 @@ type
 
   TDestructorProc<T> = procedure (Arg: T );
 
-  TDestructor = class(TInterfacedObject, IDestructor)
-  private
-    FObject : TObject;
-  public
-    constructor Create(AObject : TObject);
-    destructor Destroy; override;
-  end;
-
   TDestructor<T> = class(TInterfacedObject, IDestructor)
   private
     FParam : T;
@@ -228,20 +220,6 @@ begin
     raise PreferredException.Create(ErrorMessage);
 end;
 {$ENDIF}
-
-{ TDestructor }
-
-constructor TDestructor.Create(AObject: TObject);
-begin
-  FObject := AObject;
-end;
-
-destructor TDestructor.Destroy;
-begin
-  if Assigned(FObject)
-  then FObject.Free;
-  inherited;
-end;
 
 { TDestructor<T> }
 

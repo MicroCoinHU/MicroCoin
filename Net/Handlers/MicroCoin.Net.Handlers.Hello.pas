@@ -100,7 +100,7 @@ begin
       if (xHello.nodeservers[i].last_connection_by_server > 0) and (i <= cMAX_NODESERVERS_ON_HELLO) then
         TConnectionManager.Instance.AddServer(xHello.nodeservers[i]);
 
-    ClientAppVersion := xHello.client_version;
+    Connection.ClientAppVersion := xHello.client_version;
     Connection.RemoteAccumulatedWork := xHello.remote_work;
 
     if (Connection.RemoteAccumulatedWork > TNode.Node.BlockManager.AccountStorage.WorkSum) or

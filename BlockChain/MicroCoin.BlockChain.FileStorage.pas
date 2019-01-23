@@ -33,7 +33,7 @@ type
 
   TFileStorage = class(TStorage)
   private
-    FStorageLock: TPCCriticalSection;
+    FStorageLock: TCriticalSection;
     FBlockChainStream: TFileStream;
     FStreamFirstBlockNumber: Int64;
     FStreamLastBlockNumber: Int64;
@@ -196,7 +196,7 @@ begin
   SetLength(FBlockHeadersFirstBytePosition, 0);
   FStreamFirstBlockNumber := 0;
   FStreamLastBlockNumber := -1;
-  FStorageLock := TPCCriticalSection.Create('TFileStorage_StorageLock');
+  FStorageLock := TCriticalSection.Create;
 //  Remove(TFolderHelper.GetMicroCoinDataFolder + PathDelim + 'Data');
   FDatabaseFolder := MicroCoinDataFolder + PathDelim + 'Data';
 end;

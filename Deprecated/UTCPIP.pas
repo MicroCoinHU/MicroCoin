@@ -33,8 +33,8 @@ type
     FRemoteHost: AnsiString;
     FRemotePort: Word;
     FBytesReceived, FBytesSent: Int64;
-    FLock: TPCCriticalSection;
-    FSendBufferLock: TPCCriticalSection;
+    FLock: TCriticalSection;
+    FSendBufferLock: TCriticalSection;
     FOnConnect: TNotifyEvent;
     FOnDisconnect: TNotifyEvent;
     FSocketError: Integer;
@@ -91,7 +91,7 @@ type
   private
     FSendBuffer: TMemoryStream;
     FReadBuffer: TMemoryStream;
-    FCritical: TPCCriticalSection;
+    FCritical: TCriticalSection;
     FLastReadTC: Cardinal;
     FBufferedNetTcpIpClientThread: TBufferedNetTcpIpClientThread;
   protected
@@ -230,8 +230,8 @@ begin
   FTcpBlockSocket := nil;
   FSocketError := 0;
   FLastCommunicationTime := 0;
-  FLock := TPCCriticalSection.Create('TNetTcpIpClient_Lock');
-  FSendBufferLock := TPCCriticalSection.Create('TNetTcpIpClient_SendBufferLock');
+  FLock := TCriticalSection.Create;
+  FSendBufferLock := TCriticalSection.Create;
   FTcpBlockSocket := TTCPBlockSocket.Create;
   FTcpBlockSocket.OnAfterConnect := OnConnect;
   FTcpBlockSocket.SocksTimeout := 5000; // Build 1.5.0 was 10000;
@@ -547,7 +547,7 @@ constructor TBufferedNetTcpIpClient.Create(AOwner: TComponent);
 begin
   inherited;
   FLastReadTC := GetTickCount;
-  FCritical := TPCCriticalSection.Create('TBufferedNetTcpIpClient_Critical');
+  FCritical := TCriticalSection.Create;
   FSendBuffer := TMemoryStream.Create;
   FReadBuffer := TMemoryStream.Create;
   FBufferedNetTcpIpClientThread := TBufferedNetTcpIpClientThread.Create(Self);

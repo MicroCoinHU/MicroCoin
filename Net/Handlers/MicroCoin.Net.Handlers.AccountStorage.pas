@@ -55,8 +55,8 @@ var
   Connection: TNetConnection;
 begin
   Connection := AConnection as TNetConnection;
-  if AHeader.HeaderType <> ntp_request then
-    raise Exception.Create('Not request');
+  if AHeader.HeaderType <> ntp_request
+  then raise Exception.Create('Not request');
   xAccountStorageStream := TNode.Node.BlockManager.Storage.CreateAccountStorageStream(xMessage.Count);
   try
     xResponseStream := TMemoryStream.Create;

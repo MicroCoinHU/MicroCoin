@@ -81,7 +81,7 @@ type
     FIsLoadingBlocks: Boolean;
     FUpgradingToV2: Boolean;
     FOnLog: TBlockManagerLog;
-    FAccountStorageLock: TPCCriticalSection;
+    FAccountStorageLock: TCriticalSection;
     FNotifyList: TList;
     FStopped : boolean;
     function GetStorage: TStorage;
@@ -243,7 +243,7 @@ constructor TBlockManager.Create(AOwner: TComponent);
 begin
   inherited;
   FStorage := nil;
-  FAccountStorageLock := TPCCriticalSection.Create('TBlockManager_LOCKSTORAGE');
+  FAccountStorageLock := TCriticalSection.Create();
   FIsRestoringFromFile := false;
   FOnLog := nil;
   FAccountStorage := TAccountStorage.Create;

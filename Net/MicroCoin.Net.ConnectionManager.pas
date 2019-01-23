@@ -399,7 +399,7 @@ var
   i: Integer;
   l: TList;
   nc: TNetConnection;
-  lock: TPCCriticalSection;
+  lock: TCriticalSection;
 begin
   Result := false;
   nc := nil;

@@ -45,14 +45,14 @@ interface
 uses SysUtils, Classes, UTCPIP, MicroCoin.BlockChain.BlockHeader, UThread,
   MicroCoin.Account.AccountKey, MicroCoin.Common.Lists, MicroCoin.Net.Protocol,
   MicroCoin.Net.NodeServer, UBaseTypes,
-  MicroCoin.Transaction.ITransaction,
+  MicroCoin.Transaction.ITransaction, SyncObjs,
   MicroCoin.Transaction.HashTree, MicroCoin.BlockChain.Block, ULog,
   MicroCoin.Net.ConnectionBase;
 
 type
   TNetConnection = class(TNetConnectionBase)
   strict private
-    FBufferLock: TPCCriticalSection;
+    FBufferLock: TCriticalSection;
     FBufferReceivedOperationsHash: TOrderedRawList;
     FBufferToSendOperations: TTransactionHashTree;
     FIsDownloadingBlocks: Boolean;
@@ -79,7 +79,7 @@ type
     property ClientPublicKey: TAccountKey read FClientPublicKey write FClientPublicKey;
     property TimestampDiff: Integer read FTimestampDiff write FTimestampDiff;
     property ClientAppVersion: AnsiString read FClientAppVersion write FClientAppVersion;
-    property BufferLock: TPCCriticalSection read FBufferLock;
+    property BufferLock: TCriticalSection read FBufferLock;
     property BufferReceivedOperationsHash: TOrderedRawList read FBufferReceivedOperationsHash;
     property BufferToSendOperations: TTransactionHashTree read FBufferToSendOperations;
   end;
@@ -104,7 +104,7 @@ uses UTime, MicroCoin.Net.ConnectionManager, MicroCoin.Common.Config, UCrypto,
 constructor TNetConnection.Create(AOwner: TComponent);
 begin
   FClientAppVersion := '';
-  FBufferLock := TPCCriticalSection.Create('TNetConnectionBase_BufferLock');
+  FBufferLock := TCriticalSection.Create();
   FBufferReceivedOperationsHash := TOrderedRawList.Create;
   FBufferToSendOperations := TTransactionHashTree.Create;
   FRemoteOperationBlock := TBlockHeader.Empty;
@@ -267,7 +267,7 @@ begin
     xMessage.Block.BlockHeader := TNode.Node.BlockManager.LastBlock;
     xMessage.nodeservers := TConnectionManager.Instance.GetValidNodeServers(true, cMAX_NODESERVERS_ON_HELLO);
     xMessage.nodeserver_count := Length(xMessage.nodeservers);
-    xMessage.client_version := ClientAppVersion{$IFDEF LINUX} + ' Linux'{$ELSE} + ' Windows'{$ENDIF}{$IFDEF FPC}{$IFDEF LCL} + ' '{$ELSE} + ' '{$ENDIF}{$ELSE}+' '{$ENDIF}{$IFDEF DEBUG}+' Debug'{$ELSE}+''{$ENDIF}{$IFDEF CONSOLE}+' daemon'{$ENDIF};
+    xMessage.client_version := MicroCoin.Common.Config.ClientAppVersion{$IFDEF LINUX} + ' Linux'{$ELSE} + ' Windows'{$ENDIF}{$IFDEF FPC}{$IFDEF LCL} + ' '{$ELSE} + ' '{$ENDIF}{$ELSE}+' '{$ENDIF}{$IFDEF DEBUG}+' Debug'{$ELSE}+''{$ENDIF}{$IFDEF CONSOLE}+' daemon'{$ENDIF};
     xMessage.remote_work := TNode.Node.BlockManager.AccountStorage.WorkSum;    //
     xMessage.SaveToStream(data);
     Send(NetTranferType, cNetOp_Hello, 0, request_id, data);

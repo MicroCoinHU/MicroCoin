@@ -30,8 +30,8 @@ type
   TNode = class(TComponent)
   strict private
     FNodeLog: TLog;
-    FLockNodeOperations: TPCCriticalSection;
-    FOperationSequenceLock: TPCCriticalSection;
+    FLockNodeOperations: TCriticalSection;
+    FOperationSequenceLock: TCriticalSection;
     FNotifyList: TList;
     FBlockManager: TBlockManager;
     FTransactionStorage: TBlock;
@@ -93,7 +93,7 @@ type
     procedure EnableNewBlocks;
 
     property PeerCache: AnsiString read FPeerCache write FPeerCache;
-    property SequenceLock: TPCCriticalSection read FOperationSequenceLock;
+    property SequenceLock: TCriticalSection read FOperationSequenceLock;
     property NotifyList: TList read FNotifyList;
     property BlockManager: TBlockManager read FBlockManager;
   published
@@ -530,8 +530,8 @@ begin
     raise Exception.Create('Duplicate nodes protection');
   TLog.NewLog(ltinfo, Classname, 'TNode.Create');
   FDisabledsNewBlocksCount := 0;
-  FLockNodeOperations := TPCCriticalSection.Create('TNode_LockNodeOperations');
-  FOperationSequenceLock := TPCCriticalSection.Create('TNode_OperationSequenceLock');
+  FLockNodeOperations := TCriticalSection.Create;
+  FOperationSequenceLock := TCriticalSection.Create;
   FBlockManager := TBlockManager.Create(Self);
   FBlockManagerNotify := TBlockManagerNotify.Create(Self);
   FBlockManagerNotify.BlockManager := FBlockManager;

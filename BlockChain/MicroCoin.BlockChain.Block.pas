@@ -17,7 +17,7 @@ interface
 
 uses SysUtils, Classes, UTime, MicroCoin.Account.Transaction, MicroCoin.Transaction.HashTree,
   MicroCoin.BlockChain.BlockHeader, MicroCoin.Common.Config, UCrypto, MicroCoin.Account.AccountKey, Ulog,
-  MicroCoin.Transaction.ITransaction, UBaseTypes,
+  MicroCoin.Transaction.ITransaction, UBaseTypes, SyncObjs,
   MicroCoin.BlockChain.Protocol, MicroCoin.BlockChain.Base, MicroCoin.Transaction.Base, UThread;
 
 type
@@ -34,7 +34,7 @@ type
     FIsOnlyBlock: Boolean;
     FStreamPoW: TMemoryStream;
     FDisableds: Integer;
-    FBlockLock: TPCCriticalSection;
+    FBlockLock: TCriticalSection;
     function GetTransaction(index: Integer): ITransaction;
     procedure SetBank(const value: TBlockManagerBase);
     procedure SetnOnce(const value: Cardinal);
@@ -313,7 +313,7 @@ end;
 constructor TBlock.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  FBlockLock := TPCCriticalSection.Create('TPCOperationsComp_OPERATIONSLOCK');
+  FBlockLock := TCriticalSection.Create();
   FDisableds := 0;
   FStreamPoW := TMemoryStream.Create;
   FStreamPoW.Position := 0;

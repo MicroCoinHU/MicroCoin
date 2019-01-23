@@ -197,7 +197,7 @@ var
 begin
   FLock.Acquire;
   try
-    if assigned(FFileStream) and (logtype in FSaveTypes) then
+    if assigned(FFileStream) and (logtype in FSaveTypes) and (logtext<>'') then
     begin
       if TThread.CurrentThread.ThreadID = MainThreadID then
         tid := ' MAIN:'

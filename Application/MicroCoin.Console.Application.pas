@@ -39,9 +39,9 @@ unit MicroCoin.Console.Application;
 
 interface
 
-uses Classes, SysUtils, {$IFDEF MSWINDOWS}Windows, System.Console, {$ifndef fpc}Threading, {$endif} {$ELSE}{$ENDIF}
+uses Classes, SysUtils, {$IFDEF MSWINDOWS}Windows, {$IFNDEF FPC}System.Console,{$ENDIF} {$ifndef fpc}Threading, {$endif} {$ELSE}{$ENDIF}
   {$IFDEF FPC}{$ENDIF}
-  SyncObjs, OpenSSL, UCrypto, MicroCoin.Node.Node, MicroCoin.BlockChain.FileStorage,
+  SyncObjs, OpenSSL, UCrypto, MicroCoin.Node.Node, MicroCoin.BlockChain.FileStorage, UTime,
   UWalletKeys, ULog, MicroCoin.Net.Protocol, MicroCoin.Crypto.Keys,
   IniFiles, MicroCoin.Account.AccountKey, MicroCoin.Net.ConnectionManager,
   MicroCoin.RPC.Server, MicroCoin.Mining.Server, MicroCoin.Account.Data,
@@ -73,7 +73,6 @@ type
     constructor Create;
     destructor Destroy; override;
     procedure Start;
-  published
     property Settings : TMicroCoinAppsettings read FSettings;
     property RPCServer : TRPCServer read FRPC;
     property WalletKeys : TKeyManager read FWalletKeys;
@@ -132,10 +131,11 @@ procedure TMicroCoinApplication.OnMicroCoinInThreadLog(logtype: TLogType; Time: 
 var
   s: AnsiString;
   {$IFDEF MSWINDOWS}
+  {$IFNDEF FPC}
   color: TConsoleColor;
   i, xTmp: Integer;
-
   xStatus : AnsiString;
+  {$ENDIF}
   {$ENDIF}
 begin
   FC.Enter;
@@ -147,7 +147,8 @@ begin
     s := ' MAIN:'
   else
     s := ' TID:';
-{$IFDEF MSWINDOWS}
+{$IFNDEF FPC}
+  {$IFDEF MSWINDOWS}
   case logtype of
     lterror:
       color := TConsoleColor.Red; // FOREGROUND_INTENSITY or FOREGROUND_RED;
@@ -158,7 +159,7 @@ begin
     ltupdate:
       color := TConsoleColor.Green; // FOREGROUND_INTENSITY or FOREGROUND_GREEN;
   end;
-  if logtext<>''
+  if (logtext<>'')
   then begin
     Console.ForegroundColor := color;
     Console.WriteLine(formatDateTime('hh:nn:ss', Time)+ ' ' + logtext);
@@ -168,6 +169,9 @@ begin
     end;
   end;
   xTmp := Console.CursorTop;
+  Console.CursorLeft := 0;
+  Console.Cursortop:=Console.WindowHeight;
+  for i := 0 to 40 do Write(' ');
   Console.BackgroundColor := TConsoleColor.White;
   Console.ForegroundColor := TConsoleColor.Black;
   Console.CursorLeft := 0;
@@ -179,18 +183,19 @@ begin
     and TNode.HasInstance
     and TNode.Node.isready(xStatus)
   then begin
-   Console.Write(Format('Connections: %d | Servers: %d | Clients: %d | Up: %n kB | Down: %n kB | Block height: %d', [
+   Console.Write(Format('Conn: %d | Servers: %d | Clients: %d | Up: %n kB | Down: %n kB | Blocks: %d | %s', [
      TConnectionManager.Instance.NetStatistics.ActiveConnections,
      TConnectionManager.Instance.NetStatistics.ServersConnections,
      TConnectionManager.Instance.NetStatistics.ClientsConnections,
-     TConnectionManager.Instance.NetStatistics.BytesSend+0.0,
-     TConnectionManager.Instance.NetStatistics.BytesReceived+0.0,
-     TNode.Node.BlockManager.BlocksCount
+     TConnectionManager.Instance.NetStatistics.BytesSend / 1000,
+     TConnectionManager.Instance.NetStatistics.BytesReceived / 1000,
+     TNode.Node.BlockManager.BlocksCount,
+     UnixTimeToLocalElapsedTime(TNode.Node.BlockManager.LastBlock.timestamp)
    ]));
   end else begin
     if TNode.HasInstance then begin
       TNode.Node.isready(xStatus);
-      Console.Write(xStatus);
+      Console.Write(Copy(xStatus, 1, 40));
     end else begin
       Console.Write('Initializing...');
     end;
@@ -198,9 +203,10 @@ begin
   Console.BackgroundColor := TConsoleColor.Black;
   Console.CursorTop := xTmp;
   Console.CursorLeft := 0;
+ {$ENDIF}
 {$ELSE}
-  WriteLn(formatDateTime('dd/mm/yyyy hh:nn:ss.zzz', Time) + s + IntToHex(AThreadID, 8) + ' [' + CT_LogType[logtype] +
-    '] <' + sender + '> ' + logtext);
+WriteLn(formatDateTime('dd/mm/yyyy hh:nn:ss.zzz', Time) + s + IntToHex(AThreadID, 8) + ' [' + CT_LogType[logtype] +
+  '] <' + sender + '> ' + logtext);
 {$ENDIF}
 FC.Leave;
 end;
@@ -270,8 +276,6 @@ begin
 end;
 
 procedure TMicroCoin.InitNode;
-var
-  xIPAddresses: AnsiString;
 begin
   TNode.Node.BlockManager.StorageClass := TFileStorage;
   TFileStorage(TNode.Node.BlockManager.Storage).DatabaseFolder := MicroCoinDataFolder + PathDelim + 'Data';

@@ -32,19 +32,19 @@ unit MicroCoin.RPC.Result;
 
 interface
 
-uses UJSONFunctions;
+uses UJSONFunctions, JclSysUtils;
 
 type
 
   TRPCResult = record
   private
     FResponse: TPCJSONObject;
+    FGuard: ISafeGuard;
     function GetResponse: TPCJSONObject;
   public
     Success: Boolean;
     ErrorCode: integer;
     ErrorMessage: string;
-    {$MESSAGE WARN 'Memory Leak'}
     property Response: TPCJSONObject read GetResponse;
   end;
 
@@ -54,8 +54,8 @@ implementation
 
 function TRPCResult.GetResponse: TPCJSONObject;
 begin
-  if FResponse = nil then
-    FResponse := TPCJSONObject.Create;
+  if FResponse = nil
+  then FResponse := Guard(TPCJSONObject.Create, FGuard) as TPCJSONObject;
   Result := FResponse;
 end;
 

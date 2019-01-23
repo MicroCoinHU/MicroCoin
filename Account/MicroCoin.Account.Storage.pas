@@ -42,7 +42,7 @@ unit MicroCoin.Account.Storage;
 interface
 
 uses SysUtils, Classes, UCrypto, UThread, MicroCoin.Common.Lists,
-  MicroCoin.Crypto.BigNum,
+  MicroCoin.Crypto.BigNum, SyncObjs,
   MicroCoin.Account.Data, MicroCoin.Account.AccountKey, MicroCoin.BlockChain.BlockHeader,
   MicroCoin.Common.Config, UBaseTypes, ULog, MicroCoin.BlockChain.Protocol;
 
@@ -88,7 +88,7 @@ type
     FTotalBalance: UInt64;
     FTotalFee: Int64;
     FAccountStorageHash: TRawBytes;
-    FLock: TPCCriticalSection; // Thread safe
+    FLock: TCriticalSection; // Thread safe
     FWorkSum: UInt64;
     FCurrentProtocol: Integer;
 
@@ -189,19 +189,6 @@ uses MicroCoin.Common.Stream;
 
 procedure ToTMemAccount(const Source: TAccount; var dest: TMemAccount);
 begin
-{$IFDEF OLDVERSION}
-  Source.AccountInfo.ToRawString(raw);
-  TBaseType.To256RawBytes(raw, dest.AccountInfo);
-  dest.balance := Source.balance;
-  dest.updated_block := Source.updated_block;
-  dest.n_operation := Source.n_operation;
-  dest.name := Source.name;
-  dest.account_type := Source.account_type;
-  dest.previous_updated_block := Source.previous_updated_block;
-  dest.Subaccounts := Source.SubAccounts;
-  dest.ExtraData := Source.ExtraData;
-  dest.HasExtraData := Source.HasExtraData;
-{$ELSE}
   dest := Source;
   {$IFDEF EXTENDEDACCOUNT}
     dest.SubAccounts := nil;
@@ -209,23 +196,10 @@ begin
     for i := Low(source.SubAccounts) to High(Source.SubAccounts)
     do dest.SubAccounts[i] := Source.SubAccounts[i];
   {$ENDIF}
-{$ENDIF}
 end;
 
 procedure ToTAccount(const Source: TMemAccount; account_number: Cardinal; var dest: TAccount);
 begin
-{$IFDEF ouselowmem}
-  dest.AccountNumber := account_number;
-  TBaseType.ToRawBytes(Source.AccountInfo, raw);
-  TAccountInfo.FromRawString(raw, dest.AccountInfo);
-  dest.balance := Source.balance;
-  dest.updated_block := Source.updated_block;
-  dest.n_operation := Source.n_operation;
-  dest.name := Source.name;
-  dest.account_type := Source.account_type;
-  dest.previous_updated_block := Source.previous_updated_block;
-  raw := '';
-{$ELSE}
   dest := Source;
   {$IFDEF EXTENDEDACCOUNT}
     dest.SubAccounts := nil;
@@ -233,7 +207,6 @@ begin
     for i := Low(source.SubAccounts) to High(Source.SubAccounts)
     do dest.SubAccounts[i] := Source.SubAccounts[i];
   {$ENDIF}
-{$ENDIF}
 end;
 
 procedure ToTMemBlockAccount(const Source: TAccountStorageEntry; var dest: TMemBlockAccount);
@@ -259,10 +232,9 @@ begin
   TBaseType.To32Bytes(Source.BlockHeader.transactionHash, dest.BlockChainInfo.TransactionHash);
   TBaseType.To32Bytes(Source.BlockHeader.proof_of_work, dest.BlockChainInfo.ProofOfWork);
 
-  for i := low(Source.Accounts) to high(Source.Accounts) do
-  begin
-    ToTMemAccount(Source.Accounts[i], dest.Accounts[i]);
-  end;
+  for i := low(Source.Accounts) to high(Source.Accounts)
+  do ToTMemAccount(Source.Accounts[i], dest.Accounts[i]);
+
   TBaseType.To32Bytes(Source.BlockHash, dest.BlockHash);
   dest.AccumulatedWork := Source.AccumulatedWork;
 {$ELSE}
@@ -323,10 +295,10 @@ var
 begin
   Result := TAccountStorageEntry.Empty;
   Result.BlockHeader := ABlockHeader;
-  if ABlockHeader.block <> BlocksCount then
-    raise Exception.Create('ERROR DEV 20170427-2');
-  if ABlockHeader.fee <> FTotalFee then
-    raise Exception.Create('ERROR DEV 20170427-3');
+  if ABlockHeader.block <> BlocksCount
+  then raise Exception.Create('ERROR DEV 20170427-2');
+  if ABlockHeader.fee <> FTotalFee
+  then raise Exception.Create('ERROR DEV 20170427-3');
   base_addr := BlocksCount * cAccountsPerBlock;
   SetLength(accs, length(Result.Accounts));
   for i := low(Result.Accounts) to high(Result.Accounts) do
@@ -341,11 +313,8 @@ begin
     Result.Accounts[i].AccountInfo.AccountKey := ABlockHeader.account_key;
     Result.Accounts[i].UpdatedBlock := BlocksCount;
     Result.Accounts[i].NumberOfTransactions := 0;
-    if i = low(Result.Accounts) then
-    begin
-      // Only first account wins the reward + fee
-      Result.Accounts[i].Balance := ABlockHeader.reward + ABlockHeader.fee;
-    end;
+    if i = low(Result.Accounts)
+    then Result.Accounts[i].Balance := ABlockHeader.reward + ABlockHeader.fee;
     accs[i] := base_addr + i;
   end;
   inc(FWorkSum, Result.BlockHeader.compact_target);
@@ -369,20 +338,16 @@ procedure TAccountStorage.AccountKeyListAddAccounts(const AAccountKey: TAccountK
 var
   i: Integer;
 begin
-  for i := 0 to FListOfOrderedAccountKeysList.Count - 1 do
-  begin
-    TOrderedAccountKeysList(FListOfOrderedAccountKeysList[i]).AddAccounts(AAccountKey, AAccounts);
-  end;
+  for i := 0 to FListOfOrderedAccountKeysList.Count - 1
+  do TOrderedAccountKeysList(FListOfOrderedAccountKeysList[i]).AddAccounts(AAccountKey, AAccounts);
 end;
 
 procedure TAccountStorage.AccountKeyListRemoveAccount(const AAccountKey: TAccountKey; const AAccounts: array of Cardinal);
 var
   i: Integer;
 begin
-  for i := 0 to FListOfOrderedAccountKeysList.Count - 1 do
-  begin
-    TOrderedAccountKeysList(FListOfOrderedAccountKeysList[i]).RemoveAccounts(AAccountKey, AAccounts);
-  end;
+  for i := 0 to FListOfOrderedAccountKeysList.Count - 1
+  do TOrderedAccountKeysList(FListOfOrderedAccountKeysList[i]).RemoveAccounts(AAccountKey, AAccounts);
 end;
 
 function TAccountStorage.GetAccountsCount: Integer;
@@ -572,7 +537,7 @@ end;
 
 constructor TAccountStorage.Create;
 begin
-  FLock := TPCCriticalSection.Create('TAccountStorage_Lock');
+  FLock := TCriticalSection.Create();
   FBlockAccountsList := TList.Create;
   FListOfOrderedAccountKeysList := TList.Create;
   FCurrentProtocol := cPROTOCOL_1;
@@ -659,11 +624,6 @@ begin
           exit;
         end;
       end;
-{      if not LoadHeaderFromStream(AStream, sbHeader) then
-      begin
-        errors := 'Invalid stream. Invalid header/version';
-        exit;
-      end; }
       errors := 'Invalid version or corrupted stream';
       FCurrentProtocol := sbHeader.Protocol;
       if (sbHeader.BlocksCount = 0) or (sbHeader.StartBlock <> 0) or (sbHeader.EndBlock <> (sbHeader.BlocksCount - 1))

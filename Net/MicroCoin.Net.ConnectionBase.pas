@@ -44,7 +44,7 @@ interface
 uses SysUtils, Classes, UTCPIP, MicroCoin.BlockChain.BlockHeader, UThread,
   MicroCoin.Account.AccountKey, MicroCoin.Common.Lists, MicroCoin.Net.Protocol,
   MicroCoin.Net.NodeServer, Generics.Collections, MicroCoin.Net.CommandHandler,
-  MicroCoin.Transaction.HashTree, MicroCoin.BlockChain.Block, ULog;
+  MicroCoin.Transaction.HashTree, MicroCoin.BlockChain.Block, ULog, SyncObjs;
 
 type
 
@@ -55,7 +55,7 @@ type
     FLastDataReceivedTS: Cardinal;
     FLastDataSendedTS: Cardinal;
     FClientBufferRead: TStream;
-    FNetLock: TPCCriticalSection;
+    FNetLock: TCriticalSection;
     FIsWaitingForResponse: Boolean;
     FIsMyselfServer: Boolean;
     FCreatedTime: TDateTime;
@@ -81,7 +81,7 @@ type
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
     class constructor Create;
-    class destructor Destroy;
+    class destructor DestroyClass;
 
     procedure Send(NetTranferType: TNetTransferType; operation, errorcode: Word; request_id: Integer;
       DataBuffer: TStream);
@@ -115,7 +115,7 @@ type
     property IsMyselfServer: Boolean read FIsMyselfServer;
     property CreatedTime: TDateTime read FCreatedTime;
     property DoFinalizeConnection: Boolean read FDoFinalizeConnection write FDoFinalizeConnection;
-    property NetLock: TPCCriticalSection read FNetLock write FNetLock;
+    property NetLock: TCriticalSection read FNetLock write FNetLock;
     property TcpIpClient: TNetTcpIpClient read FTcpIpClient;
     property HasReceivedData: Boolean read FHasReceivedData;
     property RemoteHost: AnsiString read GetRemoteHost;
@@ -219,7 +219,7 @@ begin
   FIsMyselfServer := false;
   FIsWaitingForResponse := false;
   FClientBufferRead := TMemoryStream.Create;
-  FNetLock := TPCCriticalSection.Create('TNetConnectionBase_NetLock');
+  FNetLock := TCriticalSection.Create;
   FLastDataReceivedTS := 0;
   FLastDataSendedTS := 0;
   FRandomWaitSecondsSendHello := 90 + Random(60);
@@ -269,7 +269,7 @@ begin
   end;
 end;
 
-class destructor TNetConnectionBase.Destroy;
+class destructor TNetConnectionBase.DestroyClass;
 begin
   FreeAndNil(FHandlers);
 end;
@@ -284,11 +284,11 @@ begin
   // FIsDownloadingBlocks := false;
   if ItsMyself then
   begin
-    TLog.NewLog(ltInfo, Classname, 'Disconecting myself ' + ClientRemoteAddr + ' > ' + why)
+    TLog.NewLog(ltInfo, Classname, 'Disconnecting myself ' + ClientRemoteAddr + ' > ' + why)
   end
   else
   begin
-    TLog.NewLog(ltError, Classname, 'Disconecting ' + ClientRemoteAddr + ' > ' + why);
+    TLog.NewLog(ltError, Classname, 'Disconnecting ' + ClientRemoteAddr + ' > ' + why);
   end;
   FIsMyselfServer := ItsMyself;
   include_in_list := (not SameText(Client.RemoteHost, 'localhost')) and (not SameText(Client.RemoteHost, '127.0.0.1'))
@@ -453,8 +453,14 @@ begin
                     Supports(FHandlers[HeaderData.operation].Create, ICommandHandler, xHandler);
                     xHandler.HandleCommand(HeaderData, ReceiveDataBuffer, Self);
                   except
-                    on E: Exception do
+                    on E: Exception do begin
+                      {$IFDEF DEBUG}
+                        {$IFNDEF FPC}
+                          TLog.NewLog(ltError, Classname, E.Message +' '+ E.StackTrace);
+                        {$ENDIF}
+                      {$ENDIF}
                       DisconnectInvalidClient(false, E.Message);
+                    end;
                   end;
                 end
                 else

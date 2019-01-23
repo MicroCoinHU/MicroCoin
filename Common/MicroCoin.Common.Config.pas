@@ -164,13 +164,14 @@ const
                          {$ENDIF}; //
 
   {$IFDEF PRODUCTION}
-  cDiscover_IPs =  '195.181.240.58;194.182.64.181;185.28.101.93;80.211.211.48;94.177.237.196;185.33.146.44;80.211.200.121';
+//     cDiscover_IPs =  '80.211.200.121';
+     cDiscover_IPs =  '80.211.200.121;195.181.240.58;194.182.64.181;185.28.101.93;80.211.211.48;94.177.237.196;185.33.146.44';
   {$ENDIF}
   {$IFDEF TESTNET}
-  cDiscover_IPs =  '194.182.64.181;185.33.146.44';
+     cDiscover_IPs =  '194.182.64.181;185.33.146.44';
   {$ENDIF}
   {$IFDEF DEVNET}
-  cDiscover_IPs =  '194.182.64.181';
+    cDiscover_IPs =  '194.182.64.181';
   {$ENDIF}
 
   cMAX_Zero_Fee_operations_per_block_by_miner = {$IFDEF PRODUCTION}2000{$ELSE}{$IFDEF TESTNET}2{$ELSE}2{$ENDIF}{$ENDIF};
