@@ -16,7 +16,8 @@ unit MicroCoin.BlockChain.FileStorage;
 interface
 
 uses Classes, MicroCoin.BlockChain.BlockManager, SyncObjs, UThread, UCrypto, MicroCoin.Account.Storage,
-  MicroCoin.BlockChain.Storage, MicroCoin.BlockChain.Block, MicroCoin.Common.Config;
+  MicroCoin.Account.AccountKey,
+  MicroCoin.BlockChain.Storage, MicroCoin.BlockChain.Block, MicroCoin.Common.Config, SQLite3, SQLite3Wrap;
 
 {$I config.inc}
 
@@ -505,6 +506,9 @@ var
   fs: TFileStream;
   bankfilename: AnsiString;
   ms: TMemoryStream;
+  DB: TSQLite3Database;
+  Stmt, Stmt2: TSQLite3Statement;
+  i: Cardinal;
 begin
   Result := True;
   bankfilename := GetCheckpointingFileName(GetFolder(Orphan), BlockManager.blockscount);
@@ -512,6 +516,67 @@ begin
   begin
     TLog.NewLog(ltInfo, ClassName, 'Saving Safebox blocks:' + IntToStr(BlockManager.blockscount) + ' file:' +
       bankfilename);
+    DB := TSQLite3Database.Create;
+    DB.Open(bankfilename+'.db');
+    DB.Execute('DROP TABLE if exists accounts');
+    DB.Execute('DROP TABLE if exists blocks');
+    DB.Execute('CREATE TABLE accounts(id int not null,block_id integer not null,state int not null,key varbinary(255) not null,'+
+                   'locked int not null,price bigint not null default 0,account_to_pay integer not null default 0,new_key varbinary(255) default null,'+
+                   'balance bigint not null default 0,updated_block int not null default 0,number_of_transactions int not null default 0,'+
+                   'name varchar(255) default null,type integer not null default 0,prev_updated_block int not null default 0)');
+
+    DB.Execute('create table blocks(id integer not null, account_key varbinary(255) not null, reward bigint not null default 0,'+
+    'fee bigint not null default 0, protocol_version int not null default 0, protocol_available int not null default 0,'+
+    'timestamp int not null default 0, compact_target int not null default 0, nonce int not null default 0,'+
+    'block_payload varbinary(255) not null, initial_safe_box_hash varbinary(255) not null, transaction_hash varbinary(255) not null,'+
+    'proof_of_work varbinary(255) not null)');
+    Db.BeginTransaction;
+
+    Stmt := Db.Prepare('INSERT INTO accounts (id, block_id, state, key, locked, price, account_to_pay, new_key, balance, updated_block,number_of_transactions,'+
+                       'name, type, prev_updated_block) values(?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
+
+    Stmt2:= Db.Prepare('INSERT INTO blocks (id, account_key, reward, fee, protocol_version, protocol_available, timestamp,'+
+                       ' compact_target, nonce, block_payload,initial_safe_box_hash,'+
+                       'transaction_hash, proof_of_work) values(?,?,?,?,?,?,?,?,?,?,?,?,?)');
+
+   for I := 0 to (BlockManager.AccountStorage.BlocksCount - 1) do begin
+     Stmt2.BindInt(1, BlockManager.AccountStorage.Blocks[i].BlockHeader.block);
+     Stmt2.BindText(2, BlockManager.AccountStorage.Blocks[i].BlockHeader.account_key.ToRawString);
+     Stmt2.BindInt64(3, BlockManager.AccountStorage.Blocks[i].BlockHeader.reward);
+     Stmt2.BindInt64(4, BlockManager.AccountStorage.Blocks[i].BlockHeader.fee);
+     Stmt2.BindInt(5, BlockManager.AccountStorage.Blocks[i].BlockHeader.protocol_version);
+     Stmt2.BindInt(6, BlockManager.AccountStorage.Blocks[i].BlockHeader.protocol_available);
+     Stmt2.BindInt(7, BlockManager.AccountStorage.Blocks[i].BlockHeader.timestamp);
+     Stmt2.BindInt(8, BlockManager.AccountStorage.Blocks[i].BlockHeader.compact_target);
+     Stmt2.BindInt(9, BlockManager.AccountStorage.Blocks[i].BlockHeader.nonce);
+     Stmt2.BindText(10, BlockManager.AccountStorage.Blocks[i].BlockHeader.block_payload);
+     Stmt2.BindBlob(11, @BlockManager.AccountStorage.Blocks[i].BlockHeader.initial_safe_box_hash[1], 32);
+     Stmt2.BindBlob(12, @BlockManager.AccountStorage.Blocks[i].BlockHeader.transactionHash[1], 32);
+     Stmt2.BindBlob(13, @BlockManager.AccountStorage.Blocks[i].BlockHeader.proof_of_work[1] ,32);
+     Stmt2.StepAndReset;
+   end;
+
+   for I := 0 to (BlockManager.AccountStorage.BlocksCount - 1)*5
+   do begin
+      Stmt.BindInt(1, BlockManager.AccountStorage.Accounts[i].AccountNumber);
+      Stmt.BindInt(2, i div 5);
+      Stmt.BindInt(3, Integer(BlockManager.AccountStorage.Accounts[i].AccountInfo.State));
+      Stmt.BindText(4, BlockManager.AccountStorage.Accounts[i].AccountInfo.AccountKey.ToRawString);
+      Stmt.BindInt(5, BlockManager.AccountStorage.Accounts[i].AccountInfo.LockedUntilBlock);
+      Stmt.BindInt64(6, BlockManager.AccountStorage.Accounts[i].AccountInfo.Price);
+      Stmt.BindInt(7, BlockManager.AccountStorage.Accounts[i].AccountInfo.AccountToPay);
+      Stmt.BindText(8, BlockManager.AccountStorage.Accounts[i].AccountInfo.NewPublicKey.ToRawString);
+      Stmt.BindInt64(9, BlockManager.AccountStorage.Accounts[i].Balance);
+      Stmt.BindInt(10, BlockManager.AccountStorage.Accounts[i].UpdatedBlock);
+      Stmt.BindInt(11, BlockManager.AccountStorage.Accounts[i].NumberOfTransactions);
+      Stmt.BindText(12, BlockManager.AccountStorage.Accounts[i].Name);
+      Stmt.BindInt(13, BlockManager.AccountStorage.Accounts[i].AccountType);
+      Stmt.BindInt(14, BlockManager.AccountStorage.Accounts[i].PreviusUpdatedBlock);
+      Stmt.StepAndReset;
+    end;
+    Db.Commit;
+    Stmt.Free;
+    DB.Free;
     fs := TFileStream.Create(bankfilename, fmCreate);
     try
       fs.Size := 0;
