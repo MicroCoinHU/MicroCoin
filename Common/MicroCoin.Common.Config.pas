@@ -115,7 +115,7 @@ const
   cMinimumNodeCountToCalculateNAT = 4;
 
   cMinimumServersNeeded = 3;
-  cMaximumNumberOfServers = 6;
+  cMaximumNumberOfServers = 20;
 
   cMaximumClients = 100;
 
@@ -165,7 +165,7 @@ const
 
   {$IFDEF PRODUCTION}
 //     cDiscover_IPs =  '80.211.200.121';
-     cDiscover_IPs =  '80.211.200.121;195.181.240.58;194.182.64.181;185.28.101.93;80.211.211.48;94.177.237.196;185.33.146.44';
+     cDiscover_IPs =  '80.211.200.121;195.181.240.58;194.182.64.181;185.28.101.93;80.211.211.48;94.177.237.196;185.33.146.44;161.129.65.13';
   {$ENDIF}
   {$IFDEF TESTNET}
      cDiscover_IPs =  '194.182.64.181;185.33.146.44';

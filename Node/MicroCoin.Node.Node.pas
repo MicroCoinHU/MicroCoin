@@ -251,13 +251,9 @@ begin
         j := TConnectionManager.Instance.ConnectionsCountAll;
         for i := 0 to j - 1 do
         begin
-          if (TConnectionManager.Instance.GetConnection(i, nc)) then
-          begin
-            if (nc <> SenderConnection) and (nc.Connected) then
-            begin
-              TNotifyNewBlockThread.Create(nc, BlockManager.LastBlockFound, opsht);
-            end;
-          end;
+          if (TConnectionManager.Instance.GetConnection(i, nc))
+          then if (nc <> SenderConnection) and (nc.Connected)
+               then TNotifyNewBlockThread.Create(nc, BlockManager.LastBlockFound, opsht);
         end;
       finally
         opsht.Free;
@@ -265,7 +261,7 @@ begin
     end;
   finally
     FLockNodeOperations.Release;
-    LogDebug( Classname, Format('Finalizing AddNewBlockChain Connection:%s NewBlock:%s',
+    LogDebug(ClassName, Format('Finalizing AddNewBlockChain Connection:%s NewBlock:%s',
       [Inttohex(PtrInt(SenderConnection), 8), OpBlock.ToString()]));
   end;
   if Result then

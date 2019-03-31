@@ -32,15 +32,23 @@ unit MicroCoin.RPC.Result;
 
 interface
 
-uses UJSONFunctions, JclSysUtils;
+uses UJSONFunctions, SysUtils;
 
 type
 
+  TProc<T> = procedure (Arg1: T);
+
+  IRPCResultDestructor = interface
+    ['{AC025F1C-3B18-4B4A-9E1E-B79D29758FB3}']
+  end;
+  TRPCResultDestructor = class;
+
   TRPCResult = record
   private
+    FDestructor : IRPCResultDestructor;
     FResponse: TPCJSONObject;
-    FGuard: ISafeGuard;
     function GetResponse: TPCJSONObject;
+    class procedure CleanUp(AJson : TPCJsonObject); static;
   public
     Success: Boolean;
     ErrorCode: integer;
@@ -48,15 +56,55 @@ type
     property Response: TPCJSONObject read GetResponse;
   end;
 
+  TRPCResultDestructor = class(TInterfacedObject, IRPCResultDestructor)
+  private
+    FDestoyer : TProc<TPCJSONObject>;
+    FData : TPCJSONObject;
+  public
+    constructor Create(ADestructor : TProc<TPCJSONObject>; AData : TPCJSONObject);
+    destructor Destroy; override;
+  end;
+
+function RPCResult: TRPCResult;
+
 implementation
+
+function RPCResult: TRPCResult;
+begin
+  Result.FResponse := nil;
+end;
 
 { TRPCResult }
 
+class procedure TRPCResult.CleanUp(AJson : TPCJsonObject);
+begin
+  AJson.Free;
+end;
+
 function TRPCResult.GetResponse: TPCJSONObject;
 begin
-  if FResponse = nil
-  then FResponse := Guard(TPCJSONObject.Create, FGuard) as TPCJSONObject;
+  if not Assigned(FResponse)
+  then begin
+    FResponse := TPCJsonObject.Create;
+    FDestructor := TRPCResultDestructor.Create(CleanUp, FResponse);
+  end;
   Result := FResponse;
+end;
+
+{ TRPCResultDestructor }
+
+constructor TRPCResultDestructor.Create(ADestructor: TProc<TPCJSONObject>;
+  AData: TPCJSONObject);
+begin
+  FDestoyer := ADestructor;
+  FData := AData;
+end;
+
+destructor TRPCResultDestructor.Destroy;
+begin
+  if Assigned(FDestoyer)
+  then FDestoyer(FData);
+  inherited;
 end;
 
 end.

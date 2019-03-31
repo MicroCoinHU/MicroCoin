@@ -106,7 +106,6 @@ end;
 class function TTransactionManager.CreateTransaction(ATransactionType: Cardinal): ITransaction;
 begin
   Result := TTransactionManager.GetTransactionPlugin(ATransactionType).Create;
-  // Result := TTransactionManager.FTransactionPlugins[ATransactionType].TransactionClass.Create;
 end;
 
 class destructor TTransactionManager.Destroy;

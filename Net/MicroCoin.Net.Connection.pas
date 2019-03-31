@@ -50,6 +50,11 @@ uses SysUtils, Classes, UTCPIP, MicroCoin.BlockChain.BlockHeader, UThread,
   MicroCoin.Net.ConnectionBase;
 
 type
+
+{$IFDEF FPC}
+  TCriticalSection = SyncObjs.TCriticalSection;
+{$ENDIF}
+
   TNetConnection = class(TNetConnectionBase)
   strict private
     FBufferLock: TCriticalSection;
@@ -130,30 +135,28 @@ var
   xTransactionType: Byte;
 begin
   Result := false;
-  if not Connected then
-    exit;
+  if not Connected
+  then exit;
   NetLock.Acquire;
   try
     xNumberOfTransactionsToSend := 0;
     FBufferLock.Acquire;
     try
-      if Assigned(Operations) then
-      begin
-        for i := 0 to Operations.TransactionCount - 1 do
-        begin
-          if FBufferReceivedOperationsHash.IndexOf(Operations.GetTransaction(i).Sha256) < 0 then
-          begin
+      if Assigned(Operations)
+      then begin
+        for i := 0 to Operations.TransactionCount - 1
+        do begin
+          if FBufferReceivedOperationsHash.IndexOf(Operations.GetTransaction(i).Sha256) < 0
+          then begin
             FBufferReceivedOperationsHash.Add(Operations.GetTransaction(i).Sha256);
-            if FBufferToSendOperations.IndexOf(Operations.GetTransaction(i)) < 0 then
-            begin
-              FBufferToSendOperations.AddTransactionToHashTree(Operations.GetTransaction(i));
-            end;
+            if FBufferToSendOperations.IndexOf(Operations.GetTransaction(i)) < 0
+            then FBufferToSendOperations.AddTransactionToHashTree(Operations.GetTransaction(i));
           end;
         end;
         xNumberOfTransactionsToSend := Operations.TransactionCount;
       end;
-      if FBufferToSendOperations.TransactionCount > 0 then
-      begin
+      if FBufferToSendOperations.TransactionCount > 0
+      then begin
         LogDebug(Classname, Format('Sending %d Operations to %s (inProc:%d, Received:%d)',
           [FBufferToSendOperations.TransactionCount, ClientRemoteAddr, xNumberOfTransactionsToSend,
           FBufferReceivedOperationsHash.Count]));

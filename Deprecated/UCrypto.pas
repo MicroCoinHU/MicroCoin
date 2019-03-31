@@ -73,8 +73,8 @@ class procedure TCrypto.DoDoubleSha256(p: PAnsiChar; plength: Cardinal; var Resu
 var
   PS: PAnsiChar;
 begin
-  if length(ResultSha256) <> 32 then
-    SetLength(ResultSha256, 32);
+  if length(ResultSha256) <> 32
+  then SetLength(ResultSha256, 32);
   PS := @ResultSha256[1];
   SHA256(p, plength, PS);
   SHA256(PS, 32, PS);
@@ -90,8 +90,8 @@ begin
   RIPEMD160(PAnsiChar(TheMessage), length(TheMessage), PS);
   PC := PS;
   Result := '';
-  for i := 1 to 20 do
-  begin
+  for i := 1 to 20
+  do begin
     Result := Result + IntToHex(PtrInt(PC^), 2);
     inc(PC);
   end;
@@ -141,8 +141,8 @@ var
 begin
   PECS := ECDSA_do_sign(PAnsiChar(digest), length(digest), Key.PrivateKey);
   try
-    if PECS = nil then
-      raise ECryptoException.Create('Error signing');
+    if PECS = nil
+    then raise ECryptoException.Create('Error signing');
     Result.r := BigInteger(PECS^._r).RawValue;
     Result.s := BigInteger(PECS^._s).RawValue;
   finally
@@ -163,12 +163,9 @@ begin
     PK := EC_KEY_new_by_curve_name(EC_OpenSSL_NID);
     EC_KEY_set_public_key(PK, @PubKey);
     case ECDSA_do_verify(PAnsiChar(digest), length(digest), PECS, PK) of
-      1:
-        Result := true;
-      0:
-        Result := false;
-    else
-      raise ECryptoException.Create('Error on Verify');
+      1: Result := true;
+      0: Result := false;
+    else raise ECryptoException.Create('Error on Verify');
     end;
     EC_KEY_free(PK);
   finally
@@ -188,14 +185,11 @@ begin
   ECG := EC_GROUP_new_by_curve_name(PubKey.EC_OpenSSL_NID);
   pub_key := EC_POINT_new(ECG);
   ctx := BN_CTX_new;
-  if EC_POINT_set_affine_coordinates_GFp(ECG, pub_key, BNx, BNy, ctx) = 1 then
-  begin
-    Result := ECDSAVerify(PubKey.EC_OpenSSL_NID, pub_key^, digest, Signature);
-  end
-  else
-  begin
-    Result := false;
-  end;
+
+  if EC_POINT_set_affine_coordinates_GFp(ECG, pub_key, BNx, BNy, ctx) = 1
+  then Result := ECDSAVerify(PubKey.EC_OpenSSL_NID, pub_key^, digest, Signature)
+  else Result := false;
+
   BN_CTX_free(ctx);
   EC_POINT_free(pub_key);
   EC_GROUP_free(ECG);
@@ -213,10 +207,10 @@ var
   i: Integer;
 begin
   Result := true;
-  for i := 1 to length(ReadableText) do
-  begin
-    if (ord(ReadableText[i]) < 32) or (ord(ReadableText[i]) >= 255) then
-    begin
+  for i := 1 to length(ReadableText)
+  do begin
+    if (ord(ReadableText[i]) < 32) or (ord(ReadableText[i]) >= 255)
+    then begin
       Result := false;
       Exit;
     end;

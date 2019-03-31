@@ -61,15 +61,17 @@ begin
   // - Data:
   //   - Compressed data using ZLib
   initialSbPos :=AAccountStorageStream.Position;
-  Try
+  try
      try
       sbHeader := TAccountStorageHeader.LoadFromStream(AAccountStorageStream);
-     except on e:Exception do begin
+     except on e:Exception
+     do begin
         RErrors := 'SafeBoxStream is not a valid SafeBox!';
         exit;
       end;
      end;
-    If (sbHeader.StartBlock>AFromBlock) Or (sbHeader.EndBlock<AToBlock) Or (AFromBlock>AToBlock) then begin
+    if (sbHeader.StartBlock>AFromBlock) Or (sbHeader.EndBlock<AToBlock) Or (AFromBlock>AToBlock)
+    then begin
       RErrors := Format('Cannot save a chunk from %d to %d on a stream with %d to %d!',[AFromBlock,AToBlock,sbHeader.StartBlock,sbHeader.EndBlock]);
       exit;
     end;
@@ -82,7 +84,7 @@ begin
     auxStream := TMemoryStream.Create;
     try
       AAccountStorageStream.Position:=initialSbPos;
-      If Not TAccountStorage.CopyChunk(AAccountStorageStream,auxStream,AFromBlock,AToBlock,RErrors) then exit;
+      if not TAccountStorage.CopyChunk(AAccountStorageStream,auxStream,AFromBlock,AToBlock,RErrors) then exit;
       auxStream.Position:=0;
       // Save uncompressed size
       c := auxStream.Size;
@@ -93,7 +95,7 @@ begin
       ADestinationStream.Write(c,SizeOf(c)); // Save 4 random bytes, latter will be changed
       //
       // Zip it and add to Stream
-      cs := Tcompressionstream.create(cldefault,ADestinationStream);
+      cs := TCompressionstream.create(cldefault,ADestinationStream);
       try
         cs.CopyFrom(auxStream,auxStream.Size); // compressing
       finally
@@ -119,8 +121,8 @@ var s : AnsiString;
   w : Word;
   cUncompressed, cCompressed : Cardinal;
   ds : Tdecompressionstream;
-  dbuff : Array[1..2048] of byte;
-  r : Integer;
+  dbuff : array[1..2048] of byte;
+  r : integer;
   destInitialPos, auxPos : Int64;
 begin
   Result := false;
@@ -128,18 +130,19 @@ begin
   // Header:
   RErrors := 'Invalid stream header';
   AChunk.ReadAnsiString(s);
-  If (s<>CT_AccountChunkIdentificator) then begin
-    exit;
-  end;
+  If (s<>CT_AccountChunkIdentificator)
+  then exit;
   AChunk.Read(w,sizeof(w));
-  if (w<>cAccountStorageVersion) then begin
+  if (w<>cAccountStorageVersion)
+  then begin
     RErrors := RErrors + ' Invalid version '+IntToStr(w);
     exit;
   end;
   // Size
   AChunk.Read(cUncompressed,SizeOf(cUncompressed)); // Uncompressed size
   AChunk.Read(cCompressed,SizeOf(cCompressed)); // Compressed size
-  if (AChunk.Size - AChunk.Position < cCompressed) then begin
+  if (AChunk.Size - AChunk.Position < cCompressed)
+  then begin
     RErrors := Format('Not enough LZip bytes Stream.size:%d Stream.position:%d (avail %d) LZipSize:%d',[AChunk.Size,AChunk.Position,AChunk.Size - AChunk.Position,cCompressed]);
     exit;
   end;
@@ -149,15 +152,15 @@ begin
   try
     repeat
       r := ds.read(dbuff,SizeOf(dbuff));
-      if (r>0) then begin
-        ADestinationStream.Write(dbuff,r);
-      end;
+      if (r>0)
+      then ADestinationStream.Write(dbuff,r);
     until r < SizeOf(dbuff);
-    //auxStream.CopyFrom(Stream,cCompressed);
   finally
     ds.Free;
   end;
-  If (ADestinationStream.Size-destInitialPos)<>cUncompressed then begin
+
+  if (ADestinationStream.Size-destInitialPos)<>cUncompressed
+  then begin
     RErrors := Format('Uncompressed size:%d <> saved:%d',[(ADestinationStream.Size-destInitialPos),cUncompressed]);
     exit;
   end;

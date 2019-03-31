@@ -179,31 +179,31 @@ begin
   if copy(plainTxt, length(plainTxt), 1) = #0 then
     ws := ws + #0;
   i := 1;
-  result := '"';
+  Result := '"';
   while i <= length(ws) do
   begin
     case ws[i] of
       '/', '\', '"':
-        result := result + '\' + ws[i];
+        Result := Result + '\' + ws[i];
       #8:
-        result := result + '\b';
+        Result := Result + '\b';
       #9:
-        result := result + '\t';
+        Result := Result + '\t';
       #10:
-        result := result + '\n';
+        Result := Result + '\n';
       #13:
-        result := result + '\r';
+        Result := Result + '\r';
       #12:
-        result := result + '\f';
+        Result := Result + '\f';
     else
       if (ord(ws[i]) < 32) or (ord(ws[i]) > 122) then
-        result := result + '\u' + inttohex(ord(ws[i]), 4)
+        Result := Result + '\u' + inttohex(ord(ws[i]), 4)
       else
-        result := result + ws[i];
+        Result := Result + ws[i];
     end;
     inc(i);
   end;
-  result := result + '"';
+  Result := Result + '"';
 end;
 
 { TPCJSONArray }
@@ -211,7 +211,6 @@ end;
 constructor TPCJSONArray.Create;
 begin
   inherited;
-
 end;
 
 constructor TPCJSONArray.CreateFromJSONArray(JSONArray: TJSONArray);
@@ -220,40 +219,26 @@ var
 begin
   Create;
 {$IFDEF FPC}
-  for i := 0 to JSONArray.Count - 1 do
-  begin
-    if (JSONArray.Items[i] is TJSONArray) then
-    begin
-      Insert(i, TPCJSONArray.CreateFromJSONArray(TJSONArray(JSONArray.Items[i])));
-    end
-    else if (JSONArray.Items[i] is TJSONObject) then
-    begin
-      Insert(i, TPCJSONObject.CreateFromJSONObject(TJSONObject(JSONArray.Items[i])));
-    end
-    else if (JSONArray.Items[i] is TJSONValue) then
-    begin
-      Insert(i, TPCJSONVariantValue.CreateFromJSONValue(TJSONValue(JSONArray.Items[i])));
-    end
-    else
-      raise EPCParametresError.Create('Invalid TJSON Data: ' + JSONArray.Items[i].ClassName);
+  for i := 0 to JSONArray.Count - 1
+  do begin
+    if (JSONArray.Items[i] is TJSONArray)
+    then Insert(i, TPCJSONArray.CreateFromJSONArray(TJSONArray(JSONArray.Items[i])))
+    else if (JSONArray.Items[i] is TJSONObject)
+         then Insert(i, TPCJSONObject.CreateFromJSONObject(TJSONObject(JSONArray.Items[i])))
+         else if (JSONArray.Items[i] is TJSONValue)
+              then Insert(i, TPCJSONVariantValue.CreateFromJSONValue(TJSONValue(JSONArray.Items[i])))
+              else raise EPCParametresError.Create('Invalid TJSON Data: ' + JSONArray.Items[i].ClassName);
   end;
 {$ELSE}
-  for i := 0 to JSONArray.Size - 1 do
-  begin
-    if (JSONArray.Get(i) is TJSONArray) then
-    begin
-      Insert(i, TPCJSONArray.CreateFromJSONArray(TJSONArray(JSONArray.Get(i))));
-    end
-    else if (JSONArray.Get(i) is TJSONObject) then
-    begin
-      Insert(i, TPCJSONObject.CreateFromJSONObject(TJSONObject(JSONArray.Get(i))));
-    end
-    else if (JSONArray.Get(i) is TJSONValue) then
-    begin
-      Insert(i, TPCJSONVariantValue.CreateFromJSONValue(TJSONValue(JSONArray.Get(i))));
-    end
-    else
-      raise EPCParametresError.Create('Invalid TJSON Data: ' + JSONArray.Get(i).ClassName);
+  for i := 0 to JSONArray.Size - 1
+  do begin
+    if (JSONArray.Get(i) is TJSONArray)
+    then Insert(i, TPCJSONArray.CreateFromJSONArray(TJSONArray(JSONArray.Get(i))))
+    else if (JSONArray.Get(i) is TJSONObject)
+        then Insert(i, TPCJSONObject.CreateFromJSONObject(TJSONObject(JSONArray.Get(i))))
+        else if (JSONArray.Get(i) is TJSONValue)
+             then Insert(i, TPCJSONVariantValue.CreateFromJSONValue(TJSONValue(JSONArray.Get(i))))
+             else raise EPCParametresError.Create('Invalid TJSON Data: ' + JSONArray.Get(i).ClassName);
   end;
 {$ENDIF}
 end;
@@ -265,17 +250,17 @@ end;
 
 function TPCJSONArray.GetAsArray(Index: Integer): TPCJSONArray;
 begin
-  result := GetItemOfType(index, TPCJSONArray) as TPCJSONArray;
+  Result := GetItemOfType(index, TPCJSONArray) as TPCJSONArray;
 end;
 
 function TPCJSONArray.GetAsObject(Index: Integer): TPCJSONObject;
 begin
-  result := GetItemOfType(index, TPCJSONObject) as TPCJSONObject;
+  Result := GetItemOfType(index, TPCJSONObject) as TPCJSONObject;
 end;
 
 function TPCJSONArray.GetAsVariant(Index: Integer): TPCJSONVariantValue;
 begin
-  result := GetItemOfType(index, TPCJSONVariantValue) as TPCJSONVariantValue;
+  Result := GetItemOfType(index, TPCJSONVariantValue) as TPCJSONVariantValue;
 end;
 
 function TPCJSONArray.GetItemOfType(Index: Integer; DataClass: TPCJSONDataClass): TPCJSONData;
@@ -290,7 +275,7 @@ begin
     Items[index] := New;
     V := New;
   end;
-  result := V as DataClass;
+  Result := V as DataClass;
 end;
 
 procedure TPCJSONArray.GrowToIndex(Index: Integer);
@@ -304,20 +289,20 @@ var
   i: Integer;
 begin
   if pretty then
-    result := prefix + '['
+    Result := prefix + '['
   else
-    result := '[';
+    Result := '[';
   for i := 0 to Count - 1 do
   begin
     if (i > 0) then
     begin
-      result := result + ',';
+      Result := Result + ',';
       if pretty then
-        result := result + #10 + prefix;
+        Result := Result + #10 + prefix;
     end;
-    result := result + Items[i].ToJSONFormatted(pretty, prefix + '   ');
+    Result := Result + Items[i].ToJSONFormatted(pretty, prefix + '   ');
   end;
-  result := result + ']';
+  Result := Result + ']';
 end;
 
 { TPCJSONList }
@@ -336,7 +321,7 @@ end;
 
 function TPCJSONList.Count: Integer;
 begin
-  result := FList.Count;
+  Result := FList.Count;
 end;
 
 constructor TPCJSONList.Create;
@@ -369,12 +354,12 @@ begin
   D := GetItems(index);
   if (not(D is TPCJSONArray)) then
   begin
-    result := TPCJSONArray.Create;
-    SetItems(index, result);
+    Result := TPCJSONArray.Create;
+    SetItems(index, Result);
     D.Free;
   end
   else
-    result := TPCJSONArray(D);
+    Result := TPCJSONArray(D);
 end;
 
 function TPCJSONList.GetIndexAsObject(Index: Integer): TPCJSONObject;
@@ -384,12 +369,12 @@ begin
   D := GetItems(index);
   if (not(D is TPCJSONObject)) then
   begin
-    result := TPCJSONObject.Create;
-    SetItems(index, result);
+    Result := TPCJSONObject.Create;
+    SetItems(index, Result);
     D.Free;
   end
   else
-    result := TPCJSONObject(D);
+    Result := TPCJSONObject(D);
 end;
 
 function TPCJSONList.GetIndexAsVariant(Index: Integer): TPCJSONVariantValue;
@@ -399,17 +384,17 @@ begin
   D := GetItems(index);
   if (not(D is TPCJSONVariantValue)) then
   begin
-    result := TPCJSONVariantValue.Create;
-    SetItems(index, result);
+    Result := TPCJSONVariantValue.Create;
+    SetItems(index, Result);
     D.Free;
   end
   else
-    result := TPCJSONVariantValue(D);
+    Result := TPCJSONVariantValue(D);
 end;
 
 function TPCJSONList.GetItems(Index: Integer): TPCJSONData;
 begin
-  result := FList.Items[index];
+  Result := FList.Items[index];
 end;
 
 procedure TPCJSONList.Insert(Index: Integer; PCJSONData: TPCJSONData);
@@ -436,17 +421,17 @@ function VariantToDouble(Value: Variant): Double;
 var
   s: string;
 begin
-  result := 0;
+  Result := 0;
   case varType(Value) of
     varSmallint, varInteger, varSingle, varDouble, varCurrency:
-      result := Value;
+      Result := Value;
   else
     begin
       s := VarToStr(Value);
       if s = '' then
         Abort
       else
-        result := StrToFloat(s);
+        Result := StrToFloat(s);
     end;
   end;
 end;
@@ -454,52 +439,52 @@ end;
 function TPCJSONVariantValue.AsBoolean(DefValue: Boolean): Boolean;
 begin
   try
-    result := VarAsType(Value, varBoolean);
+    Result := VarAsType(Value, varBoolean);
   except
-    result := DefValue;
+    Result := DefValue;
   end;
 end;
 
 function TPCJSONVariantValue.AsCurrency(DefValue: Currency): Currency;
 begin
   try
-    result := VariantToDouble(Value);
+    Result := VariantToDouble(Value);
   except
-    result := DefValue;
+    Result := DefValue;
   end;
 end;
 
 function TPCJSONVariantValue.AsCardinal(DefValue: Cardinal): Cardinal;
 begin
-  result := Cardinal(StrToIntDef(VarToStrDef(Value, ''), DefValue));
+  Result := Cardinal(StrToIntDef(VarToStrDef(Value, ''), DefValue));
 end;
 
 function TPCJSONVariantValue.AsDateTime(DefValue: TDateTime): TDateTime;
 begin
   try
-    result := VarAsType(Value, varDate);
+    Result := VarAsType(Value, varDate);
   except
-    result := DefValue;
+    Result := DefValue;
   end;
 end;
 
 function TPCJSONVariantValue.AsDouble(DefValue: Double): Double;
 begin
   try
-    result := VariantToDouble(Value);
+    Result := VariantToDouble(Value);
   except
-    result := DefValue;
+    Result := DefValue;
   end;
 end;
 
 function TPCJSONVariantValue.AsInt64(DefValue: Int64): Int64;
 begin
-  result := StrToInt64Def(VarToStrDef(Value, ''), DefValue);
+  Result := StrToInt64Def(VarToStrDef(Value, ''), DefValue);
 end;
 
 function TPCJSONVariantValue.AsInteger(DefValue: Integer): Integer;
 begin
-  result := StrToIntDef(VarToStrDef(Value, ''), DefValue);
+  Result := StrToIntDef(VarToStrDef(Value, ''), DefValue);
 end;
 
 function TPCJSONVariantValue.AsString(DefValue: string): string;
@@ -507,22 +492,22 @@ begin
   try
     case varType(Value) of
       varNull:
-        result := '';
+        Result := '';
       varSmallint, varInteger:
         begin
-          result := Inttostr(Value);
+          Result := Inttostr(Value);
         end;
       varSingle, varDouble, varCurrency:
         begin
-          result := FloatToStr(VariantToDouble(Value));
+          Result := FloatToStr(VariantToDouble(Value));
         end;
       varDate:
-        result := DateTimeToStr(Value);
+        Result := DateTimeToStr(Value);
     else
-      result := VarToStr(Value);
+      Result := VarToStr(Value);
     end;
   except
-    result := DefValue;
+    Result := DefValue;
   end;
 end;
 
@@ -580,7 +565,7 @@ end;
 
 function TPCJSONVariantValue.IsNull: Boolean;
 begin
-  result := VarIsNull(FValue) or VarIsEmpty(FValue);
+  Result := VarIsNull(FValue) or VarIsEmpty(FValue);
 end;
 
 procedure TPCJSONVariantValue.SetValue(const Value: Variant);
@@ -595,14 +580,9 @@ var
 begin
   case varType(Value) of
     varSmallint, varInteger, varByte, varWord, varLongWord, varInt64:
-      result := VarToStr(Value);
-    varBoolean:
-      if (Value) then
-        result := 'true'
-      else
-        result := 'false';
-    varNull:
-      result := 'null';
+      Result := VarToStr(Value);
+    varBoolean: if (Value) then Result := 'true' else Result := 'false';
+    varNull: Result := 'null';
     varDate, varDouble:
       begin
         ds := FormatSettings.DecimalSeparator;
@@ -610,14 +590,14 @@ begin
         FormatSettings.DecimalSeparator := '.';
         FormatSettings.ThousandSeparator := ',';
         try
-          result := FormatFloat('0.###########', Value);
+          Result := FormatFloat('0.###########', Value);
         finally
           FormatSettings.DecimalSeparator := ds;
           FormatSettings.ThousandSeparator := ts;
         end;
       end
   else
-    result := UTF8JSONEncode(VarToStr(Value), true);
+    Result := UTF8JSONEncode(VarToStr(Value), true);
   end;
 end;
 
@@ -631,23 +611,22 @@ begin
   VV := GetAsVariant(ParamName);
   if (varType(VV.Value) = varNull) and (varType(VV.FOldValue) = varEmpty) then
   begin
-    result := DefValue;
+    Result := DefValue;
     Exit;
   end;
   V := GetAsVariant(ParamName).Value;
   try
-    if VarIsNull(V) then
-      result := DefValue
-    else
-      result := VarAsType(V, varBoolean);
+    if VarIsNull(V)
+    then Result := DefValue
+    else Result := VarAsType(V, varBoolean);
   except
-    result := DefValue;
+    Result := DefValue;
   end;
 end;
 
 function TPCJSONObject.AsCardinal(ParamName: string; DefValue: Cardinal): Cardinal;
 begin
-  result := Cardinal(AsInt64(ParamName, DefValue));
+  Result := Cardinal(AsInt64(ParamName, DefValue));
 end;
 
 function TPCJSONObject.AsCurrency(ParamName: string; DefValue: Currency): Currency;
@@ -658,17 +637,16 @@ begin
   VV := GetAsVariant(ParamName);
   if (varType(VV.Value) = varNull) and (varType(VV.FOldValue) = varEmpty) then
   begin
-    result := DefValue;
+    Result := DefValue;
     Exit;
   end;
   V := GetAsVariant(ParamName).Value;
   try
-    if VarIsNull(V) then
-      result := DefValue
-    else
-      result := VariantToDouble(V);
+    if VarIsNull(V)
+    then Result := DefValue
+    else Result := VariantToDouble(V);
   except
-    result := DefValue;
+    Result := DefValue;
   end;
 end;
 
@@ -680,17 +658,16 @@ begin
   VV := GetAsVariant(ParamName);
   if (varType(VV.Value) = varNull) and (varType(VV.FOldValue) = varEmpty) then
   begin
-    result := DefValue;
+    Result := DefValue;
     Exit;
   end;
   V := GetAsVariant(ParamName).Value;
   try
-    if VarIsNull(V) then
-      result := DefValue
-    else
-      result := VarAsType(V, varDate);
+    if VarIsNull(V)
+    then Result := DefValue
+    else Result := VarAsType(V, varDate);
   except
-    result := DefValue;
+    Result := DefValue;
   end;
 end;
 
@@ -702,17 +679,16 @@ begin
   VV := GetAsVariant(ParamName);
   if (varType(VV.Value) = varNull) and (varType(VV.FOldValue) = varEmpty) then
   begin
-    result := DefValue;
+    Result := DefValue;
     Exit;
   end;
   V := GetAsVariant(ParamName).Value;
   try
-    if VarIsNull(V) then
-      result := DefValue
-    else
-      result := VariantToDouble(V);
+    if VarIsNull(V)
+    then Result := DefValue
+    else Result := VariantToDouble(V);
   except
-    result := DefValue;
+    Result := DefValue;
   end;
 end;
 
@@ -722,19 +698,18 @@ var
   VV: TPCJSONVariantValue;
 begin
   VV := GetAsVariant(ParamName);
-  if (varType(VV.Value) = varNull) and (varType(VV.FOldValue) = varEmpty) then
-  begin
-    result := DefValue;
+  if (varType(VV.Value) = varNull) and (varType(VV.FOldValue) = varEmpty)
+  then begin
+    Result := DefValue;
     Exit;
   end;
   V := GetAsVariant(ParamName).Value;
   try
-    if VarIsNull(V) then
-      result := DefValue
-    else
-      result := StrToInt64Def(VarToStrDef(V, ''), DefValue);
+    if VarIsNull(V)
+    then Result := DefValue
+    else Result := StrToInt64Def(VarToStrDef(V, ''), DefValue);
   except
-    result := DefValue;
+    Result := DefValue;
   end;
 end;
 
@@ -746,17 +721,16 @@ begin
   VV := GetAsVariant(ParamName);
   if (varType(VV.Value) = varNull) and (varType(VV.FOldValue) = varEmpty) then
   begin
-    result := DefValue;
+    Result := DefValue;
     Exit;
   end;
   V := GetAsVariant(ParamName).Value;
   try
-    if VarIsNull(V) then
-      result := DefValue
-    else
-      result := StrToIntDef(VarToStrDef(V, ''), DefValue);
+    if VarIsNull(V)
+    then Result := DefValue
+    else Result := StrToIntDef(VarToStrDef(V, ''), DefValue);
   except
-    result := DefValue;
+    Result := DefValue;
   end;
 end;
 
@@ -768,39 +742,32 @@ begin
   VV := GetAsVariant(ParamName);
   if (varType(VV.Value) = varNull) and (varType(VV.FOldValue) = varEmpty) then
   begin
-    result := DefValue;
+    Result := DefValue;
     Exit;
   end;
   V := GetAsVariant(ParamName).Value;
   try
     case varType(V) of
-      varNull:
-        result := '';
-      varSmallint, varInteger:
-        begin
-          result := Inttostr(V);
-        end;
-      varSingle, varDouble, varCurrency:
-        begin
-          result := FloatToStr(VariantToDouble(V));
-        end;
-      varDate:
-        result := DateTimeToStr(V);
-    else
-      result := VarToStr(V);
+      varNull: Result := '';
+      varSmallint,
+      varInteger: Result := Inttostr(V);
+      varSingle, varDouble, varCurrency: Result := FloatToStr(VariantToDouble(V));
+      varDate: Result := DateTimeToStr(V);
+      else
+        Result := VarToStr(V);
     end;
   except
-    result := DefValue;
+    Result := DefValue;
   end;
 end;
 
 procedure TPCJSONObject.CheckCanInsert(Index: Integer; PCJSONData: TPCJSONData);
 begin
   inherited;
-  if not Assigned(PCJSONData) then
-    raise Exception.Create('Object is nil');
-  if not(PCJSONData is TPCJSONNameValue) then
-    raise Exception.Create('Object inside a ' + TPCJSONData.ClassName + ' must be a ' + TPCJSONNameValue.ClassName +
+  if not Assigned(PCJSONData)
+  then raise Exception.Create('Object is nil');
+  if not(PCJSONData is TPCJSONNameValue)
+  then raise Exception.Create('Object inside a ' + TPCJSONData.ClassName + ' must be a ' + TPCJSONNameValue.ClassName +
       ' (currently ' + PCJSONData.ClassName + ')');
 end;
 
@@ -888,15 +855,11 @@ var
   i: Integer;
 begin
   i := IndexOfName(name);
-  if (i >= 0) then
-  begin
-    Delete(i);
-  end;
+  if (i >= 0) then Delete(i);
 end;
 
 destructor TPCJSONObject.Destroy;
 begin
-
   inherited;
 end;
 
@@ -905,9 +868,9 @@ var
   i: Integer;
 begin
   i := IndexOfName(name);
-  result := nil;
-  if (i >= 0) then
-    result := Items[i] as TPCJSONNameValue;
+  Result := nil;
+  if (i >= 0)
+  then Result := Items[i] as TPCJSONNameValue;
 end;
 
 function TPCJSONObject.GetAsArray(Name: string): TPCJSONArray;
@@ -915,11 +878,9 @@ var
   NV: TPCJSONNameValue;
 begin
   NV := GetByName(name);
-  if not(NV.Value is TPCJSONArray) then
-  begin
-    NV.Value := TPCJSONArray.Create;
-  end;
-  result := NV.Value as TPCJSONArray;
+  if not(NV.Value is TPCJSONArray)
+  then NV.Value := TPCJSONArray.Create;
+  Result := NV.Value as TPCJSONArray;
 end;
 
 function TPCJSONObject.GetAsObject(Name: string): TPCJSONObject;
@@ -927,11 +888,9 @@ var
   NV: TPCJSONNameValue;
 begin
   NV := GetByName(name);
-  if not(NV.Value is TPCJSONObject) then
-  begin
-    NV.Value := TPCJSONObject.Create;
-  end;
-  result := NV.Value as TPCJSONObject;
+  if not(NV.Value is TPCJSONObject)
+  then NV.Value := TPCJSONObject.Create;
+  Result := NV.Value as TPCJSONObject;
 end;
 
 function TPCJSONObject.GetAsVariant(Name: string): TPCJSONVariantValue;
@@ -939,11 +898,9 @@ var
   NV: TPCJSONNameValue;
 begin
   NV := GetByName(name);
-  if not(NV.Value is TPCJSONVariantValue) then
-  begin
-    NV.Value := TPCJSONVariantValue.Create;
-  end;
-  result := NV.Value as TPCJSONVariantValue;
+  if not(NV.Value is TPCJSONVariantValue)
+  then NV.Value := TPCJSONVariantValue.Create;
+  Result := NV.Value as TPCJSONVariantValue;
 end;
 
 function TPCJSONObject.GetByName(Name: string): TPCJSONNameValue;
@@ -951,25 +908,25 @@ var
   i: Integer;
 begin
   i := GetIndexOrCreateName(name);
-  result := Items[i] as TPCJSONNameValue;
+  Result := Items[i] as TPCJSONNameValue;
 end;
 
 function TPCJSONObject.GetIndexOrCreateName(Name: string): Integer;
 var
   NV: TPCJSONNameValue;
 begin
-  result := IndexOfName(name);
-  if (result < 0) then
+  Result := IndexOfName(name);
+  if (Result < 0) then
   begin
     CheckValidName(name);
     NV := TPCJSONNameValue.Create(name);
-    result := FList.Add(NV);
+    Result := FList.Add(NV);
   end;
 end;
 
 function TPCJSONObject.GetNameValue(Index: Integer): TPCJSONNameValue;
 begin
-  result := Items[index] as TPCJSONNameValue;
+  Result := Items[index] as TPCJSONNameValue;
 end;
 
 function TPCJSONObject.IsNull(ParamName: string): Boolean;
@@ -978,32 +935,25 @@ var
   NV: TPCJSONNameValue;
 begin
   i := IndexOfName(ParamName);
-  if i < 0 then
-    result := true
+  if i < 0
+  then Result := true
   else
   begin
-    result := False;
+    Result := False;
     NV := TPCJSONNameValue(FList.Items[i]);
-    if (Assigned(NV.Value)) and (NV.Value is TPCJSONVariantValue) then
-    begin
-      result := TPCJSONVariantValue(NV.Value).IsNull;
-    end;
+    if (Assigned(NV.Value)) and (NV.Value is TPCJSONVariantValue)
+    then Result := TPCJSONVariantValue(NV.Value).IsNull;
   end;
 end;
 
 function TPCJSONObject.IndexOfName(Name: string): Integer;
 begin
-  for result := 0 to FList.Count - 1 do
+  for Result := 0 to FList.Count - 1 do
   begin
-    if (Assigned(FList.Items[result])) and (TObject(FList.Items[result]) is TPCJSONNameValue) then
-    begin
-      if TPCJSONNameValue(FList.Items[result]).Name = name then
-      begin
-        Exit;
-      end;
-    end;
+    if (Assigned(FList.Items[Result])) and (TObject(FList.Items[Result]) is TPCJSONNameValue)
+    then if TPCJSONNameValue(FList.Items[Result]).Name = name then Exit;
   end;
-  result := -1;
+  Result := -1;
 end;
 
 function TPCJSONObject.LoadAsStream(ParamName: string; Stream: TStream): Integer;
@@ -1015,7 +965,7 @@ begin
   begin
     Stream.Write(s[1], length(s));
   end;
-  result := length(s);
+  Result := length(s);
 end;
 
 function TPCJSONObject.SaveAsStream(ParamName: string; Stream: TStream): Integer;
@@ -1044,21 +994,20 @@ function TPCJSONObject.ToJSONFormatted(pretty: Boolean; const prefix: AnsiString
 var
   i: Integer;
 begin
-  if pretty then
-    result := prefix + '{'
-  else
-    result := '{';
+  if pretty
+  then Result := prefix + '{'
+  else Result := '{';
   for i := 0 to Count - 1 do
   begin
     if (i > 0) then
     begin
-      result := result + ',';
+      Result := Result + ',';
       if pretty then
-        result := result + #10 + prefix;
+        Result := Result + #10 + prefix;
     end;
-    result := result + Items[i].ToJSONFormatted(pretty, prefix + '   ');
+    Result := Result + Items[i].ToJSONFormatted(pretty, prefix + '   ');
   end;
-  result := result + '}';
+  Result := Result + '}';
 end;
 
 { TPCJSONNameValue }
@@ -1073,8 +1022,8 @@ end;
 
 destructor TPCJSONNameValue.Destroy;
 begin
-  if FFreeValue then
-    FValue.Free;
+  if FFreeValue
+  then FValue.Free;
   inherited;
 end;
 
@@ -1082,22 +1031,21 @@ procedure TPCJSONNameValue.SetValue(const Value: TPCJSONData);
 var
   old: TPCJSONData;
 begin
-  if FValue = Value then
-    Exit;
+  if FValue = Value
+  then Exit;
   old := FValue;
   FValue := Value;
-  if FFreeValue then
-    old.Free;
+  if FFreeValue
+  then old.Free;
   FFreeValue := true;
 end;
 
 function TPCJSONNameValue.ToJSONFormatted(pretty: Boolean; const prefix: AnsiString): AnsiString;
 begin
-  if pretty then
-    result := prefix
-  else
-    result := '';
-  result := result + UTF8JSONEncode(name, true) + ':' + Value.ToJSONFormatted(pretty, prefix + '   ');
+  if pretty
+  then Result := prefix
+  else Result := '';
+  Result := Result + UTF8JSONEncode(name, true) + ':' + Value.ToJSONFormatted(pretty, prefix + '   ');
 end;
 
 { TPCJSONData }
@@ -1148,11 +1096,7 @@ begin
   begin
     TPCJSONVariantValue(Self).Value := TPCJSONVariantValue(PCJSONData).Value;
   end
-  else
-  begin
-    raise Exception.Create('Error in TPCJSONData.Assign assigning a ' + PCJSONData.ClassName + ' to a ' + ClassName);
-  end;
-
+  else raise Exception.Create('Error in TPCJSONData.Assign assigning a ' + PCJSONData.ClassName + ' to a ' + ClassName);
 end;
 
 constructor TPCJSONData.Create;
@@ -1174,7 +1118,7 @@ var
   i: Integer;
 {$ENDIF}
 begin
-  result := nil;
+  Result := nil;
   JS := nil;
 {$IFDEF FPC}
   SetLength(jss, length(JSONObject));
@@ -1183,38 +1127,25 @@ begin
   try
     JS := GetJSON(jss);
   except
-    on E: Exception do
-    begin
-     LogDebug(ClassName, 'Error processing JSON: ' + E.Message);
-    end;
+    on E: Exception do LogDebug(ClassName, 'Error processing JSON: ' + E.Message);
   end;
 {$ELSE}
   try
     JS := TJSONObject.ParseJSONValue(JSONObject, 0);
   except
-    on E: Exception do
-    begin
-      LogDebug(ClassName, 'Error processing JSON: ' + E.Message);
-    end;
+    on E: Exception do LogDebug(ClassName, 'Error processing JSON: ' + E.Message);
   end;
 {$ENDIF}
-  if not Assigned(JS) then
-    Exit;
+  if not Assigned(JS)
+  then Exit;
   try
-    if JS is TJSONObject then
-    begin
-      result := TPCJSONObject.CreateFromJSONObject(TJSONObject(JS));
-    end
-    else if JS is TJSONArray then
-    begin
-      result := TPCJSONArray.CreateFromJSONArray(TJSONArray(JS));
-    end
-    else if JS is TJSONValue then
-    begin
-      result := TPCJSONVariantValue.CreateFromJSONValue(TJSONValue(JS));
-    end
-    else
-      raise EPCParametresError.Create('Invalid TJSON Data type ' + JS.ClassName);
+    if JS is TJSONObject
+    then Result := TPCJSONObject.CreateFromJSONObject(TJSONObject(JS))
+    else if JS is TJSONArray
+         then Result := TPCJSONArray.CreateFromJSONArray(TJSONArray(JS))
+         else if JS is TJSONValue
+              then Result := TPCJSONVariantValue.CreateFromJSONValue(TJSONValue(JS))
+              else raise EPCParametresError.Create('Invalid TJSON Data type ' + JS.ClassName);
   finally
     JS.Free;
   end;
@@ -1230,17 +1161,17 @@ end;
 
 class function TPCJSONData.ParseJSONValue(const JSONObject: string): TPCJSONData;
 begin
-  result := ParseJSONValue(TEncoding.ASCII.GetBytes(JSONObject));
+  Result := ParseJSONValue(TEncoding.ASCII.GetBytes(JSONObject));
 end;
 
 function TPCJSONData.ToJSON(pretty: Boolean): AnsiString;
 begin
-  result := ToJSONFormatted(pretty, '');
+  Result := ToJSONFormatted(pretty, '');
 end;
 
 class function TPCJSONData._GetCount: Integer;
 begin
-  result := _objectsCount;
+  Result := _objectsCount;
 end;
 
 initialization

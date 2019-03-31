@@ -88,7 +88,6 @@ begin
       for i := 0 to l.Count - 1 do
       begin
         P := l[i];
-        // P^.op.Free;
         P^.transaction := nil;
         P^:=Default(TTransactionHashTreeReg);
         Dispose(P);
@@ -263,8 +262,7 @@ begin
     for i := 0 to l.Count - 1 do
     begin
       if (PTransacionHashTreeReg(l[i])^.transaction.SignerAccount = account_number) and (PTransacionHashTreeReg(l[i])^.transaction.Fee = 0)
-      then
-        inc(Result);
+      then inc(Result);
     end;
   finally
     FHashTreeTransactions.UnlockList;
@@ -282,13 +280,6 @@ begin
   try
     New(P);
     P^.transaction := TTransactionManager.CreateTransaction(ATransactioon.TransactionType);
-{$IFNDEF FPC}
-//    Supports(TInterfacedObject(op).NewInstance, ITransaction, P^.op);
-{$ELSE}
-//    Supports(TInterfacedObject(op).NewInstance, ITransaction, P^.op);
-//    P^.op := TTransaction(op).NewInstance;
-{$ENDIF}
-    // P^.op := TInterFacedObject() as ITransaction;
     P^.transaction.InitializeData;
     ATransactioon.SaveToStream(msCopy, true);
     msCopy.Position := 0;
@@ -344,20 +335,16 @@ begin
       end;
       errors := 'Invalid operation load from stream ' + Inttostr(i) + '/' + Inttostr(c) + ' Class:' + xTransactionClass.Classname;
       xTransaction := xTransactionClass.Create;
-      try
-        if LoadingFromStorage then
-        begin
-          if not xTransaction.LoadFromStorage(Stream, LoadProtocolV2) then
-            exit;
-        end
-        else if not xTransaction.LoadFromNettransfer(Stream) then
-        begin
+      if LoadingFromStorage then
+      begin
+        if not xTransaction.LoadFromStorage(Stream, LoadProtocolV2) then
           exit;
-        end;
-        AddTransactionToHashTree(xTransaction);
-      finally
-        // FreeAndNil(bcop);
+      end
+      else if not xTransaction.LoadFromNettransfer(Stream) then
+      begin
+        exit;
       end;
+      AddTransactionToHashTree(xTransaction);
     end;
   finally
     FOnChanged := xLastEvent;

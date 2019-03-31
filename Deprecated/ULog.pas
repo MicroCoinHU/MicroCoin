@@ -114,7 +114,8 @@ begin
   LogDebug(ASender, Format(ALogText, params));
 {$ENDIF}
 end;
-  { TLog }
+
+{ TLog }
 
 constructor TLog.Create(AOwner: TComponent);
 begin
@@ -310,7 +311,5 @@ initialization
 _logs := nil;
 
 finalization
-
-//if Assigned(_logs) then FreeAndNil(_logs);
 
 end.

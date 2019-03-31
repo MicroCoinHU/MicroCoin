@@ -260,17 +260,16 @@ begin
   try
     FLock.Acquire;
     try
-      if not FConnected then
-        exit;
+      if not FConnected
+      then exit;
       FTcpBlockSocket.CloseSocket;
       FConnected := False;
     finally
       FLock.Release;
     end;
-    if Assigned(FOnDisconnect) then
-      FOnDisconnect(Self)
-    else
-      TLog.NewLog(lterror, Classname, 'OnDisconnect is nil');
+    if Assigned(FOnDisconnect)
+    then FOnDisconnect(Self)
+    else TLog.NewLog(lterror, Classname, 'OnDisconnect is nil');
   except
     on E: Exception do
     begin
@@ -282,8 +281,8 @@ end;
 
 procedure TNetTcpIpClient.DoOnConnect;
 begin
-  if (Assigned(FOnConnect)) then
-    FOnConnect(Self);
+  if (Assigned(FOnConnect))
+  then FOnConnect(Self);
 end;
 
 procedure TNetTcpIpClient.DoWaitForData(WaitMilliseconds: Integer; var HasData: Boolean);

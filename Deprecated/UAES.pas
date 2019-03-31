@@ -159,7 +159,7 @@ begin
   SetLength(bytes_encrypted, Length(EncryptedMessage));
   CopyMemory(bytes_encrypted, @EncryptedMessage[1], Length(EncryptedMessage));
   SetLength(bytes_password, Length(APassword));
-  CopyMemory(bytes_password, @APassword[1], Length(APassword));
+  if Length(APassword)>0 then CopyMemory(bytes_password, @APassword[1], Length(APassword));
   result := EVP_Decrypt_AES256(bytes_encrypted, bytes_password, bytes_result);
   if result then
   begin

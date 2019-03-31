@@ -108,11 +108,11 @@ int main() {
 
 interface
 
-Uses OpenSSLdef, OpenSSL, UCrypto, MicroCoin.Crypto.Keys, ULog, MicroCoin.Common.Config, UBaseTypes;
+uses OpenSSLdef, OpenSSL, UCrypto, MicroCoin.Crypto.Keys, ULog, MicroCoin.Common.Config, UBaseTypes;
 
-Const CT_Max_Bytes_To_Encrypt = 32000;
+const CT_Max_Bytes_To_Encrypt = 32000;
 
-Type size_t = Word;
+type size_t = Word;
 
 function ECIESEncrypt(const ECDSAPubKey: TECPublicKey; const MessageToEncrypt: AnsiString): TRawBytes; overload;
 function ECIESEncrypt(EC_OpenSSL_NID : Word; PubKey: EC_POINT; const MessageToEncrypt: AnsiString): TRawBytes; overload;
@@ -126,7 +126,7 @@ uses
 {$ENDIF}
   SysUtils, UAES;
 
-Type
+type
   Psecure_t = Pointer;
   secure_head_t = record
     key : byte;
@@ -562,7 +562,7 @@ Begin
   finally
     FreeMemory(output);
   end;
-End;
+end;
 
 
 end.

@@ -48,10 +48,8 @@ procedure TNetClientThread.BCExecute;
 begin
   while (not Terminated) do
   begin
-    if FNetClient.Connected then
-    begin
-      FNetClient.DoProcessBuffer;
-    end;
+    if FNetClient.Connected
+    then FNetClient.DoProcessBuffer;
     sleep(1);
   end;
 end;
@@ -75,8 +73,8 @@ end;
 destructor TNetClient.Destroy;
 begin
   LogDebug(Classname, 'Starting TNetClient.Destroy');
-  if not assigned(FNetClientThread) then
-    exit;
+  if not assigned(FNetClientThread)
+  then exit;
   FNetClientThread.OnTerminate := nil;
   if not FNetClientThread.Terminated then
   begin
@@ -90,10 +88,8 @@ end;
 procedure TNetClient.OnNetClientThreadTerminated(Sender: TObject);
 begin
   // Close connection
-  if TConnectionManager.Instance.ConnectionExistsAndActive(Self) then
-  begin
-    Connected := false;
-  end;
+  if TConnectionManager.Instance.ConnectionExistsAndActive(Self)
+  then Connected := false;
 end;
 
 end.

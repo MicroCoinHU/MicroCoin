@@ -169,7 +169,7 @@ var
   PubKey: TAccountKey;
   output: TPCJsonArray;
 begin
-  // Get Parameters
+  Result := RPCResult;
   Result.Success := false;
   Result.ErrorCode := CT_RPC_ErrNum_InternalError;
   accountName := LowerCase(AParams.AsString('name', '')); // Convert to lowercase...
@@ -263,6 +263,7 @@ var
   c: cardinal;
   Account: TAccount;
 begin
+  Result := RPCResult;
   Result.Success := false;
   Result.ErrorCode := CT_RPC_ErrNum_InternalError;
   Result.ErrorMessage := '';
@@ -291,6 +292,7 @@ var
   Account: TAccount;
   key: TAccountKey;
 begin
+  Result := RPCResult;
   Result.Success := false;
   Result.ErrorCode := CT_RPC_ErrNum_InternalError;
   jsonArr := Result.Response.GetAsArray('result');
@@ -357,6 +359,7 @@ var
   i, c: integer;
   key: TAccountKey;
 begin
+  Result := RPCResult;
   Result.Success := false;
   Result.ErrorCode := CT_RPC_ErrNum_InternalError;
   if (AParams.IndexOfName('enc_pubkey') >= 0) or (AParams.IndexOfName('b58_pubkey') >= 0) then
@@ -398,6 +401,7 @@ var
   ocl: TOrderedList;
   Account: TAccount;
 begin
+  Result := RPCResult;
   Result.Success := false;
   Result.ErrorCode := CT_RPC_ErrNum_InternalError;
   if (AParams.IndexOfName('enc_pubkey') >= 0) or (AParams.IndexOfName('b58_pubkey') >= 0) then
@@ -446,6 +450,7 @@ var
   newKey: TAccountKey;
   i: integer;
 begin
+  Result := RPCResult;
   Result.Success := false;
   if not(ExtractPubKey(AParams, '', newKey, Result.ErrorMessage)) then
   begin
@@ -470,6 +475,7 @@ var
   jsonArr: TPCJsonArray;
   jso: TPCJSONObject;
 begin
+  Result := RPCResult;
   Result.Success := false;
   Result.ErrorCode := CT_RPC_ErrNum_InternalError;
   k := AParams.AsInteger('max', 100);

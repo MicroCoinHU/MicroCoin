@@ -152,8 +152,8 @@ begin
   Result := false;
   Account := 0;
   N_Operation := 0;
-  if length(OperationHash) <> 32 then
-    exit;
+  if length(OperationHash) <> 32
+  then exit;
   ms := TMemoryStream.Create;
   try
     ms.Write(OperationHash[1], length(OperationHash));
@@ -224,9 +224,6 @@ begin
     _o := GetNumberOfTransactions;
     ms.Write(_a, 4);
     ms.Write(_o, 4);
-    // BUG IN PREVIOUS VERSIONS: (1.5.5 and prior)
-    // Function DoRipeMD160 returned a 40 bytes value, because data was converted in hexa string!
-    // So, here we used only first 20 bytes, and WHERE HEXA values, so only 16 diff values per 2 byte!
     ms.WriteBuffer(TCrypto.DoRipeMD160_HEXASTRING(GetBuffer(false))[1], 20);
     SetLength(Result, ms.Size);
     ms.Position := 0;

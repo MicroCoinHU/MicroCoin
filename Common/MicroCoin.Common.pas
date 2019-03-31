@@ -61,7 +61,6 @@ type
   end;
 
 {$IFDEF USE_GENERICS}
-
   TResult<T> = record
   public
     IsSuccess: boolean;

@@ -48,6 +48,10 @@ uses SysUtils, Classes, UTCPIP, MicroCoin.BlockChain.BlockHeader, UThread,
 
 type
 
+  {$IFDEF FPC}
+    TCriticalSection = SyncObjs.TCriticalSection;
+  {$ENDIF}
+
   TNetConnectionBase = class(TComponent)
   strict private
     FIsConnecting: Boolean;
