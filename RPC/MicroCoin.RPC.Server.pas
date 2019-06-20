@@ -141,7 +141,7 @@ var
   xBalance: string;
 begin
 
-  xini := TIniFile.Create('microcoin.ini');
+  xini := TIniFile.Create(ExtractFileDir(ParamStr(0)) + PathDelim + 'microcoin.ini');
 
   xProxy := xini.ReadString('Events', 'Transaction', '');
   FreeAndNil(xini);
@@ -191,7 +191,7 @@ begin
       try
         with TPCJSONObject.Create do
         begin
-          GetAsVariant('from').Value := xfrom;
+          GetAsVariant('from').Value := xFromAccount;
           GetAsVariant('to').Value := xToAccount;
           GetAsVariant('amount').Value := xAmount;
           GetAsVariant('fee').Value := xFee;

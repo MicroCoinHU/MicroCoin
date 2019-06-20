@@ -85,13 +85,6 @@ type
   PAccount = ^TAccount;
 
   TAccount = record
-  private
-    FHasExtraData: boolean;
-{$IFDEF EXTENDEDACCOUNT}
-    FParent: Cardinal;
-    function GetSubAccountsBalance: UInt64;
-    function GetAvailableBalance: UInt64;
-{$ENDIF}
   public
     AccountNumber: Cardinal; // FIXED value. Account number
     AccountInfo: TAccountInfo;
@@ -101,24 +94,12 @@ type
     Name: TRawBytes; // Protocol 2. Unique name
     AccountType: Word; // Protocol 2. Layer 2 use case
     PreviusUpdatedBlock: Cardinal;
-    {$IFDEF EXTENDEDACCOUNT}
-    SubAccounts: array of TSubAccount;
-    ExtraData: TExtraData;
-    {$ENDIF}
     class function AccountBlock(const AAccountNumber: Cardinal): Cardinal; static;
     class function Empty: TAccount; static;
     class function IsAccountBlockedByProtocol(AAccountNumber, ABlockCount: Cardinal): Boolean; static;
     class function AccountNumberToString(AAccountNumber: Cardinal): AnsiString;  static;
-    class function ParseAccountNumber(const AStringValue: AnsiString;
-      var RAccountNumber: Cardinal; var RParent: Int64): Boolean; overload; static;
     class function ParseAccountNumber(const AStringValue: AnsiString; var RAccountNumber: Cardinal) : Boolean; overload; static;
     class function LoadFromStream(AStream : TStream; var RAccount : TAccount; ACurrentProtocol: shortint) : boolean; static;
-    {$IFDEF EXTENDEDACCOUNT}
-    property HasExtraData: boolean read FHasExtraData write FHasExtraData;
-    property Parent : Cardinal read FParent write FParent;
-    property SubAccountsBalance : UInt64 read GetSubAccountsBalance;
-    property AvailableBalance : UInt64 read GetAvailableBalance;
-    {$ENDIF}
   end;
 
   TOrderedAccountList = class
@@ -289,8 +270,8 @@ begin
   try
     ms.WriteBuffer(ARawAccountString[1], length(ARawAccountString));
     ms.Position := 0;
-    if ms.Read(w, Sizeof(w)) <> Sizeof(w) then
-      exit;
+    if ms.Read(w, Sizeof(w)) <> Sizeof(w)
+    then exit;
     case w of
       cNID_secp256k1, cNID_secp384r1, cNID_sect283k1, cNID_secp521r1:
         begin
@@ -310,8 +291,7 @@ begin
           ms.ReadAccountKey(dest.NewPublicKey);
           dest.State := as_ForSale;
         end;
-    else
-      raise Exception.Create('DEVELOP ERROR 20170214-2');
+    else raise Exception.Create('DEVELOP ERROR 20170214-2');
     end;
   finally
     ms.Free;
@@ -345,57 +325,48 @@ begin
 end;
 
 class function TAccount.ParseAccountNumber(const AStringValue: AnsiString;
-  var RAccountNumber: Cardinal; var RParent: Int64): Boolean;
+  var RAccountNumber: Cardinal): Boolean;
 var
   i: Integer;
   an, rn, anaux: Int64;
   temp : AnsiString;
 begin
   Result := false;
-  RParent := -1;
-  if length(trim(AStringValue)) = 0 then
-    exit;
+
+  if length(trim(AStringValue)) = 0
+  then Exit;
+
   an := 0;
   i := 1;
+
   while (i <= length(AStringValue)) do
   begin
-    if AStringValue[i] in ['0' .. '9'] then
-    begin
-      an := (an * 10) + ord(AStringValue[i]) - ord('0');
-    end
-    else
-    begin
-      break;
-    end;
+    if AStringValue[i] in ['0' .. '9']
+    then an := (an * 10) + ord(AStringValue[i]) - ord('0')
+    else break;
     inc(i);
   end;
+
   RAccountNumber := an;
-  if (i > length(AStringValue)) then
-  begin
+
+  if (i > length(AStringValue))
+  then begin
     Result := true;
-    exit;
+    Exit;
   end;
+
   if (AStringValue[i] in ['-', '.', ' '])
   then inc(i);
-  if length(AStringValue) - 1 < i
-  then exit;
-  if Pos('/', AStringValue)>0
-  then begin
-    rn := StrToIntDef(Copy(AStringValue, i, 2), 0);
-    temp := Copy(AStringValue, Pos('/', AStringValue)+1, Length(AStringValue)-1);
-    RParent := RAccountNumber;
-    RAccountNumber := StrToIntDef(temp, 0);
-  end else rn := StrToIntDef(Copy(AStringValue, i, length(AStringValue)), 0);
-  anaux := ((an * 101) mod 89) + 10;
-  Result := rn = anaux;
-end;
 
-class function TAccount.ParseAccountNumber(const AStringValue: AnsiString;
-  var RAccountNumber: Cardinal): Boolean;
-var
-  xParent : Int64;
-begin
-  Result := ParseAccountNumber(AStringValue, RAccountNumber, xParent);
+  if length(AStringValue) - 1 < i
+  then Exit;
+
+  rn := StrToIntDef(Copy(AStringValue, i, length(AStringValue)), 0);
+
+  anaux := ((an * 101) mod 89) + 10;
+
+  Result := rn = anaux;
+
 end;
 
 class function TAccount.Empty: TAccount;
@@ -408,53 +379,24 @@ begin
   Result.Name := '';
   Result.AccountType := 0;
   Result.PreviusUpdatedBlock := 0;
-  {$IFDEF EXTENDEDACCOUNT}
-  Result.HasExtraData := false;
-    SetLength(Result.SubAccounts, 0);
-    Result.ExtraData.DataType := 0;
-    Result.ExtraData.ExtraType := 0;
-    Result.ExtraData.Data := '';
-  {$ENDIF}
 end;
-
-{$IFDEF EXTENDEDACCOUNT}
-function TAccount.GetAvailableBalance: UInt64;
-begin
-  Result := Balance - SubAccountsBalance;
-end;
-
-function TAccount.GetSubAccountsBalance: UInt64;
-var
-  i : integer;
-begin
-  Result := 0;
-  for i := Low(SubAccounts) to High(SubAccounts)
-  do Result := Result + SubAccounts[i].Balance;
-end;
-{$ENDIF}
 
 class function TAccount.IsAccountBlockedByProtocol(AAccountNumber, ABlockCount: Cardinal): Boolean;
 var
   waitBlocks: Integer;
 begin
-  // Update protocol
-  if ABlockCount >= cV2EnableAtBlock then
-    waitBlocks := cMinimumBlocksToLiveAccountV2
-  else
-    waitBlocks := cMinimumBlocksToLiveAccount;
-  if ABlockCount < waitBlocks then
-    Result := true
-  else
-  begin
-    Result := ((ABlockCount - waitBlocks) * cAccountsPerBlock) <= AAccountNumber;
-  end;
+  if ABlockCount >= cV2EnableAtBlock
+  then waitBlocks := cMinimumBlocksToLiveAccountV2
+  else waitBlocks := cMinimumBlocksToLiveAccount;
+  if ABlockCount < waitBlocks
+  then Result := true
+  else Result := ((ABlockCount - waitBlocks) * cAccountsPerBlock) <= AAccountNumber;
 end;
 
 class function TAccount.LoadFromStream(AStream: TStream;
   var RAccount: TAccount; ACurrentProtocol: shortint): boolean;
 var
   s: AnsiString;
-  xIsExtendedAccount : boolean;
   b: byte;
   i: integer;
 begin
@@ -466,55 +408,24 @@ begin
   if AStream.ReadAnsiString(s) < 0
   then exit;
 
-  if s=''
-  then xIsExtendedAccount := true
-  else xIsExtendedAccount := false;
-
-  if xIsExtendedAccount
-  then if AStream.ReadAnsiString(s) < 0
-       then exit;
-
   RAccount.AccountInfo := TAccountInfo.FromRawString(s);
 
   if AStream.Read(RAccount.Balance, Sizeof(UInt64)) < Sizeof(UInt64)
-  then exit;
+  then Exit;
   if AStream.Read(RAccount.UpdatedBlock, 4) < 4
-  then exit;
+  then Exit;
   if AStream.Read(RAccount.NumberOfTransactions, 4) < 4
-  then exit;
-  if ACurrentProtocol >= cPROTOCOL_2 then
-  begin
-    if AStream.ReadAnsiString(RAccount.Name) < 0 then
-      exit;
-    if AStream.Read(RAccount.AccountType, 2) < 2 then
-      exit;
+  then Exit;
+  if ACurrentProtocol >= cPROTOCOL_2
+  then begin
+    if AStream.ReadAnsiString(RAccount.Name) < 0
+    then Exit;
+    if AStream.Read(RAccount.AccountType, 2) < 2
+    then Exit;
   end;
   //
-  if AStream.Read(RAccount.PreviusUpdatedBlock, 4) < 4 then
-    exit;
-  {$IFDEF EXTENDEDACCOUNT}
-  if xIsExtendedAccount
-  then begin
-    RAccount.HasExtraData := true;
-    if AStream.Read(b,1) < 1
-    then exit;
-    SetLength(RAccount.SubAccounts, b);
-    if b > 0 then begin
-      for i := 0 to b - 1
-      do begin
-        TStreamOp.ReadAccountKey(AStream, RAccount.SubAccounts[i].AccountKey);
-        AStream.Read(RAccount.SubAccounts[i].DailyLimit, SizeOf(Int64));
-        AStream.Read(RAccount.SubAccounts[i].TotalLimit, SizeOf(Int64));
-        AStream.Read(RAccount.SubAccounts[i].Balance, SizeOf(UInt64));
-        AStream.Read(RAccount.SubAccounts[i].Currency, SizeOf(Cardinal));
-      end;
-    end;
-    AStream.Read(b, SizeOf(RAccount.ExtraData.DataType));
-    RAccount.ExtraData.DataType := b;
-    AStream.Read(RAccount.ExtraData.ExtraType, SizeOf(RAccount.ExtraData.ExtraType));
-    TStreamOp.ReadAnsiString(AStream, RAccount.ExtraData.Data);
-  end;
-  {$ENDIF}
+  if AStream.Read(RAccount.PreviusUpdatedBlock, 4) < 4
+  then exit;
   Result := true;
 end;
 
@@ -522,12 +433,9 @@ function TOrderedAccountList.Add(const AAccount: TAccount): Integer;
 var
   P: PAccount;
 begin
-  if Find(AAccount.AccountNumber, Result) then
-  begin
-    PAccount(FList[Result])^ := AAccount;
-  end
-  else
-  begin
+  if Find(AAccount.AccountNumber, Result)
+  then PAccount(FList[Result])^ := AAccount
+  else begin
     New(P);
     P^ := AAccount;
     FList.Insert(Result, P);
@@ -578,13 +486,12 @@ begin
   begin
     i := (L + H) shr 1;
     c := Int64(PAccount(FList[i]).AccountNumber) - Int64(AAccountNumber);
-    if c < 0 then
-      L := i + 1
-    else
-    begin
+    if c < 0
+    then L := i + 1
+    else begin
       H := i - 1;
-      if c = 0 then
-      begin
+      if c = 0
+      then begin
         Result := true;
         L := i;
       end;

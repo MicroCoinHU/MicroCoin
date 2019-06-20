@@ -415,8 +415,9 @@ function TAccountStorage.CalculateHash: TRawBytes;
 begin
   if (FBufferBlocksHash = '') then
     Result := TCrypto.DoSha256(cGenesisBlockMagic)
-  else
+  else begin
     Result := TCrypto.DoSha256(FBufferBlocksHash);
+  end;
 end;
 
 function TAccountStorage.CanUpgradeToProtocol2: Boolean;

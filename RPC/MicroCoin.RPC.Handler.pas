@@ -391,6 +391,7 @@ var
       jsonObject.GetAsVariant('target').Value := Int64(ob.compact_target);
       jsonObject.GetAsVariant('nonce').Value := Int64(ob.nonce);
       jsonObject.GetAsVariant('payload').Value := ob.block_payload;
+      jsonObject.GetAsVariant('blockhash').Value := TBaseType.ToHexaString(FNode.BlockManager.AccountStorage.Blocks[nBlock].BlockHash);
       jsonObject.GetAsVariant('sbh').Value := TBaseType.ToHexaString(ob.initial_safe_box_hash);
       jsonObject.GetAsVariant('oph').Value := TBaseType.ToHexaString(ob.transactionHash);
       jsonObject.GetAsVariant('pow').Value := TBaseType.ToHexaString(ob.proof_of_work);

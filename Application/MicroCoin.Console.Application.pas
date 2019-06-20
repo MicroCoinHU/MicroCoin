@@ -147,7 +147,7 @@ begin
     s := ' MAIN:'
   else
     s := ' TID:';
-{$IFNDEF FPC}
+{$IFDEF FPC}
   {$IFDEF MSWINDOWS}
   case logtype of
     lterror:
@@ -205,8 +205,7 @@ begin
   Console.CursorLeft := 0;
  {$ENDIF}
 {$ELSE}
-WriteLn(formatDateTime('dd/mm/yyyy hh:nn:ss.zzz', Time) + s + IntToHex(AThreadID, 8) + ' [' + CT_LogType[logtype] +
-  '] <' + sender + '> ' + logtext);
+  WriteLn(formatDateTime('dd/mm/yyyy hh:nn:ss.zzz', Time) + s + IntToHex(AThreadID, 8) + ' [' + CT_LogType[logtype] + '] <' + sender + '> ' + logtext);
 {$ENDIF}
 FC.Leave;
 end;

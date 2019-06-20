@@ -60,7 +60,27 @@ type
     destructor Destroy; override;
   end;
 
-{$IFDEF USE_GENERICS}
+  TResult = record
+  public
+    IsSuccess: boolean;
+    ErrorCode: TErrorCode;
+    ErrorMessage: string;
+    PreferredException: ExceptClass;
+    OriginalException: Exception;
+    procedure RaiseException;
+    class function CreateFromException(E: Exception): TResult; static;
+    class operator Explicit(AResult : TResult) : boolean;
+    class operator Implicit(AResult : TResult) : boolean;
+    class operator Equal(AResult : TResult; ABoolean : boolean) : Boolean;
+    class operator Equal(ABoolean : boolean; AResult : TResult) : Boolean;
+    class operator LogicalAnd(AResult : TResult; ABoolean : boolean) : Boolean;
+    class operator LogicalAnd(ABoolean : boolean; AResult : TResult) : Boolean;
+    class operator LogicalOr(AResult : TResult; ABoolean : boolean) : Boolean;
+    class operator LogicalOr(ABoolean : boolean; AResult : TResult) : Boolean;
+    class operator LogicalNot(AResult : TResult) : boolean;
+  end;
+
+
   TResult<T> = record
   public
     IsSuccess: boolean;
@@ -71,8 +91,11 @@ type
     Payload: T;
     procedure RaiseException;
     class function CreateFromException(E: Exception): TResult<T>; static;
+    class operator Explicit(AResult : TResult<T>) : T;
+    class operator Implicit(AResult : TResult<T>) : T;
+    class operator Equal(AResult : TResult<T>; ABoolean : boolean) : Boolean;
+    class operator Equal(ABoolean : boolean; AResult : TResult<T>) : Boolean;
   end;
-{$ENDIF}
 
   TCurrencyUtils = class
   public
@@ -90,17 +113,34 @@ function TBytesToString(const bytes: TBytes): AnsiString;
 procedure CopyMemory(Destination: Pointer; Source: Pointer; Length: DWORD); inline;
 {$ENDIF}
 
+function Error(AMessage : string) : TResult;
+function Success : TResult;
+
 implementation
 
 uses Math;
 
 {$IFDEF FPC}
-
 procedure CopyMemory(Destination: Pointer; Source: Pointer; Length: DWORD);
 begin
   Move(Source^, Destination^, Length);
 end;
 {$ENDIF}
+
+function Error(AMessage : string) : TResult;
+begin
+  Result.IsSuccess := false;
+  Result.ErrorCode := ecError;
+  Result.ErrorMessage := AMessage;
+  Result.PreferredException := nil;
+  Result.OriginalException := nil;
+end;
+
+function Success : TResult;
+begin
+  Result.IsSuccess := True;
+  Result.ErrorCode := ecSuccess;
+end;
 
 function TBytesToString(const bytes: TBytes): AnsiString;
 var
@@ -199,7 +239,6 @@ begin
   end;
 end;
 
-{$IFDEF USE_GENERICS}
 { TResult }
 
 class function TResult<T>.CreateFromException(E: Exception): TResult<T>;
@@ -210,6 +249,24 @@ begin
   Result.PreferredException := ExceptClass(E.ClassType);
 end;
 
+class operator TResult<T>.Equal(ABoolean: boolean;
+  AResult: TResult<T>): Boolean;
+begin
+  Result := AResult.IsSuccess = ABoolean;
+end;
+
+class operator TResult<T>.Equal(AResult: TResult<T>;
+  ABoolean: boolean): Boolean;
+begin
+  Result := AResult.IsSuccess = ABoolean;
+end;
+
+class operator TResult<T>.Explicit(AResult: TResult<T>): T;
+begin
+  Result := AResult.Payload;
+end;
+
+
 procedure TResult<T>.RaiseException;
 begin
   if ErrorCode = ecException then
@@ -218,7 +275,71 @@ begin
   if PreferredException <> nil then
     raise PreferredException.Create(ErrorMessage);
 end;
-{$ENDIF}
+
+class operator TResult<T>.Implicit(AResult: TResult<T>): T;
+begin
+  Result := AResult.Payload;
+end;
+
+{ TResult }
+
+class function TResult.CreateFromException(E: Exception): TResult;
+begin
+  Result.IsSuccess := false;
+  Result.ErrorCode := ecException;
+  Result.ErrorMessage := E.Message;
+  Result.PreferredException := ExceptClass(E.ClassType);
+end;
+
+class operator TResult.Equal(AResult: TResult; ABoolean: boolean): Boolean;
+begin
+  Result := AResult.IsSuccess = ABoolean;
+end;
+
+class operator TResult.Equal(ABoolean: boolean; AResult: TResult): Boolean;
+begin
+  Result := AResult.IsSuccess = ABoolean;
+end;
+
+class operator TResult.Explicit(AResult: TResult): boolean;
+begin
+  Result := AResult.IsSuccess;
+end;
+
+class operator TResult.Implicit(AResult: TResult): boolean;
+begin
+  Result := AResult.IsSuccess;
+end;
+
+class operator TResult.LogicalAnd(ABoolean: boolean; AResult: TResult): Boolean;
+begin
+  Result := ABoolean and AResult.IsSuccess;
+end;
+
+class operator TResult.LogicalNot(AResult: TResult): boolean;
+begin
+  Result := not AResult.IsSuccess;
+end;
+
+class operator TResult.LogicalOr(ABoolean: boolean; AResult: TResult): Boolean;
+begin
+  Result := ABoolean or AResult.IsSuccess;
+end;
+
+class operator TResult.LogicalOr(AResult: TResult; ABoolean: boolean): Boolean;
+begin
+  Result := ABoolean or AResult.IsSuccess;
+end;
+
+class operator TResult.LogicalAnd(AResult: TResult; ABoolean: boolean): Boolean;
+begin
+  Result := ABoolean and AResult.IsSuccess;
+end;
+
+procedure TResult.RaiseException;
+begin
+  raise PreferredException.Create(ErrorMessage);
+end;
 
 { TDestructor<T> }
 
@@ -233,5 +354,6 @@ begin
   FProc(FParam);
   inherited;
 end;
+
 
 end.
