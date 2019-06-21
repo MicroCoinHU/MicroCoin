@@ -34,7 +34,7 @@ type
     proof_of_work: TRawBytes; // RAW Double Sha256
     class function LoadFromStream(const stream: TStream; var ABlockHeader: TBlockHeader): Boolean; static;
     procedure SaveToStream(const stream: TStream);
-      class function Empty : TBlockHeader; static;
+    class function Empty : TBlockHeader; static;
     function ToString : AnsiString;
   end;
 

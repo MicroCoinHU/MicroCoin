@@ -148,17 +148,8 @@ begin
   if xProxy = '' then
     exit;
   { Script := TPSScript.Create(nil); }
-  for i := 0 to TNodeNotifyEvents(Sender).Node.TransactionStorage.TransactionCount - 1 do
-  begin
-    {
-      Script.AddRegisteredVariable('FromAccount', 'btString');
-      Script.AddRegisteredVariable('ToAccount', 'btString');
-      Script.AddRegisteredVariable('Amount', 'btString');
-      Script.AddRegisteredVariable('Fee', 'btString');
-      Script.AddRegisteredVariable('Balance', 'btString');
-      Script.AddRegisteredVariable('OpHash', 'btString');
-      Script.AddRegisteredVariable('Payload', 'btString');
-    }
+  for i := 0 to TNodeNotifyEvents(Sender).Node.TransactionStorage.TransactionCount - 1
+  do begin
     xTransaction := TNodeNotifyEvents(Sender).Node.TransactionStorage.Transaction[i];
     xTransaction := TNodeNotifyEvents(Sender).Node.TransactionStorage.TransactionHashTree.GetTransaction(i);
     xTransaction.GetTransactionData(0, xTransaction.SignerAccount, xTransactionData);
@@ -169,22 +160,9 @@ begin
     xFee := TCurrencyUtils.CurrencyToString(xTransactionData.fee);
     xBalance := TCurrencyUtils.CurrencyToString(xTransactionData.balance);
     xTransactionHash := TBaseType.ToHexaString(xTransactionData.OperationHash);
-    if TCrypto.IsHumanReadable(xTransactionData.OriginalPayload) then
-      xPayload := xTransactionData.OriginalPayload
-    else
-      xPayload := '';
-    {
-      Script.AddRegisteredVariable('FromAccount', 'btString');
-      Script.AddRegisteredVariable('ToAccount', 'btString');
-      Script.AddRegisteredVariable('Amount', 'btString');
-      Script.AddRegisteredVariable('Fee', 'btString');
-      Script.AddRegisteredVariable('Balance', 'btString');
-      Script.AddRegisteredVariable('OpHash', 'btString');
-      Script.AddRegisteredVariable('Payload', 'btString');
-      Script.Script.LoadFromFile(FromAccount);
-      Script.Compile;
-      Script.Execute;
-    }
+    if TCrypto.IsHumanReadable(xTransactionData.OriginalPayload)
+    then xPayload := xTransactionData.OriginalPayload
+    else xPayload := '';
     try
       xStream := TMemoryStream.Create;
       xHTTP := THTTPSend.Create;

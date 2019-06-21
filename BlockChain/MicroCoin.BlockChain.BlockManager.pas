@@ -122,11 +122,7 @@ type
 implementation
 
 uses
-  {Messages,}
-    SysUtils, Variants, {Graphics,}
-  {Controls, Forms,}
-  {StdCtrls,}
-  UTime, MicroCoin.Common.Config;
+  SysUtils, Variants, UTime, MicroCoin.Common.Config;
 
 resourcestring
   StrMigratingToVersion = 'Migrating to version 2 format';

@@ -74,23 +74,23 @@ implementation
 function TRPCAccountPlugin.ExtractPubKey(AParams: TPCJSONObject; const APrefix: string; var APubKey: TAccountKey;
   var RErrorText: string): Boolean;
 var
-  ansistr: AnsiString;
-  auxpubkey: TAccountKey;
+  xErrors: AnsiString;
+  xPublicKey: TAccountKey;
 begin
   APubKey := TAccount.Empty.accountInfo.AccountKey;
   RErrorText := '';
   Result := false;
   if (AParams.IndexOfName(APrefix + 'b58_pubkey') >= 0) then
   begin
-    if not TAccountKey.AccountPublicKeyImport(AParams.AsString(APrefix + 'b58_pubkey', ''), APubKey, ansistr) then
+    if not TAccountKey.AccountPublicKeyImport(AParams.AsString(APrefix + 'b58_pubkey', ''), APubKey, xErrors) then
     begin
-      RErrorText := 'Invalid value of param "' + APrefix + 'b58_pubkey": ' + ansistr;
+      RErrorText := 'Invalid value of param "' + APrefix + 'b58_pubkey": ' + xErrors;
       exit;
     end;
     if (AParams.IndexOfName(APrefix + 'enc_pubkey') >= 0) then
     begin
-      auxpubkey := TAccountKey.FromRawString(TBaseType.HexaToRaw(AParams.AsString(APrefix + 'enc_pubkey', '')));
-      if (not TAccountKey.EqualAccountKeys(auxpubkey, APubKey)) then
+      xPublicKey := TAccountKey.FromRawString(TBaseType.HexaToRaw(AParams.AsString(APrefix + 'enc_pubkey', '')));
+      if (not TAccountKey.EqualAccountKeys(xPublicKey, APubKey)) then
       begin
         RErrorText := 'Params "' + APrefix + 'b58_pubkey" and "' + APrefix +
           'enc_pubkey" public keys are not the same public key';
@@ -107,9 +107,9 @@ begin
     end;
     APubKey := TAccountKey.FromRawString(TBaseType.HexaToRaw(AParams.AsString(APrefix + 'enc_pubkey', '')));
   end;
-  if not APubKey.IsValidAccountKey(ansistr) then
+  if not APubKey.IsValidAccountKey(xErrors) then
   begin
-    RErrorText := 'Invalid public key: ' + ansistr;
+    RErrorText := 'Invalid public key: ' + xErrors;
   end
   else
     Result := true;
@@ -156,41 +156,41 @@ end;
 
 function TRPCAccountPlugin.FindAccounts(AParams: TPCJSONObject): TRPCResult;
 var
-  accountName: TRawBytes;
-  accountType: integer;
-  accountNumber: integer;
-  start, max: integer;
-  state: TAccountState;
-  Account: TAccount;
+  xAccountName: TRawBytes;
+  xAccountType: integer;
+  xAccountNumber: integer;
+  xStart, xMax: integer;
+  xAccountState: TAccountState;
+  xAccount: TAccount;
   i: cardinal;
-  errors2: AnsiString;
-  errors: string;
-  hasKey: Boolean;
-  PubKey: TAccountKey;
-  output: TPCJsonArray;
+  xErrors2: AnsiString;
+  xErrors: string;
+  xHasPublicKey: Boolean;
+  xPubKey: TAccountKey;
+  xOutput: TPCJsonArray;
 begin
   Result := RPCResult;
   Result.Success := false;
   Result.ErrorCode := CT_RPC_ErrNum_InternalError;
-  accountName := LowerCase(AParams.AsString('name', '')); // Convert to lowercase...
-  accountType := AParams.AsInteger('type', -1);
-  start := AParams.AsInteger('start', 0);
-  max := AParams.AsInteger('max', 100);
-  state := TAccountState(AParams.AsInteger('status', Longint(as_Normal)));
-  hasKey := ExtractPubKey(AParams, '', PubKey, errors);
+  xAccountName := LowerCase(AParams.AsString('name', '')); // Convert to lowercase...
+  xAccountType := AParams.AsInteger('type', -1);
+  xStart := AParams.AsInteger('start', 0);
+  xMax := AParams.AsInteger('max', 100);
+  xAccountState := TAccountState(AParams.AsInteger('status', Longint(as_Normal)));
+  xHasPublicKey := ExtractPubKey(AParams, '', xPubKey, xErrors);
   // Validate Parameters
-  if accountName <> '' then
+  if xAccountName <> '' then
   begin
-    if not TNode.Node.BlockManager.AccountStorage.IsValidAccountName(accountName, errors2) then
+    if not TNode.Node.BlockManager.AccountStorage.IsValidAccountName(xAccountName, xErrors2) then
     begin
       Result.ErrorCode := CT_RPC_ErrNum_InvalidAccountName;
-      Result.ErrorMessage := errors;
+      Result.ErrorMessage := xErrors;
       Result.Success := false;
       exit;
     end;
   end;
 
-  if max <= 0 then
+  if xMax <= 0 then
   begin
     Result.ErrorCode := CT_RPC_ErrNum_InvalidData;
     Result.ErrorMessage := '"max" param must be greater than zero';
@@ -198,43 +198,43 @@ begin
     exit;
   end;
   // Declare return result (empty by default)
-  output := Result.Response.GetAsArray('result');
+  xOutput := Result.Response.GetAsArray('result');
 
   // Search by name
-  if accountName <> '' then
+  if xAccountName <> '' then
   begin
-    accountNumber := TNode.Node.BlockManager.AccountStorage.FindAccountByName(accountName);
-    if accountNumber >= 0 then
+    xAccountNumber := TNode.Node.BlockManager.AccountStorage.FindAccountByName(xAccountName);
+    if xAccountNumber >= 0 then
     begin
-      Account := TNode.Node.TransactionStorage.AccountTransaction.Account(accountNumber);
-      if (accountType = -1) or (integer(Account.AccountType) = accountType) then
-        FillAccountObject(Account, output.GetAsObject(output.Count));
+      xAccount := TNode.Node.TransactionStorage.AccountTransaction.Account(xAccountNumber);
+      if (xAccountType = -1) or (integer(xAccount.AccountType) = xAccountType) then
+        FillAccountObject(xAccount, xOutput.GetAsObject(xOutput.Count));
     end;
   end
-  else if state = as_ForSale then
+  else if xAccountState = as_ForSale then
   begin
-    for i := start to TNode.Node.BlockManager.AccountsCount - 1 do
+    for i := xStart to TNode.Node.BlockManager.AccountsCount - 1 do
     begin
-      Account := TNode.Node.TransactionStorage.AccountTransaction.Account(i);
-      if Account.accountInfo.State = as_ForSale then
+      xAccount := TNode.Node.TransactionStorage.AccountTransaction.Account(i);
+      if xAccount.accountInfo.State = as_ForSale then
       begin
         // Found a match
-        FillAccountObject(Account, output.GetAsObject(output.Count));
-        if output.Count >= max then
+        FillAccountObject(xAccount, xOutput.GetAsObject(xOutput.Count));
+        if xOutput.Count >= xMax then
           break;
       end;
     end;
   end
-  else if hasKey then
+  else if xHasPublicKey then
   begin
-    for i := start to TNode.Node.BlockManager.AccountsCount - 1 do
+    for i := xStart to TNode.Node.BlockManager.AccountsCount - 1 do
     begin
-      Account := TNode.Node.TransactionStorage.AccountTransaction.Account(i);
-      if TAccountKey.EqualAccountKeys(Account.accountInfo.AccountKey, PubKey) then
+      xAccount := TNode.Node.TransactionStorage.AccountTransaction.Account(i);
+      if TAccountKey.EqualAccountKeys(xAccount.accountInfo.AccountKey, xPubKey) then
       begin
         // Found a match
-        FillAccountObject(Account, output.GetAsObject(output.Count));
-        if output.Count >= max then
+        FillAccountObject(xAccount, xOutput.GetAsObject(xOutput.Count));
+        if xOutput.Count >= xMax then
           break;
       end;
     end;
@@ -243,14 +243,14 @@ begin
   else
   begin
     // Search by type
-    for i := start to TNode.Node.BlockManager.AccountsCount - 1 do
+    for i := xStart to TNode.Node.BlockManager.AccountsCount - 1 do
     begin
-      Account := TNode.Node.TransactionStorage.AccountTransaction.Account(i);
-      if (accountType = -1) or (integer(Account.AccountType) = accountType) then
+      xAccount := TNode.Node.TransactionStorage.AccountTransaction.Account(i);
+      if (xAccountType = -1) or (integer(xAccount.AccountType) = xAccountType) then
       begin
         // Found a match
-        FillAccountObject(Account, output.GetAsObject(output.Count));
-        if output.Count >= max then
+        FillAccountObject(xAccount, xOutput.GetAsObject(xOutput.Count));
+        if xOutput.Count >= xMax then
           break;
       end;
     end;
@@ -260,27 +260,27 @@ end;
 
 function TRPCAccountPlugin.GetAccount(AParams: TPCJSONObject): TRPCResult;
 var
-  c: cardinal;
-  Account: TAccount;
+  xAccountNumber: cardinal;
+  xAccount: TAccount;
 begin
   Result := RPCResult;
   Result.Success := false;
   Result.ErrorCode := CT_RPC_ErrNum_InternalError;
   Result.ErrorMessage := '';
-  c := AParams.GetAsVariant('account').AsCardinal(cMaxAccountNumber);
-  if (c >= 0) and (c < TNode.Node.BlockManager.AccountsCount) then
+  xAccountNumber := AParams.GetAsVariant('account').AsCardinal(cMaxAccountNumber);
+  if (xAccountNumber >= 0) and (xAccountNumber < TNode.Node.BlockManager.AccountsCount) then
   begin
-    Account := TNode.Node.TransactionStorage.AccountTransaction.Account(c);
-    FillAccountObject(Account, TPCJSONObject(Result.Response).GetAsObject('result'));
+    xAccount := TNode.Node.TransactionStorage.AccountTransaction.Account(xAccountNumber);
+    FillAccountObject(xAccount, TPCJSONObject(Result.Response).GetAsObject('result'));
     Result.Success := true;
   end
   else
   begin
     Result.ErrorCode := CT_RPC_ErrNum_InvalidAccount;
-    if (c = cMaxAccountNumber) then
+    if (xAccountNumber = cMaxAccountNumber) then
       Result.ErrorMessage := 'Need "account" param'
     else
-      Result.ErrorMessage := 'Account not found: ' + Inttostr(c);
+      Result.ErrorMessage := 'Account not found: ' + Inttostr(xAccountNumber);
   end;
 end;
 
@@ -289,8 +289,8 @@ var
   jsonArr: TPCJsonArray;
   i, j, k, l, c: integer;
   ocl: TOrderedList;
-  Account: TAccount;
-  key: TAccountKey;
+  xAccount: TAccount;
+  xKey: TAccountKey;
 begin
   Result := RPCResult;
   Result.Success := false;
@@ -298,14 +298,14 @@ begin
   jsonArr := Result.Response.GetAsArray('result');
   if (AParams.IndexOfName('enc_pubkey') >= 0) or (AParams.IndexOfName('b58_pubkey') >= 0) then
   begin
-    if not(ExtractPubKey(AParams, '', key, Result.ErrorMessage)) then
+    if not(ExtractPubKey(AParams, '', xKey, Result.ErrorMessage)) then
     begin
       Result.ErrorCode := CT_RPC_ErrNum_InvalidPubKey;
       Result.Success := false;
       Result.ErrorMessage := 'Invalid public key';
       exit;
     end;
-    i := TRPCServer.Instance.WalletKeys.AccountsKeyList.IndexOfAccountKey(key);
+    i := TRPCServer.Instance.WalletKeys.AccountsKeyList.IndexOfAccountKey(xKey);
     if (i < 0) then
     begin
       Result.ErrorCode := CT_RPC_ErrNum_NotFound;
@@ -319,8 +319,8 @@ begin
     begin
       if (j >= l) then
       begin
-        Account := TNode.Node.TransactionStorage.AccountTransaction.Account(ocl.Get(j));
-        FillAccountObject(Account, jsonArr.GetAsObject(jsonArr.Count));
+        xAccount := TNode.Node.TransactionStorage.AccountTransaction.Account(ocl.Get(j));
+        FillAccountObject(xAccount, jsonArr.GetAsObject(jsonArr.Count));
       end;
       if (k > 0) and ((j + 1) >= (k + l)) then
         break;
@@ -339,8 +339,8 @@ begin
       begin
         if (c >= l) then
         begin
-          Account := TNode.Node.TransactionStorage.AccountTransaction.Account(ocl.Get(j));
-          FillAccountObject(Account, jsonArr.GetAsObject(jsonArr.Count));
+          xAccount := TNode.Node.TransactionStorage.AccountTransaction.Account(ocl.Get(j));
+          FillAccountObject(xAccount, jsonArr.GetAsObject(jsonArr.Count));
         end;
         inc(c);
         if (k > 0) and (c >= (k + l)) then
@@ -357,19 +357,19 @@ function TRPCAccountPlugin.GetWalletAccountsCount(AParams: TPCJSONObject): TRPCR
 var
   ocl: TOrderedList;
   i, c: integer;
-  key: TAccountKey;
+  xAccountKey: TAccountKey;
 begin
   Result := RPCResult;
   Result.Success := false;
   Result.ErrorCode := CT_RPC_ErrNum_InternalError;
   if (AParams.IndexOfName('enc_pubkey') >= 0) or (AParams.IndexOfName('b58_pubkey') >= 0) then
   begin
-    if not(ExtractPubKey(AParams, '', key, Result.ErrorMessage)) then
+    if not(ExtractPubKey(AParams, '', xAccountKey, Result.ErrorMessage)) then
     begin
       Result.ErrorCode := CT_RPC_ErrNum_InvalidPubKey;
       exit;
     end;
-    i := TRPCServer.Instance.WalletKeys.AccountsKeyList.IndexOfAccountKey(key);
+    i := TRPCServer.Instance.WalletKeys.AccountsKeyList.IndexOfAccountKey(xAccountKey);
     if (i < 0) then
     begin
       Result.ErrorCode := CT_RPC_ErrNum_NotFound;
@@ -396,68 +396,68 @@ end;
 
 function TRPCAccountPlugin.GetWalletCoins(AParams: TPCJSONObject): TRPCResult;
 var
-  newKey: TAccountKey;
+  xNewKey: TAccountKey;
   i, j, c: integer;
-  ocl: TOrderedList;
-  Account: TAccount;
+  xOrderedList: TOrderedList;
+  xAccount: TAccount;
 begin
   Result := RPCResult;
   Result.Success := false;
   Result.ErrorCode := CT_RPC_ErrNum_InternalError;
   if (AParams.IndexOfName('enc_pubkey') >= 0) or (AParams.IndexOfName('b58_pubkey') >= 0) then
   begin
-    if not(ExtractPubKey(AParams, '', newKey, Result.ErrorMessage)) then
+    if not(ExtractPubKey(AParams, '', xNewKey, Result.ErrorMessage)) then
     begin
       Result.ErrorCode := CT_RPC_ErrNum_InvalidPubKey;
       exit;
     end;
-    i := TRPCServer.Instance.WalletKeys.AccountsKeyList.IndexOfAccountKey(newKey);
+    i := TRPCServer.Instance.WalletKeys.AccountsKeyList.IndexOfAccountKey(xNewKey);
     if (i < 0) then
     begin
       Result.ErrorCode := CT_RPC_ErrNum_NotFound;
       Result.ErrorMessage := 'Public key not found in wallet';
       exit;
     end;
-    ocl := TRPCServer.Instance.WalletKeys.AccountsKeyList.AccountList[i];
-    Account.Balance := 0;
-    for j := 0 to ocl.Count - 1 do
+    xOrderedList := TRPCServer.Instance.WalletKeys.AccountsKeyList.AccountList[i];
+    xAccount.Balance := 0;
+    for j := 0 to xOrderedList.Count - 1 do
     begin
-      inc(Account.Balance, TNode.Node.TransactionStorage.AccountTransaction.Account(ocl.Get(j)).Balance);
+      inc(xAccount.Balance, TNode.Node.TransactionStorage.AccountTransaction.Account(xOrderedList.Get(j)).Balance);
     end;
-    Result.Response.GetAsVariant('result').Value := TCurrencyUtils.ToJsonValue(Account.Balance);
+    Result.Response.GetAsVariant('result').Value := TCurrencyUtils.ToJsonValue(xAccount.Balance);
     Result.Success := true;
   end
   else
   begin
     Result.ErrorMessage := '';
     c := 0;
-    Account.Balance := 0;
+    xAccount.Balance := 0;
     for i := 0 to TRPCServer.Instance.WalletKeys.AccountsKeyList.Count - 1 do
     begin
-      ocl := TRPCServer.Instance.WalletKeys.AccountsKeyList.AccountList[i];
-      for j := 0 to ocl.Count - 1 do
+      xOrderedList := TRPCServer.Instance.WalletKeys.AccountsKeyList.AccountList[i];
+      for j := 0 to xOrderedList.Count - 1 do
       begin
-        inc(Account.Balance, TNode.Node.TransactionStorage.AccountTransaction.Account(ocl.Get(j)).Balance);
+        inc(xAccount.Balance, TNode.Node.TransactionStorage.AccountTransaction.Account(xOrderedList.Get(j)).Balance);
       end;
     end;
-    Result.Response.GetAsVariant('result').Value := TCurrencyUtils.ToJsonValue(Account.Balance);
+    Result.Response.GetAsVariant('result').Value := TCurrencyUtils.ToJsonValue(xAccount.Balance);
     Result.Success := true;
   end;
 end;
 
 function TRPCAccountPlugin.GetWalletPubKey(AParams: TPCJSONObject): TRPCResult;
 var
-  newKey: TAccountKey;
+  xNewKey: TAccountKey;
   i: integer;
 begin
   Result := RPCResult;
   Result.Success := false;
-  if not(ExtractPubKey(AParams, '', newKey, Result.ErrorMessage)) then
+  if not(ExtractPubKey(AParams, '', xNewKey, Result.ErrorMessage)) then
   begin
     Result.ErrorCode := CT_RPC_ErrNum_InvalidPubKey;
     exit;
   end;
-  i := TRPCServer.Instance.WalletKeys.AccountsKeyList.IndexOfAccountKey(newKey);
+  i := TRPCServer.Instance.WalletKeys.AccountsKeyList.IndexOfAccountKey(xNewKey);
   if (i < 0) then
   begin
     Result.ErrorCode := CT_RPC_ErrNum_NotFound;
