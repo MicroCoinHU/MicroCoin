@@ -91,7 +91,7 @@ const
 
   cMinimumBlocksToLiveAccount = 10;
   cMinimumBlocksToLiveAccountV2 = 100;
-  cV2EnableAtBlock = 200000;
+  cV2EnableAtBlock = 2000000;
 
   cRecoverAfterInactive = 420480;  // After 4 years... if an account has no operations, money will be a reward for a miner!
   cMaxLockAccountTime = 105120; // Maximum future blocks an account can be locked
@@ -110,7 +110,7 @@ const
   cMaxAccountNumber : Cardinal = $FFFFFFFF;
   cMaxBlocks : Cardinal = $FFFFFFFF;
 
-  cMaxPayloadSize = 255; // Max payload size in bytes
+  cMaxPayloadSize = 255;
   cBlockTimeStampTolerance = 15;
   cMinimumNodeCountToCalculateNAT = 4;
 

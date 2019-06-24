@@ -71,7 +71,7 @@ begin
   FMessages := TStringList.Create;
   FPendingNotificationsList := TPCThreadList.Create('TNodeNotifyEvents_PendingNotificationsList');
   FThreadSafeNodeNotifyEvent := TThreadSafeNodeNotifyEvent.Create(Self);
-  FThreadSafeNodeNotifyEvent.FreeOnTerminate := true; // This is to prevent locking when freeing component
+  FThreadSafeNodeNotifyEvent.FreeOnTerminate := true;
   Node := TNode.Node;
 end;
 

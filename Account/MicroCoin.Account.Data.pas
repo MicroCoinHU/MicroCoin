@@ -117,18 +117,6 @@ type
   end;
 
   TMemAccount = TAccount;
-  { record // TAccount with less memory usage
-    // account number is discarded (-4 bytes)
-    AccountInfo: TDynRawBytes;
-    balance: UInt64;
-    updated_block: Cardinal;
-    n_operation: Cardinal;
-    name: TRawBytes;
-    account_type: Word;
-    previous_updated_block: Cardinal;
-    Subaccounts : array of TSubAccount;
-    ExtraData: TExtraData;
-  end; }
 
   TMemTransactionBlock = record // TOperationBlock with less memory usage
     // block number is discarded (-4 bytes)

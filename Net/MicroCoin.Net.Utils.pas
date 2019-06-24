@@ -58,8 +58,8 @@ begin
           xAccount := i;
         end;
         // Preventing downloading
-        if xConnection.IsDownloadingBlocks then
-          exit;
+        if xConnection.IsDownloadingBlocks
+        then exit;
       end;
     end;
     if (xMaxWork > 0) then

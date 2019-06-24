@@ -127,8 +127,7 @@ type
       var RErrors: AnsiString): Boolean;
 
     procedure UpdateAccount(AAccountNumber: Cardinal; const ANewAccountInfo: TAccountInfo; const ANewName: TRawBytes;
-      ANewType: Word; ANewBalance: UInt64; ANewNumberOfTransactions: Cardinal{$IFDEF EXTENDEDACCOUNT}; SubAccounts: array of TSubAccount;
-      Extra: TExtraData{$ENDIF});
+      ANewType: Word; ANewBalance: UInt64; ANewNumberOfTransactions: Cardinal);
     function AddNew(const ABlockHeader: TBlockHeader): TAccountStorageEntry;
 
     function FindAccountByName(AName: AnsiString): Integer;
@@ -190,23 +189,11 @@ uses MicroCoin.Common.Stream;
 procedure ToTMemAccount(const Source: TAccount; var dest: TMemAccount);
 begin
   dest := Source;
-  {$IFDEF EXTENDEDACCOUNT}
-    dest.SubAccounts := nil;
-    SetLength(dest.SubAccounts, Length(source.SubAccounts));
-    for i := Low(source.SubAccounts) to High(Source.SubAccounts)
-    do dest.SubAccounts[i] := Source.SubAccounts[i];
-  {$ENDIF}
 end;
 
 procedure ToTAccount(const Source: TMemAccount; account_number: Cardinal; var dest: TAccount);
 begin
   dest := Source;
-  {$IFDEF EXTENDEDACCOUNT}
-    dest.SubAccounts := nil;
-    SetLength(dest.SubAccounts, Length(source.SubAccounts));
-    for i := Low(source.SubAccounts) to High(Source.SubAccounts)
-    do dest.SubAccounts[i] := Source.SubAccounts[i];
-  {$ENDIF}
 end;
 
 procedure ToTMemBlockAccount(const Source: TAccountStorageEntry; var dest: TMemBlockAccount);
@@ -304,10 +291,6 @@ begin
   for i := low(Result.Accounts) to high(Result.Accounts) do
   begin
     Result.Accounts[i] := TAccount.Empty;
-    {$IFDEF EXTENDEDACCOUNT}
-    if ABlockHeader.block > CT_BLOCK_EXTENDED_ACCOUNT_DATA
-    then Result.Accounts[i].HasExtraData := true;
-    {$ENDIF}
     Result.Accounts[i].AccountNumber := base_addr + i;
     Result.Accounts[i].AccountInfo.State := as_Normal;
     Result.Accounts[i].AccountInfo.AccountKey := ABlockHeader.account_key;
@@ -549,13 +532,10 @@ end;
 destructor TAccountStorage.Destroy;
 var
   i: Integer;
-  p: PBlockAccount;
 begin
   Clear;
-  for i := 0 to FListOfOrderedAccountKeysList.Count - 1 do
-  begin
-    TOrderedAccountKeysList(FListOfOrderedAccountKeysList[i]).AccountStorage := nil;
-  end;
+  for i := 0 to FListOfOrderedAccountKeysList.Count - 1
+  do TOrderedAccountKeysList(FListOfOrderedAccountKeysList[i]).AccountStorage := nil;
   FreeAndNil(FBlockAccountsList);
   FreeAndNil(FListOfOrderedAccountKeysList);
   FreeAndNil(FLock);
@@ -886,21 +866,12 @@ var
   b: TAccountStorageEntry;
   iacc: Integer;
   ws: UInt64;
-{$ifdef EXTENDEDACCOUNT}
-  bs: byte;
-  was: word;
-  i: integer;
-{$endif}
 begin
   b := Blocks[ANBlock];
   b.BlockHeader.SaveToStream(AStream);
   for iacc := low(b.Accounts) to high(b.Accounts) do
   begin
     AStream.Write(b.Accounts[iacc].AccountNumber, Sizeof(b.Accounts[iacc].AccountNumber));
-    {$ifdef EXTENDEDACCOUNT}
-      was:=0;
-      AStream.Write(was, 2);
-    {$ENDIF}
     AStream.WriteAnsiString(b.Accounts[iacc].AccountInfo.ToRawString);
     AStream.Write(b.Accounts[iacc].Balance, Sizeof(b.Accounts[iacc].Balance));
     AStream.Write(b.Accounts[iacc].UpdatedBlock, Sizeof(b.Accounts[iacc].UpdatedBlock));
@@ -911,21 +882,6 @@ begin
       AStream.Write(b.Accounts[iacc].AccountType, Sizeof(b.Accounts[iacc].AccountType));
     end;
     AStream.Write(b.Accounts[iacc].PreviusUpdatedBlock, Sizeof(b.Accounts[iacc].PreviusUpdatedBlock));
-    {$ifdef EXTENDEDACCOUNT}
-      bs := Byte(Length(b.Accounts[iacc].SubAccounts));
-      AStream.Write(bs, 1);
-      for i := 0 to High(b.Accounts[iacc].SubAccounts)
-      do begin
-        TStreamOp.WriteAccountKey(AStream, b.Accounts[iacc].SubAccounts[i].AccountKey);
-        AStream.Write(b.Accounts[iacc].SubAccounts[i].DailyLimit, sizeof(b.Accounts[iacc].SubAccounts[i].DailyLimit));
-        AStream.Write(b.Accounts[iacc].SubAccounts[i].TotalLimit, sizeof(b.Accounts[iacc].SubAccounts[i].TotalLimit));
-        AStream.Write(b.Accounts[iacc].SubAccounts[i].Balance, sizeof(b.Accounts[iacc].SubAccounts[i].Balance));
-        AStream.Write(b.Accounts[iacc].SubAccounts[i].Currency, sizeof(b.Accounts[iacc].SubAccounts[i].Currency));
-      end;
-      AStream.Write(b.Accounts[iacc].ExtraData.DataType, sizeof(b.Accounts[iacc].ExtraData.DataType));
-      AStream.Write(b.Accounts[iacc].ExtraData.ExtraType, sizeof(b.Accounts[iacc].ExtraData.ExtraType));
-      TStreamOp.WriteAnsiString(AStream, b.Accounts[iacc].ExtraData.Data);
-    {$endif}
   end;
   AStream.WriteAnsiString(b.BlockHash);
   AStream.Write(b.AccumulatedWork, Sizeof(b.AccumulatedWork));
@@ -1501,9 +1457,7 @@ begin
 end;
 
 procedure TAccountStorage.UpdateAccount(AAccountNumber: Cardinal; const ANewAccountInfo: TAccountInfo;
-  const ANewName: TRawBytes; ANewType: Word; ANewBalance: UInt64; ANewNumberOfTransactions: Cardinal
-  {$IFDEF EXTENDEDACCOUNT};SubAccounts: array of TSubAccount; Extra: TExtraData{$ENDIF}
-  );
+  const ANewName: TRawBytes; ANewType: Word; ANewBalance: UInt64; ANewNumberOfTransactions: Cardinal);
 var
   iblock: Cardinal;
   i, j, iAccount: Integer;
@@ -1555,15 +1509,7 @@ begin
     acc.UpdatedBlock := BlocksCount;
   end;
   acc.NumberOfTransactions := ANewNumberOfTransactions;
-  {$IFDEF EXTENDEDACCOUNT}
-  SetLength(acc.SubAccounts, Length(SubAccounts));
-  for I := Low(SubAccounts) to High(SubAccounts)
-  do acc.SubAccounts[i] := SubAccounts[i];
-  acc.ExtraData := Extra;
-  {$ENDIF}
-  // Save new account values
   ToTMemAccount(acc, P^.Accounts[iAccount]);
-  // Update block_hash
   bacc := Blocks[iblock];
 
 {$IFDEF uselowmem}
@@ -1859,24 +1805,6 @@ begin
           ms.WriteBuffer(Accounts[i].Name[1], length(Accounts[i].Name));
         end;
         ms.Write(Accounts[i].AccountType, 2);
-        {$IFDEF EXTENDEDACCOUNT}
-        if ABlock.Accounts[i].HasExtraData
-        then begin
-          ms.Write(Accounts[i].ExtraData.DataType, Sizeof(Accounts[i].ExtraData.DataType));
-          ms.Write(Accounts[i].ExtraData.ExtraType, Sizeof(Accounts[i].ExtraData.ExtraType));
-          if ABlock.Accounts[i].ExtraData.Data<>''
-          then ms.WriteBuffer(Accounts[i].ExtraData.Data[1], Length(Accounts[i].ExtraData.Data));
-          for j := Low(Accounts[i].SubAccounts) to High(Accounts[i].SubAccounts)
-          do begin
-            raw := ABlock.Accounts[i].SubAccounts[j].AccountKey.ToRawString;
-            ms.WriteBuffer(raw[1], length(raw));
-            ms.Write(Accounts[i].SubAccounts[j].DailyLimit, SizeOf(Accounts[i].SubAccounts[j].DailyLimit));
-            ms.Write(Accounts[i].SubAccounts[j].TotalLimit, SizeOf(Accounts[i].SubAccounts[j].TotalLimit));
-            ms.Write(Accounts[i].SubAccounts[j].Balance, SizeOf(Accounts[i].SubAccounts[j].Balance));
-            ms.Write(Accounts[i].SubAccounts[j].Currency, SizeOf(Accounts[i].SubAccounts[j].Currency));
-          end;
-        end;
-        {$ENDIF}
       end;
       ms.Write(AccumulatedWork, Sizeof(AccumulatedWork));
     end;

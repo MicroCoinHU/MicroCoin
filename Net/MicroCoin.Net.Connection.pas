@@ -250,13 +250,13 @@ function TNetConnection.Send_Hello(NetTranferType: TNetTransferType; request_id:
   - Send My Operation Stream in the same block thant requester
 }
 var
-  data: TMemoryStream;
+  xData: TMemoryStream;
   xMessage: TNetMessage_Hello;
   xBlock: TBlock;
 begin
   Result := false;
   if not Connected then exit;
-  data := TMemoryStream.Create;
+  xData := TMemoryStream.Create;
   try
     if NetTranferType = ntp_request
     then TConnectionManager.Instance.RegisterRequest(Self, cNetOp_Hello, request_id);
@@ -272,14 +272,14 @@ begin
     xMessage.nodeserver_count := Length(xMessage.nodeservers);
     xMessage.client_version := MicroCoin.Common.Config.ClientAppVersion{$IFDEF LINUX} + ' Linux'{$ELSE} + ' Windows'{$ENDIF}{$IFDEF FPC}{$IFDEF LCL} + ' '{$ELSE} + ' '{$ENDIF}{$ELSE}+' '{$ENDIF}{$IFDEF DEBUG}+' Debug'{$ELSE}+''{$ENDIF}{$IFDEF CONSOLE}+' daemon'{$ENDIF};
     xMessage.remote_work := TNode.Node.BlockManager.AccountStorage.WorkSum;    //
-    xMessage.SaveToStream(data);
-    Send(NetTranferType, cNetOp_Hello, 0, request_id, data);
+    xMessage.SaveToStream(xData);
+    Send(NetTranferType, cNetOp_Hello, 0, request_id, xData);
     xMessage.Block.Free;
     SetLength(xMessage.nodeservers, 0);
     xMessage.nodeservers := nil;
     Result := Client.Connected;
   finally
-    data.Free;
+    xData.Free;
   end;
 end;
 

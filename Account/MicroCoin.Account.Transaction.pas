@@ -241,8 +241,7 @@ begin
     for i := 0 to FOrderedList.Count - 1 do
     begin
       Pa := FOrderedList.GetPointer(i);
-      FreezedAccounts.UpdateAccount(Pa^.AccountNumber, Pa^.AccountInfo, Pa^.Name, Pa^.AccountType, Pa^.Balance,
-        Pa^.NumberOfTransactions{$IFDEF EXTENDEDACCOUNT}, Pa^.SubAccounts, Pa^.ExtraData{$ENDIF});
+      FreezedAccounts.UpdateAccount(Pa^.AccountNumber, Pa^.AccountInfo, Pa^.Name, Pa^.AccountType, Pa^.Balance, Pa^.NumberOfTransactions);
     end;
     //
     if (FFreezedAccounts.TotalBalance <> FTotalBalance) then
@@ -528,15 +527,10 @@ begin
       end;
     end;
     // Ok, include
-    if (P_target^.Name <> '') then
-    begin
-      // In use in the safebox, mark as deleted
-      FAccountNames_Deleted.Add(P_target^.Name, ATargetAccount);
-    end;
-    if (ANewName <> '') then
-    begin
-      FAccountNames_Added.Add(ANewName, ATargetAccount);
-    end;
+    if (P_target^.Name <> '')
+    then FAccountNames_Deleted.Add(P_target^.Name, ATargetAccount);
+    if (ANewName <> '')
+    then FAccountNames_Added.Add(ANewName, ATargetAccount);
   end;
 
   P_signer^.NumberOfTransactions := ASignerAccountNumberOfTransactions;

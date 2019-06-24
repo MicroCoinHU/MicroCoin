@@ -732,7 +732,7 @@ begin
   end;
   if (length(Payload) > cMaxPayloadSize)
   then begin
-    RErros := 'Invalid Payload size:' + inttostr(length(Payload)) + ' (Max: ' + inttostr(cMaxPayloadSize) + ')';
+    RErros := 'Invalid Payload size:' + IntToStr(length(Payload)) + ' (Max: ' + inttostr(cMaxPayloadSize) + ')';
     if (AAccountTransaction.FreezedAccountStorage.CurrentProtocol >= cPROTOCOL_2)
     then begin
       Exit; // BUG from protocol 1

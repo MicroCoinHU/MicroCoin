@@ -229,8 +229,6 @@ var
   raw: TRawBytes;
   j: Integer;
 begin
-  { See instructions in explanation of TargetFromCompact }
-  Result := 0;
   if length(target) > 32 then
   begin
     raise Exception.Create('Invalid target to compact: ' + TBaseType.ToHexaString(target) + ' (' +

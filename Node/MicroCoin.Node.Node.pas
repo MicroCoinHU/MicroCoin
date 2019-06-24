@@ -435,7 +435,6 @@ begin
                 OperationsResult.Add(xTransactionData);
               end;
 {$IFDEF BufferOfFutureOperations}
-              // Used to solve 2.0.0 "invalid order of operations" bug
               if (Assigned(SenderConnection)) then
               begin
                 sAcc := FOperations.SafeBoxTransaction.Account(ActOp.SignerAccount);
@@ -1025,7 +1024,6 @@ end;
 procedure TNode.NotifyNetClientMessage(Sender: TNetConnection; const TheMessage: AnsiString);
 var
   i: Integer;
-  s: AnsiString;
 begin
   for i := 0 to FNotifyList.Count - 1 do
   begin

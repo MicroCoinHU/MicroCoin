@@ -95,8 +95,7 @@ implementation
 const
   CT_WAIT_SECONDS_BEFORE_SEND_NEW_JOB = 10;
   CT_MAX_SECONDS_BETWEEN_JOBS = 30;
-  // 1.5.3 Will send new job to miner (with updated timestamp)
-  CT_MAX_BUFFER_JOBS = 10; // 1.5.3 Will buffer last 10 jobs sent to miner
+  CT_MAX_BUFFER_JOBS = 10;
 
 procedure TMiningServer.CaptureNewJobAndSendToMiners;
 var
@@ -146,13 +145,9 @@ begin
       P^.OperationsComp.AccountKey := FMinerAccountKey;
       P^.OperationsComp.BlockPayload := FMinerPayload;
       P^.OperationsComp.timestamp := P^.SentMinTimestamp;
-      // Best practices 1.5.3
       OpB := P^.OperationsComp.BlockHeader;
       if (OpB.Block <> 0) and (OpB.Block <> (FNodeNotifyEvents.Node.BlockManager.LastBlockFound.BlockHeader.Block + 1)) then
       begin
-        // A new block is generated meanwhile ... do not include
-        LogDebug(ClassName, 'Generated a new block meanwhile ... ' + OpB.ToString() + '<>'
-          + FNodeNotifyEvents.Node.BlockManager.LastBlockFound.BlockHeader.ToString());
         P^.OperationsComp.Free;
         Dispose(P);
         P := nil;
@@ -160,7 +155,6 @@ begin
       else
       begin
         i := l.Add(P);
-        LogDebug(ClassName, 'Added new job ' + IntToStr(i + 1) + '/' + IntToStr(l.count));
       end;
     end;
     // Clean buffer jobs
@@ -170,7 +164,6 @@ begin
       l.Delete(0);
       PToDelete^.OperationsComp.Free;
       Dispose(PToDelete);
-      LogDebug(ClassName, 'Deleted Job 1 from buffer, now count:' + IntToStr(l.count));
     end;
   finally
     FPoolJobs.UnlockList;
@@ -187,8 +180,6 @@ begin
             exit;
           SendJobToMiner(P^.OperationsComp, l[i], false, null);
         end;
-        LogDebug(ClassName, 'Sending job to miners: ' + P^.OperationsComp.BlockHeader.ToString
-          () + ' Cache blocks:' + IntToStr(l.count));
       finally
         NetTcpIpClientsUnlock;
       end;
@@ -413,11 +404,6 @@ begin
             [FMinerOperations.TransactionHashTree.TransactionCount,
             TBaseType.ToHexaString(FMinerOperations.TransactionHashTree.HashTree),
             TBaseType.ToHexaString(FMinerOperations.BlockHeader.transactionHash)]));
-        end
-        else
-        begin
-          LogDebug(ClassName, Format('No need to change Miner buffer. Operations:%d',
-            [FMinerOperations.TransactionHashTree.TransactionCount]));
         end;
       finally
         tree.Free;
@@ -751,24 +737,19 @@ begin
   if TAccountKey.EqualAccountKeys(FMinerAccountKey, Value) then
     exit;
   FMinerAccountKey := Value;
-  LogDebug(ClassName, 'Assigning Miner account key to: ' + TBaseType.ToHexaString(Value.ToRawString));
   CaptureNewJobAndSendToMiners;
 end;
 
 procedure TMiningServer.SetMinerPayload(const Value: TRawBytes);
 begin
   FMinerPayload := Value;
-  LogDebug(ClassName, 'Assigning Miner new Payload: ' + TBaseType.ToHexaString(Value));
   CaptureNewJobAndSendToMiners;
 end;
 
 procedure TMiningServer.UpdateAccountAndPayload(AMinerAccountKey: TAccountKey; AMinerPayload: TRawBytes);
 begin
   FMinerAccountKey := AMinerAccountKey;
-  LogDebug(ClassName, 'Assigning Miner account key to: ' +
-    TBaseType.ToHexaString(AMinerAccountKey.ToRawString));
   FMinerPayload := AMinerPayload;
-  LogDebug(ClassName, 'Assigning Miner new Payload: ' + TBaseType.ToHexaString(AMinerPayload));
   CaptureNewJobAndSendToMiners;
 end;
 

@@ -82,11 +82,10 @@ begin
         tc := GetTickCount;
         repeat
           sleep(10);
-          // 1.5.4 -> To prevent that not client disconnected (and not called OnDisconnect), increase sleep time
         until (not n.Connected) or (tc + 5000 < GetTickCount);
         sleep(5);
         n.SetClient(NetTcpIpClientClass.Create(nil));
-        sleep(500); // Delay - Sleep time before destroying (1.5.3)
+        sleep(500);
       finally
         n.Free;
       end;
