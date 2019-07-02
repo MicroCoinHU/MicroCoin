@@ -144,7 +144,7 @@ begin
       P^.OperationsComp.CopyFrom(FMinerOperations);
       P^.OperationsComp.AccountKey := FMinerAccountKey;
       P^.OperationsComp.BlockPayload := FMinerPayload;
-      P^.OperationsComp.timestamp := P^.SentMinTimestamp;
+      P^.OperationsComp.Timestamp := P^.SentMinTimestamp;
       OpB := P^.OperationsComp.BlockHeader;
       if (OpB.Block <> 0) and (OpB.Block <> (FNodeNotifyEvents.Node.BlockManager.LastBlockFound.BlockHeader.Block + 1)) then
       begin
@@ -471,8 +471,8 @@ begin
         // Best practices: Only will accept a solution if timestamp >= sent timestamp for this job (1.5.3)
         if (P^.SentMinTimestamp <= _timestamp) then
         begin
-          P^.OperationsComp.timestamp := _timestamp;
-          P^.OperationsComp.nonce := _nOnce;
+          P^.OperationsComp.Timestamp := _timestamp;
+          P^.OperationsComp.Nonce := _nOnce;
           _targetPoW := FNodeNotifyEvents.Node.BlockManager.AccountStorage.GetActualTargetHash
             (P^.OperationsComp.BlockHeader.protocol_version = cPROTOCOL_2);
           if (P^.OperationsComp.BlockHeader.proof_of_work <= _targetPoW) then
@@ -506,8 +506,8 @@ begin
           json.GetAsVariant('pow').Value :=
             TBaseType.ToHexaString(FNodeNotifyEvents.Node.BlockManager.LastBlock.proof_of_work);
           json.GetAsVariant('payload').Value := nbOperations.BlockPayload;
-          json.GetAsVariant('timestamp').Value := nbOperations.timestamp;
-          json.GetAsVariant('nonce').Value := nbOperations.nonce;
+          json.GetAsVariant('timestamp').Value := nbOperations.Timestamp;
+          json.GetAsVariant('nonce').Value := nbOperations.Nonce;
           inc(FClientsWins);
           Client.SendJSONRPCResponse(json, id);
         finally
@@ -519,8 +519,8 @@ begin
       else
       begin
         Client.SendJSONRPCErrorResponse(id, 'Error: ' + errors + ' executing ' + sJobInfo + ' payload:' +
-          nbOperations.BlockPayload + ' timestamp:' + IntToStr(nbOperations.timestamp) + ' nonce:' +
-          IntToStr(nbOperations.nonce));
+          nbOperations.BlockPayload + ' timestamp:' + IntToStr(nbOperations.Timestamp) + ' nonce:' +
+          IntToStr(nbOperations.Nonce));
       end;
     end
     else
@@ -620,7 +620,7 @@ begin
         P^.OperationsComp.CopyFrom(FMinerOperations);
         P^.OperationsComp.AccountKey := FMinerAccountKey;
         P^.OperationsComp.BlockPayload := FMinerPayload;
-        P^.OperationsComp.timestamp := P^.SentMinTimestamp;
+        P^.OperationsComp.Timestamp := P^.SentMinTimestamp;
         // Best practices 1.5.3
         if (P^.OperationsComp.BlockHeader.Block <> 0) and
           (P^.OperationsComp.BlockHeader.Block <> (FNodeNotifyEvents.Node.BlockManager.LastBlockFound.BlockHeader.Block

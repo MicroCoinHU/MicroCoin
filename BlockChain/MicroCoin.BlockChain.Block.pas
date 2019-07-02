@@ -37,10 +37,10 @@ type
     FBlockLock: TCriticalSection;
     function GetTransaction(index: Integer): ITransaction;
     procedure SetBank(const value: TBlockManagerBase);
-    procedure SetnOnce(const value: Cardinal);
-    procedure Settimestamp(const value: Cardinal);
-    function GetnOnce: Cardinal;
-    function Gettimestamp: Cardinal;
+    procedure SetNonce(const value: Cardinal);
+    procedure SetTimestamp(const value: Cardinal);
+    function GetNonce: Cardinal;
+    function GetTimestamp: Cardinal;
     procedure SetAccountKey(const value: TAccountKey);
     function GetAccountKey: TAccountKey;
     procedure Calc_Digest_Parts;
@@ -85,8 +85,8 @@ type
     //
     property BlockManager: TBlockManagerBase read FBlockManager write SetBank;
     property AccountKey: TAccountKey read GetAccountKey write SetAccountKey;
-    property nonce: Cardinal read GetnOnce write SetnOnce;
-    property timestamp: Cardinal read Gettimestamp write Settimestamp;
+    property Nonce: Cardinal read GetNonce write SetNonce;
+    property Timestamp: Cardinal read GetTimestamp write SetTimestamp;
     property BlockPayload: TRawBytes read GetBlockPayload write SetBlockPayload;
     property IsOnlyBlock: Boolean read FIsOnlyBlock;
     property AccountTransaction: TAccountTransaction read FAccountTransaction;
@@ -353,7 +353,7 @@ begin
   Result := TBlockHeader.Empty;
 end;
 
-function TBlock.GetnOnce: Cardinal;
+function TBlock.GetNonce: Cardinal;
 begin
   Result := FBlockHeader.nonce;
 end;
@@ -368,7 +368,7 @@ begin
   Result := FTransactionHashTree.GetTransaction(index);
 end;
 
-function TBlock.Gettimestamp: Cardinal;
+function TBlock.GetTimestamp: Cardinal;
 begin
   Result := FBlockHeader.timestamp;
 end;
@@ -514,8 +514,8 @@ begin
       FBlockHeader.compact_target := BlockManager.AccountStorage.GetActualCompactTargetHash
         (FBlockHeader.protocol_version = cPROTOCOL_2);
       FBlockHeader.initial_safe_box_hash := BlockManager.AccountStorage.AccountStorageHash;
-      if BlockManager.LastBlock.timestamp > FBlockHeader.timestamp then
-        FBlockHeader.timestamp := BlockManager.LastBlock.timestamp;
+      if BlockManager.LastBlock.timestamp > FBlockHeader.timestamp
+      then FBlockHeader.timestamp := BlockManager.LastBlock.timestamp;
     end
     else
     begin
@@ -685,11 +685,8 @@ begin
     if length(value) > cMaxPayloadSize then
       exit;
     // Checking Miner Payload valid chars
-    for i := 1 to length(value) do
-    begin
-      if not(value[i] in [#32 .. #254])
-      then exit;
-    end;
+    for i := 1 to length(value)
+    do if not(value[i] in [#32 .. #254]) then exit;
     FBlockHeader.block_payload := value;
     CalcProofOfWork(true, FBlockHeader.proof_of_work);
   finally
@@ -703,7 +700,7 @@ begin
   Calc_Digest_Part3;
 end;
 
-procedure TBlock.SetnOnce(const value: Cardinal);
+procedure TBlock.SetNonce(const value: Cardinal);
 begin
   Lock;
   try
@@ -719,7 +716,7 @@ begin
   FBlockHeader.proof_of_work := Value;
 end;
 
-procedure TBlock.Settimestamp(const value: Cardinal);
+procedure TBlock.SetTimestamp(const value: Cardinal);
 begin
   Lock;
   try
@@ -741,7 +738,7 @@ begin
     ts := UnivDateTimeToUnix(DateTime2UnivDateTime(now));
     if Assigned(BlockManager) and (BlockManager.LastBlock.timestamp > ts)
     then ts := BlockManager.LastBlock.timestamp;
-    timestamp := ts;
+    Timestamp := ts;
   finally
     Unlock;
   end;

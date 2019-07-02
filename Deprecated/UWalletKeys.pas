@@ -318,7 +318,6 @@ begin
         j := AddPublicKey(wk.Name, wk.AccountKey);
         P := PWalletKey(FSearchableKeys[j]);
         P^.CryptedKey := wk.CryptedKey; // Adding encrypted data
-
       end;
     end;
     GeneratePrivateKeysFromPassword;

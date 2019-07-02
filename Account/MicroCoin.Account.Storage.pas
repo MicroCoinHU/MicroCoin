@@ -65,6 +65,7 @@ type
 
     function ToString : AnsiString;
     function CalcBlockHash (AUseProtocol2Method: Boolean): TRawBytes;
+    procedure SaveToStream(AStream : TStream; AProtocol : integer);
   end;
 
   TAccountStorageHeader = record
@@ -77,6 +78,7 @@ type
   public
     class function LoadFromStream(AStream : TStream) : TAccountStorageHeader; static;
     class function Empty : TAccountStorageHeader; static;
+
   end;
 
   TAccountStorage = class
@@ -99,6 +101,7 @@ type
 
     procedure AccountKeyListAddAccounts(const AAccountKey: TAccountKey; const AAccounts: array of Cardinal);
     procedure AccountKeyListRemoveAccount(const AAccountKey: TAccountKey; const AAccounts: array of Cardinal);
+    procedure SaveEntryToStream(AStream: TStream; ANBlock: Cardinal);
   public
 
     constructor Create;
@@ -114,7 +117,6 @@ type
     function LoadFromStream(AStream: TStream; ACheckAll: Boolean; var ALastReadBlock: TAccountStorageEntry;
       var errors: AnsiString): Boolean;
     procedure SaveToStream(AStream: TStream; FromBlock, AToBlock: Cardinal);
-    procedure SaveEntryToStream(AStream: TStream; ANBlock: Cardinal);
 
     function DoUpgradeToProtocol2: Boolean;
     function CanUpgradeToProtocol2: Boolean;
@@ -182,7 +184,7 @@ const
 
 implementation
 
-uses MicroCoin.Common.Stream;
+uses MicroCoin.Common.Stream, Math;
 
 {$DEFINE uselowmem}
 
@@ -197,13 +199,10 @@ begin
 end;
 
 procedure ToTMemBlockAccount(const Source: TAccountStorageEntry; var dest: TMemBlockAccount);
-{$IFDEF uselowmem}
 var
   i: Integer;
   raw: TRawBytes;
-{$ENDIF}
 begin
-{$IFDEF uselowmem}
   Source.BlockHeader.account_key.ToRawString(raw);
   TBaseType.To256RawBytes(raw, dest.BlockChainInfo.AccountKey);
   dest.BlockChainInfo.Reward := Source.BlockHeader.reward;
@@ -223,19 +222,13 @@ begin
 
   TBaseType.To32Bytes(Source.BlockHash, dest.BlockHash);
   dest.AccumulatedWork := Source.AccumulatedWork;
-{$ELSE}
-  dest := Source;
-{$ENDIF}
 end;
 
 procedure ToTBlockAccount(const Source: TMemBlockAccount; block_number: Cardinal; var dest: TAccountStorageEntry);
-{$IFDEF uselowmem}
 var
   i: Integer;
   raw: TRawBytes;
-{$ENDIF}
 begin
-{$IFDEF uselowmem}
   dest.BlockHeader.block := block_number;
   TBaseType.ToRawBytes(Source.BlockChainInfo.AccountKey, raw);
   TAccountKey.FromRawString(raw, dest.BlockHeader.account_key);
@@ -257,9 +250,6 @@ begin
   end;
   TBaseType.ToRawBytes(Source.BlockHash, dest.BlockHash);
   dest.AccumulatedWork := Source.AccumulatedWork;
-{$ELSE}
-  dest := Source;
-{$ENDIF}
 end;
 
 function TAccountStorage.GetAccount(AAccountNumber: Cardinal): TAccount;
@@ -358,17 +348,17 @@ begin
   FLock.Acquire;
   try
     bn_sum := 0;
-    if (ABlockNumber = 0) then
-    begin
+    if (ABlockNumber = 0)
+    then begin
       Result := 1;
       exit;
     end;
-    if (ABlockNumber >= FBlockAccountsList.Count) then
-      raise Exception.Create('Invalid block number: ' + inttostr(ABlockNumber));
-    if (APreviousBlocksAverage <= 0) then
-      raise Exception.Create('Dev error 20161016-1');
-    if (APreviousBlocksAverage > ABlockNumber) then
-      APreviousBlocksAverage := ABlockNumber;
+    if (ABlockNumber >= FBlockAccountsList.Count)
+    then raise Exception.Create('Invalid block number: ' + inttostr(ABlockNumber));
+    if (APreviousBlocksAverage <= 0)
+    then raise Exception.Create('Dev error 20161016-1');
+    if (APreviousBlocksAverage > ABlockNumber)
+    then APreviousBlocksAverage := ABlockNumber;
     //
     c := (ABlockNumber - APreviousBlocksAverage) + 1;
     t_sum := 0;
@@ -383,10 +373,8 @@ begin
     bn_sum.Divide(APreviousBlocksAverage); // Obtain target average
     t_sum := t_sum / APreviousBlocksAverage; // time average
     t := Round(t_sum);
-    if (t <> 0) then
-    begin
-      bn_sum.Divide(t);
-    end;
+    if (t <> 0)
+    then bn_sum.Divide(t);
     Result := bn_sum.Divide(1024); // Value in Kh/s
   finally
     FLock.Release;
@@ -395,11 +383,9 @@ end;
 
 function TAccountStorage.CalculateHash: TRawBytes;
 begin
-  if (FBufferBlocksHash = '') then
-    Result := TCrypto.DoSha256(cGenesisBlockMagic)
-  else begin
-    Result := TCrypto.DoSha256(FBufferBlocksHash);
-  end;
+  if (FBufferBlocksHash = '')
+  then Result := TCrypto.DoSha256(cGenesisBlockMagic)
+  else Result := TCrypto.DoSha256(FBufferBlocksHash);
 end;
 
 function TAccountStorage.CanUpgradeToProtocol2: Boolean;
@@ -440,7 +426,7 @@ end;
 
 procedure TAccountStorage.Clear;
 var
-  i: Integer;
+  i,j: Integer;
   P: PBlockAccount;
 begin
   StartThreadSafe;
@@ -448,21 +434,16 @@ begin
     for i := 0 to FBlockAccountsList.Count - 1 do
     begin
       P := FBlockAccountsList.Items[i];
-      TMemBlockAccount(p^).Accounts[0] := Default(TMemAccount);
-      TMemBlockAccount(p^).Accounts[1] := Default(TMemAccount);
-      TMemBlockAccount(p^).Accounts[2] := Default(TMemAccount);
-      TMemBlockAccount(p^).Accounts[3] := Default(TMemAccount);
-      TMemBlockAccount(p^).Accounts[4] := Default(TMemAccount);
+      for j := Low(TMemBlockAccount(p^).Accounts) to High(TMemBlockAccount(p^).Accounts)
+      do TMemBlockAccount(p^).Accounts[j] := Default(TMemAccount);
       TMemBlockAccount(P^).BlockChainInfo := Default(TMemTransactionBlock);
       TMemBlockAccount(P^) := Default(TMemBlockAccount);
       Dispose(P);
     end;
     FOrderedByName.Clear;
     FBlockAccountsList.Clear;
-    for i := 0 to FListOfOrderedAccountKeysList.Count - 1 do
-    begin
-      TOrderedAccountKeysList(FListOfOrderedAccountKeysList[i]).ClearAccounts(false);
-    end;
+    for i := 0 to FListOfOrderedAccountKeysList.Count - 1
+    do TOrderedAccountKeysList(FListOfOrderedAccountKeysList[i]).ClearAccounts(false);
     FBufferBlocksHash := '';
     FTotalBalance := 0;
     FTotalFee := 0;
@@ -498,8 +479,8 @@ begin
           FBlockAccountsList.Add(P);
           for j := low(BA.Accounts) to high(BA.Accounts) do
           begin
-            if (BA.Accounts[j].Name <> '') then
-              FOrderedByName.Add(BA.Accounts[j].Name, BA.Accounts[j].AccountNumber);
+            if (BA.Accounts[j].Name <> '')
+            then FOrderedByName.Add(BA.Accounts[j].Name, BA.Accounts[j].AccountNumber);
             AccountKeyListAddAccounts(BA.Accounts[j].AccountInfo.AccountKey, [BA.Accounts[j].AccountNumber]);
           end;
         end;
@@ -549,8 +530,7 @@ var
 begin
   // Upgrade process to protocol 2
   Result := false;
-  if not CanUpgradeToProtocol2 then
-    exit;
+  if not CanUpgradeToProtocol2 then exit;
   // Recalc all BlockAccounts block_hash value
   aux := CalculateHash;
   TLog.NewLog(ltInfo, Classname, 'Start Upgrade to protocol 2 - Old Hash:' + TBaseType.ToHexaString(FAccountStorageHash) +
@@ -558,15 +538,10 @@ begin
   FBufferBlocksHash := '';
   for block_number := 0 to BlocksCount - 1 do
   begin
-{$IFDEF uselowmem}
     TBaseType.To32Bytes(blocks[block_number].CalcBlockHash(true), PBlockAccount(FBlockAccountsList.Items[block_number])
       ^.BlockHash);
     FBufferBlocksHash := FBufferBlocksHash + TBaseType.ToRawBytes(PBlockAccount(FBlockAccountsList.Items[block_number])
       ^.BlockHash);
-{$ELSE}
-    PBlockAccount(FBlockAccountsList.Items[block_number])^.block_hash := CalcBlockHash(block(block_number), true);
-    FBufferBlocksHash := FBufferBlocksHash + PBlockAccount(FBlockAccountsList.Items[block_number])^.block_hash;
-{$ENDIF}
   end;
   FAccountStorageHash := CalculateHash;
   FCurrentProtocol := cPROTOCOL_2;
@@ -632,7 +607,6 @@ begin
       for iblock := 0 to sbHeader.BlocksCount - 1 do
       begin
         errors := 'Corrupted stream reading block blockchain ' + inttostr(iblock + 1) + '/' + inttostr(sbHeader.BlocksCount);
-
         if (ACheckAll) then
         begin
           if (offsets[iblock] <> AStream.Position - posOffsetZone) then
@@ -685,10 +659,13 @@ begin
         end;
 
         errors := 'Corrupted stream reading block ' + inttostr(iblock + 1) + '/' + inttostr(sbHeader.BlocksCount);
+
         if AStream.ReadAnsiString(block.BlockHash) < 0
         then exit;
+
         if AStream.Read(block.AccumulatedWork, Sizeof(block.AccumulatedWork)) < Sizeof(block.AccumulatedWork)
         then exit;
+
         if ACheckAll
         then begin
           // Check is valid:
@@ -780,63 +757,7 @@ begin
     EndThreadSave;
   end;
 end;
-{
-class function TAccountStorage.LoadHeaderFromStream(AStream: TStream; var AAccountStorageHeader: TAccountStorageHeader): Boolean;
-// This function reads SafeBox stream info and sets position at offset start zone if valid, otherwise sets position to actual position
-var
-  w: Word;
-  s: AnsiString;
-  AccountStorageVersion: Word;
-  offsetPos, initialPos: Int64;
-  endBlocks: Cardinal;
-begin
-  Result := false;
-  if (AStream.Size = 0) then
-  begin
-    Result := true;
-    exit;
-  end;
-  AAccountStorageHeader := CT_AccountStorageHeader_NUL;
-  initialPos := AStream.Position;
-  try
-    TStreamOp.ReadAnsiString(AStream, s);
-    if (s <> cMagicID) then
-      exit;
-    if AStream.Size < 8 then
-      exit;
-    AStream.Read(w, Sizeof(w));
-    if not(w in [1, 2]) then
-      exit;
-    AAccountStorageHeader.Protocol := w;
-    AStream.Read(AccountStorageVersion, 2);
-    if AccountStorageVersion <> cAccountStorageVersion then
-      exit;
-    AStream.Read(AAccountStorageHeader.BlocksCount, 4);
-    AStream.Read(AAccountStorageHeader.StartBlock, 4);
-    AStream.Read(AAccountStorageHeader.EndBlock, 4);
-    if (AAccountStorageHeader.BlocksCount <= 0) or (AAccountStorageHeader.BlocksCount > (cBlockTime * 2000000)) then
-      exit; // Protection for corrupted data...
-    offsetPos := AStream.Position;
-    // Go to read SafeBoxHash
-    if (AStream.Size < offsetPos + (((AAccountStorageHeader.EndBlock - AAccountStorageHeader.StartBlock) + 2) * 4)) then
-      exit;
-    AStream.Position := offsetPos + (((AAccountStorageHeader.EndBlock - AAccountStorageHeader.StartBlock) + 1) * 4);
-    AStream.Read(endBlocks, 4);
-    // Go to end
-    if (AStream.Size < offsetPos + (endBlocks)) then
-      exit;
-    AStream.Position := offsetPos + endBlocks;
-    if TStreamOp.ReadAnsiString(AStream, AAccountStorageHeader.AccountStorageHash) < 0 then
-      exit;
-    // Back
-    AStream.Position := offsetPos;
-    Result := true;
-  finally
-    if not Result then
-      AStream.Position := initialPos;
-  end;
-end;
-}
+
 class function TAccountStorage.SaveHeaderToStream(AStream: TStream; AProtocol: Word;
   AOffsetStartBlock, AOffsetEndBlock, ACurrentBlocksCount: Cardinal): Boolean;
 var
@@ -861,29 +782,8 @@ begin
 end;
 
 procedure TAccountStorage.SaveEntryToStream(AStream: TStream; ANBlock: Cardinal);
-var
-  b: TAccountStorageEntry;
-  iacc: Integer;
-  ws: UInt64;
 begin
-  b := Blocks[ANBlock];
-  b.BlockHeader.SaveToStream(AStream);
-  for iacc := low(b.Accounts) to high(b.Accounts) do
-  begin
-    AStream.Write(b.Accounts[iacc].AccountNumber, Sizeof(b.Accounts[iacc].AccountNumber));
-    AStream.WriteAnsiString(b.Accounts[iacc].AccountInfo.ToRawString);
-    AStream.Write(b.Accounts[iacc].Balance, Sizeof(b.Accounts[iacc].Balance));
-    AStream.Write(b.Accounts[iacc].UpdatedBlock, Sizeof(b.Accounts[iacc].UpdatedBlock));
-    AStream.Write(b.Accounts[iacc].NumberOfTransactions, Sizeof(b.Accounts[iacc].NumberOfTransactions));
-    if FCurrentProtocol >= cPROTOCOL_2 then
-    begin
-      AStream.WriteAnsiString(b.Accounts[iacc].Name);
-      AStream.Write(b.Accounts[iacc].AccountType, Sizeof(b.Accounts[iacc].AccountType));
-    end;
-    AStream.Write(b.Accounts[iacc].PreviusUpdatedBlock, Sizeof(b.Accounts[iacc].PreviusUpdatedBlock));
-  end;
-  AStream.WriteAnsiString(b.BlockHash);
-  AStream.Write(b.AccumulatedWork, Sizeof(b.AccumulatedWork));
+  Blocks[ANBlock].SaveToStream(AStream, FCurrentProtocol);
 end;
 
 procedure TAccountStorage.SaveToStream(AStream: TStream; FromBlock, AToBlock: Cardinal);
@@ -918,10 +818,8 @@ begin
     // Save offsets zone with valid values
     posFinal := AStream.Position;
     AStream.Position := posOffsetZone;
-    for iblock := FromBlock to AToBlock + 1 do
-    begin
-      AStream.Write(offsets[iblock], Sizeof(offsets[iblock]));
-    end;
+    for iblock := FromBlock to AToBlock + 1
+    do AStream.Write(offsets[iblock], Sizeof(offsets[iblock]));
     AStream.Position := posFinal;
     // Final zone: Save safeboxhash for next block
     if (AToBlock + 1 < BlocksCount) then
@@ -929,10 +827,7 @@ begin
       b := Blocks[AToBlock];
       AStream.WriteAnsiString(b.BlockHeader.initial_safe_box_hash);
     end
-    else
-    begin
-      AStream.WriteAnsiString(FAccountStorageHash);
-    end;
+    else AStream.WriteAnsiString(FAccountStorageHash);
   finally
     EndThreadSave;
   end;
@@ -1023,20 +918,17 @@ begin
 end;
 
 class function TAccountStorage.ConcatStream(ASource1, ASource2, ADestionation: TStream; var RErrors: AnsiString): Boolean;
-  function MinCardinal(v1, v2: Cardinal): Cardinal;
+
+  function MinCardinal(v1, v2: Cardinal): Cardinal; inline;
   begin
-    if v1 < v2 then
-      Result := v1
-    else
-      Result := v2;
+    if v1 < v2 then Result := v1 else Result := v2;
   end;
-  function MaxCardinal(v1, v2: Cardinal): Cardinal;
+
+  function MaxCardinal(v1, v2: Cardinal): Cardinal; inline;
   begin
-    if v1 > v2 then
-      Result := v1
-    else
-      Result := v2;
+    if v1 > v2 then Result := v1 else Result := v2;
   end;
+
   function ReadAccountStorageEntryFromStream(stream: TStream; offsetIndex: Cardinal; destStream: TStream): Cardinal;
   // PRE: safeBoxStream is a valid SafeBox Stream (with enough size) located at Offsets zone, and offsetIndex is >=0 and <= end block
   // Returns the size of the saved block at destStream
@@ -1050,14 +942,11 @@ class function TAccountStorage.ConcatStream(ASource1, ASource2, ADestionation: T
       stream.Seek(4 * offsetIndex, soCurrent);
       stream.Read(c, 4);
       stream.Read(cNext, 4);
-      if cNext < c then
-        exit;
+      if cNext < c then exit;
       Result := cNext - c; // Result is the offset difference between blocks
-      if Result <= 0 then
-        exit;
+      if Result <= 0 then exit;
       auxPos := offsetPos + c;
-      if stream.Size < auxPos + Result then
-        exit; // Invalid
+      if stream.Size < auxPos + Result then exit; // Invalid
       stream.Position := auxPos;
       destStream.CopyFrom(stream, Result);
     finally
@@ -1139,8 +1028,7 @@ begin
     // Save offsets
     destOffsetPos := ADestionation.Position;
     SetLength(destOffsets, ((destEndBlock - destStartBlock) + 2));
-    for i := low(destOffsets) to high(destOffsets) do
-      destOffsets[i] := 0;
+    for i := low(destOffsets) to high(destOffsets) do destOffsets[i] := 0;
     ADestionation.Write(destOffsets[0], ((destEndBlock - destStartBlock) + 2) * 4);
     ADestionation.Position := destOffsetPos;
     //
@@ -1251,10 +1139,8 @@ begin
     exit;
   end;
   // Check Account key
-  if not ANewOperationBlock.account_key.IsValidAccountKey(RErrors) then
-  begin
-    exit;
-  end;
+  if not ANewOperationBlock.account_key.IsValidAccountKey(RErrors)
+  then exit;
   // reward
   if (ANewOperationBlock.reward <> TMicroCoinProtocol.GetRewardForNewLine(ANewOperationBlock.block)) then
   begin
@@ -1363,7 +1249,6 @@ begin
   TMicroCoinProtocol.CalcProofOfWork(ANewOperationBlock, PoW);
   if (PoW <> ANewOperationBlock.proof_of_work) then
   begin
-//  ANewOperationBlock := Pow;
     RErrors := 'Proof of work is bad calculated ' + TBaseType.ToHexaString(ANewOperationBlock.proof_of_work) + ' <> Good: '
       + TBaseType.ToHexaString(PoW);
     exit;
@@ -1395,10 +1280,9 @@ begin
   end
   else
   begin
-    if BlocksCount > cDifficultyCalcBlocks then
-      CalcBack := cDifficultyCalcBlocks
-    else
-      CalcBack := BlocksCount - 1;
+    if BlocksCount > cDifficultyCalcBlocks
+    then CalcBack := cDifficultyCalcBlocks
+    else CalcBack := BlocksCount - 1;
     lastBlock := Blocks[BlocksCount - 1].BlockHeader;
     // Calc new target!
     ts1 := lastBlock.timestamp;
@@ -1413,8 +1297,7 @@ begin
     else
     begin
       CalcBack := CalcBack div cDifficultyCalcBlocks_SPLIT;
-      if CalcBack = 0 then
-        CalcBack := 1;
+      if CalcBack = 0 then CalcBack := 1;
       ts2 := Blocks[BlocksCount - CalcBack - 1].BlockHeader.timestamp;
       tsTeoricalStop := (CalcBack * cBlockTime);
       tsRealStop := (ts1 - ts2);
@@ -1423,16 +1306,9 @@ begin
         current Target.
         This will prevent sinusoidal movement and provide more stable hashrate, computing always time from CT_CalcNewTargetBlocksAverage }
       if ((tsTeorical > tsReal) and (tsTeoricalStop > tsRealStop)) or
-        ((tsTeorical < tsReal) and (tsTeoricalStop < tsRealStop)) then
-      begin
-        Result := TMicroCoinProtocol.GetNewTarget(tsTeorical, tsReal,
-          TMicroCoinProtocol.TargetFromCompact(lastBlock.compact_target));
-      end
-      else
-      begin
-        // Nothing to do!
-        Result := TMicroCoinProtocol.TargetFromCompact(lastBlock.compact_target);
-      end;
+        ((tsTeorical < tsReal) and (tsTeoricalStop < tsRealStop))
+      then Result := TMicroCoinProtocol.GetNewTarget(tsTeorical, tsReal, TMicroCoinProtocol.TargetFromCompact(lastBlock.compact_target))
+      else Result := TMicroCoinProtocol.TargetFromCompact(lastBlock.compact_target);
     end;
   end;
 end;
@@ -1449,10 +1325,8 @@ var
 begin
   nameLower := LowerCase(AName);
   i := FOrderedByName.IndexOf(AName);
-  if i >= 0 then
-    Result := FOrderedByName.GetTag(i)
-  else
-    Result := -1;
+  if i >= 0 then Result := FOrderedByName.GetTag(i)
+  else Result := -1;
 end;
 
 procedure TAccountStorage.UpdateAccount(AAccountNumber: Cardinal; const ANewAccountInfo: TAccountInfo;
@@ -1483,27 +1357,23 @@ begin
     if acc.Name <> '' then
     begin
       i := FOrderedByName.IndexOf(acc.Name);
-      if i < 0 then
-        TLog.NewLog(ltError, Classname, 'ERROR DEV 20170606-1')
-      else
-        FOrderedByName.Delete(i);
+      if i < 0 then TLog.NewLog(ltError, Classname, 'ERROR DEV 20170606-1')
+      else FOrderedByName.Delete(i);
     end;
     acc.Name := ANewName;
     if acc.Name <> '' then
     begin
       i := FOrderedByName.IndexOf(acc.Name);
-      if i >= 0 then
-        TLog.NewLog(ltError, Classname, 'ERROR DEV 20170606-2')
-      else
-        FOrderedByName.Add(acc.Name, AAccountNumber);
+      if i >= 0 then TLog.NewLog(ltError, Classname, 'ERROR DEV 20170606-2')
+      else FOrderedByName.Add(acc.Name, AAccountNumber);
     end;
   end;
   acc.AccountType := ANewType;
   lastbalance := acc.Balance;
   acc.Balance := ANewBalance;
   // Will update previous_updated_block only on first time/block
-  if acc.UpdatedBlock <> BlocksCount then
-  begin
+  if acc.UpdatedBlock <> BlocksCount
+  then begin
     acc.PreviusUpdatedBlock := acc.UpdatedBlock;
     acc.UpdatedBlock := BlocksCount;
   end;
@@ -1511,11 +1381,7 @@ begin
   ToTMemAccount(acc, P^.Accounts[iAccount]);
   bacc := Blocks[iblock];
 
-{$IFDEF uselowmem}
   TBaseType.To32Bytes(bacc.CalcBlockHash(FCurrentProtocol >= cPROTOCOL_2), P^.BlockHash);
-{$ELSE}
-  P^.block_hash := CalcBlockHash(bacc, FCurrentProtocol >= CT_PROTOCOL_2);
-{$ENDIF}
   // Update buffer block hash
   j := (length(P^.BlockHash) * (iblock));
   for i := 1 to length(P^.BlockHash) do
@@ -1567,19 +1433,14 @@ begin
       for i := 0 to FAccountStorage.AccountsCount - 1 do
       begin
         if FAccountStorage.Accounts[i].AccountInfo.AccountKey = AAccountKey then
-        begin
           // Note: P^.accounts will be ascending ordered due to "for i:=0 to ..."
           P^.AccountNumbers.Add(i);
-        end;
       end;
       LogDebug(Classname, 'Adding account key (%d of %d) %s', [j, FAccountStorage.AccountsCount,
         TBaseType.ToHexaString(AAccountKey.ToRawString)]);
     end
     else
-    begin
-      LogDebug(Classname, Format('Adding account key (no Account List) %s',
-        [TBaseType.ToHexaString(AAccountKey.ToRawString)]));
-    end;
+      LogDebug(Classname, Format('Adding account key (no Account List) %s', [TBaseType.ToHexaString(AAccountKey.ToRawString)]));
   end;
 end;
 
@@ -1621,16 +1482,10 @@ begin
       P^:=Default(TOrderedAccountKeyList);
       Dispose(P);
       P := nil;
-    end
-    else
-    begin
-      P^.AccountNumbers.Clear;
-    end;
+    end else P^.AccountNumbers.Clear;
   end;
-  if ARemoveAccountList then
-  begin
-    FOrderedAccountKeysList.Clear;
-  end;
+  if ARemoveAccountList
+  then FOrderedAccountKeysList.Clear;
 end;
 
 function TOrderedAccountKeysList.Count: Integer;
@@ -1649,12 +1504,10 @@ begin
   if Assigned(AAccountStorage) then
   begin
     AAccountStorage.ListOfOrderedAccountKeysList.Add(Self);
-    if AAutoAddAll then
-    begin
-      for i := 0 to AAccountStorage.AccountsCount - 1 do
-      begin
-        AddAccountKey(AAccountStorage.Accounts[i].AccountInfo.AccountKey);
-      end;
+    if AAutoAddAll
+    then begin
+      for i := 0 to AAccountStorage.AccountsCount - 1
+      do AddAccountKey(AAccountStorage.Accounts[i].AccountInfo.AccountKey);
     end;
   end;
 end;
@@ -1712,8 +1565,7 @@ end;
 
 function TOrderedAccountKeysList.IndexOfAccountKey(const AAccountKey: TAccountKey): Integer;
 begin
-  if not Find(AAccountKey, Result) then
-    Result := -1;
+  if not Find(AAccountKey, Result) then Result := -1;
 end;
 
 procedure TOrderedAccountKeysList.RemoveAccounts(const AAccountKey: TAccountKey; const AAccounts: array of Cardinal);
@@ -1721,13 +1573,10 @@ var
   P: POrderedAccountKeyList;
   i, j: Integer;
 begin
-  if not Find(AAccountKey, i) then
-    exit; // Nothing to do
+  if not Find(AAccountKey, i) then exit; // Nothing to do
   P := POrderedAccountKeyList(FOrderedAccountKeysList[i]);
-  for j := low(AAccounts) to high(AAccounts) do
-  begin
-    P^.AccountNumbers.Remove(AAccounts[j]);
-  end;
+  for j := low(AAccounts) to high(AAccounts)
+  do P^.AccountNumbers.Remove(AAccounts[j]);
   if (P^.AccountNumbers.Count = 0) and (FAutoAddAll) then
   begin
     // Remove from list
@@ -1744,8 +1593,7 @@ var
   P: POrderedAccountKeyList;
   i: Integer;
 begin
-  if not Find(AAccountKey, i) then
-    exit; // Nothing to do
+  if not Find(AAccountKey, i) then exit; // Nothing to do
   P := POrderedAccountKeyList(FOrderedAccountKeysList[i]);
   // Remove from list
   FOrderedAccountKeysList.Delete(i);
@@ -1768,22 +1616,21 @@ var
   i: Integer;
 begin
   ms := TMemoryStream.Create;
-//  ms.SetSize(2048);
   try
     if (not AUseProtocol2Method) then
     begin
       // PROTOCOL 1 BlockHash calculation
-      ms.Write(BlockHeader.block, 4); // Little endian
+      ms.Write(BlockHeader.block, SizeOf(BlockHeader.block)); // Little endian
       for i := low(Accounts) to high(Accounts) do
       begin
-        ms.Write(Accounts[i].AccountNumber, 4); // Little endian
+        ms.Write(Accounts[i].AccountNumber, SizeOf(Accounts[i].AccountNumber)); // Little endian
         raw := Accounts[i].AccountInfo.ToRawString;
         ms.WriteBuffer(raw[1], length(raw)); // Raw bytes
         ms.Write(Accounts[i].Balance, Sizeof(UInt64)); // Little endian
-        ms.Write(Accounts[i].UpdatedBlock, 4); // Little endian
-        ms.Write(Accounts[i].NumberOfTransactions, 4); // Little endian
+        ms.Write(Accounts[i].UpdatedBlock, SizeOf(Accounts[i].UpdatedBlock)); // Little endian
+        ms.Write(Accounts[i].NumberOfTransactions, SizeOf(Accounts[i].NumberOfTransactions)); // Little endian
       end;
-      ms.Write(BlockHeader.timestamp, 4); // Little endian
+      ms.Write(BlockHeader.timestamp, SizeOf(BlockHeader.timestamp)); // Little endian
     end
     else
     begin
@@ -1792,18 +1639,17 @@ begin
       BlockHeader.SaveToStream(ms);
       for i := low(Accounts) to high(Accounts) do
       begin
-        ms.Write(Accounts[i].AccountNumber, 4); // Little endian
+        ms.Write(Accounts[i].AccountNumber, SizeOf(Accounts[i].AccountNumber)); // Little endian
         raw := Accounts[i].AccountInfo.ToRawString;
         ms.WriteBuffer(raw[1], length(raw)); // Raw bytes
-        ms.Write(Accounts[i].Balance, Sizeof(UInt64)); // Little endian
-        ms.Write(Accounts[i].UpdatedBlock, 4); // Little endian
-        ms.Write(Accounts[i].NumberOfTransactions, 4); // Little endian
-        // Use new Protocol 2 fields
+        ms.Write(Accounts[i].Balance, Sizeof(Accounts[i].Balance)); // Little endian
+        ms.Write(Accounts[i].UpdatedBlock, SizeOf(Accounts[i].UpdatedBlock)); // Little endian
+        ms.Write(Accounts[i].NumberOfTransactions, SizeOf(Accounts[i].NumberOfTransactions)); // Little endian
         if length(Accounts[i].Name) > 0 then
         begin
           ms.WriteBuffer(Accounts[i].Name[1], length(Accounts[i].Name));
         end;
-        ms.Write(Accounts[i].AccountType, 2);
+        ms.Write(Accounts[i].AccountType, SizeOf(Accounts[i].AccountType));
       end;
       ms.Write(AccumulatedWork, Sizeof(AccumulatedWork));
     end;
@@ -1820,8 +1666,30 @@ begin
   Result.BlockHeader := TBlockHeader.Empty;
   Result.BlockHash := '';
   Result.AccumulatedWork := 0;
-  for i := Low(Result.Accounts) to High(Result.Accounts) do
-    Result.Accounts[i] := TAccount.Empty;
+  for i := Low(Result.Accounts) to High(Result.Accounts) do Result.Accounts[i] := TAccount.Empty;
+end;
+
+procedure TAccountStorageEntry.SaveToStream(AStream: TStream; AProtocol : integer);
+var
+ iacc: integer;
+begin
+  BlockHeader.SaveToStream(AStream);
+  for iacc := low(Accounts) to high(Accounts) do
+  begin
+    AStream.Write(Accounts[iacc].AccountNumber, Sizeof(Accounts[iacc].AccountNumber));
+    AStream.WriteAnsiString(Accounts[iacc].AccountInfo.ToRawString);
+    AStream.Write(Accounts[iacc].Balance, Sizeof(Accounts[iacc].Balance));
+    AStream.Write(Accounts[iacc].UpdatedBlock, Sizeof(Accounts[iacc].UpdatedBlock));
+    AStream.Write(Accounts[iacc].NumberOfTransactions, Sizeof(Accounts[iacc].NumberOfTransactions));
+    if AProtocol >= cPROTOCOL_2 then
+    begin
+      AStream.WriteAnsiString(Accounts[iacc].Name);
+      AStream.Write(Accounts[iacc].AccountType, Sizeof(Accounts[iacc].AccountType));
+    end;
+    AStream.Write(Accounts[iacc].PreviusUpdatedBlock, Sizeof(Accounts[iacc].PreviusUpdatedBlock));
+  end;
+  AStream.WriteAnsiString(BlockHash);
+  AStream.Write(AccumulatedWork, Sizeof(AccumulatedWork));
 end;
 
 function TAccountStorageEntry.ToString: AnsiString;
@@ -1861,11 +1729,11 @@ begin
     AStream.Read(w, Sizeof(w));
     if not(w in [1, 2]) then exit;
     Result.Protocol := w;
-    AStream.Read(AccountStorageVersion, 2);
+    AStream.Read(AccountStorageVersion, SizeOf(AccountStorageVersion));
     if AccountStorageVersion <> cAccountStorageVersion then exit;
-    AStream.Read(Result.BlocksCount, 4);
-    AStream.Read(Result.StartBlock, 4);
-    AStream.Read(Result.EndBlock, 4);
+    AStream.Read(Result.BlocksCount, SizeOf(Result.BlocksCount));
+    AStream.Read(Result.StartBlock, SizeOf(Result.StartBlock));
+    AStream.Read(Result.EndBlock, SizeOf(Result.EndBlock));
     if (Result.BlocksCount <= 0) or (Result.BlocksCount > (cBlockTime * 2000000))
     then exit; // Protection for corrupted data...
     offsetPos := AStream.Position;
@@ -1873,7 +1741,7 @@ begin
     if (AStream.Size < offsetPos + (((Result.EndBlock - Result.StartBlock) + 2) * 4))
     then exit;
     AStream.Position := offsetPos + (((Result.EndBlock - Result.StartBlock) + 1) * 4);
-    AStream.Read(endBlocks, 4);
+    AStream.Read(endBlocks, SizeOf(endBlocks));
     // Go to end
     if (AStream.Size < offsetPos + (endBlocks))
     then exit;
@@ -1884,7 +1752,8 @@ begin
     AStream.Position := offsetPos;
     xResult := true;
   finally
-    if not xResult then begin
+    if not xResult
+    then begin
       AStream.Position := initialPos;
       raise Exception.Create('Invalid Account storage header stream');
     end;

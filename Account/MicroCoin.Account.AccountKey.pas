@@ -89,7 +89,7 @@ begin
     cNID_secp521r1:
         Result := 'secp521r1';
     else
-      Result := '(Unknown ID:' + inttostr(EC_OpenSSL_NID) + ')';
+      Result := '(Unknown ID: ' + inttostr(EC_OpenSSL_NID) + ')';
   end;
 end;
 
@@ -233,10 +233,9 @@ begin
   while (not BN.IsZero) do
   begin
     BN.Divide(BNDiv, BNMod);
-    if (BNMod >= 0) and (BNMod < length(CT_Base58)) then
-      Result := CT_Base58[Byte(BNMod.value) + 1] + Result
-    else
-      raise Exception.Create('Error converting to Base 58');
+    if (BNMod >= 0) and (BNMod < length(CT_Base58))
+    then Result := CT_Base58[Byte(BNMod.value) + 1] + Result
+    else raise Exception.Create('Error converting to Base 58');
   end;
 end;
 
