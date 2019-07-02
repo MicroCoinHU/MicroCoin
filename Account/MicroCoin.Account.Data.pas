@@ -317,7 +317,6 @@ class function TAccount.ParseAccountNumber(const AStringValue: AnsiString;
 var
   i: Integer;
   an, rn, anaux: Int64;
-  temp : AnsiString;
 begin
   Result := false;
 
@@ -385,8 +384,6 @@ class function TAccount.LoadFromStream(AStream: TStream;
   var RAccount: TAccount; ACurrentProtocol: shortint): boolean;
 var
   s: AnsiString;
-  b: byte;
-  i: integer;
 begin
   Result := false;
 

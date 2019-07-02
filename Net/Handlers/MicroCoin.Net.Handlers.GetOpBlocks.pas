@@ -64,7 +64,7 @@ begin
 
   xMessage := TNetMessage_GetBlocks.LoadFromStream(AData);
 
-  if (xMessage.StartBlock < 0) or (xMessage.StartBlock > xMessage.EndBlock) or
+  if (xMessage.StartBlock > xMessage.EndBlock) or
     (xMessage.StartBlock >= TNode.Node.BlockManager.BlocksCount) then
     raise Exception.CreateFmt('Invalid start (%d) or end (%d). Count: %d', [xMessage.StartBlock, xMessage.EndBlock,
       TNode.Node.BlockManager.BlocksCount]);

@@ -106,8 +106,8 @@ begin
     RErrors := 'Invalid integrity in accounts transaction';
     exit;
   end;
-  if (ABuyer < 0) or (ABuyer >= (FFreezedAccounts.BlocksCount * cAccountsPerBlock)) or (AAccountToBuy < 0) or
-    (AAccountToBuy >= (FFreezedAccounts.BlocksCount * cAccountsPerBlock)) or (ASeller < 0) or
+  if (ABuyer >= (FFreezedAccounts.BlocksCount * cAccountsPerBlock)) or
+    (AAccountToBuy >= (FFreezedAccounts.BlocksCount * cAccountsPerBlock)) or
     (ASeller >= (FFreezedAccounts.BlocksCount * cAccountsPerBlock)) then
   begin
     RErrors := 'Invalid account number on buy';
@@ -324,7 +324,6 @@ end;
 function TAccountTransaction.GetInternalAccount(AAccountNumber: Cardinal): PAccount;
 var
   i: Integer;
-  P: PAccount;
 begin
   if FOrderedList.Find(AAccountNumber, i)
   then begin
@@ -362,7 +361,7 @@ begin
     RErrors := 'Invalid integrity in accounts transaction';
     exit;
   end;
-  if (ASender < 0) or (ASender >= (FFreezedAccounts.BlocksCount * cAccountsPerBlock)) or (ATarget < 0) or
+  if (ASender >= (FFreezedAccounts.BlocksCount * cAccountsPerBlock)) or
     (ATarget >= (FFreezedAccounts.BlocksCount * cAccountsPerBlock)) then
   begin
     RErrors := 'Invalid sender or target on transfer';
@@ -434,8 +433,8 @@ var
 begin
   Result := false;
   RErrors := '';
-  if (ASignerAccount < 0) or (ASignerAccount >= (FFreezedAccounts.BlocksCount * cAccountsPerBlock)) or
-    (ATargetAccount < 0) or (ATargetAccount >= (FFreezedAccounts.BlocksCount * cAccountsPerBlock)) then
+  if (ASignerAccount >= (FFreezedAccounts.BlocksCount * cAccountsPerBlock)) or
+    (ATargetAccount >= (FFreezedAccounts.BlocksCount * cAccountsPerBlock)) then
   begin
     RErrors := 'Invalid account';
     exit;

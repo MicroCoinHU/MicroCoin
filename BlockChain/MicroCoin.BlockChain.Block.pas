@@ -17,7 +17,7 @@ interface
 
 uses SysUtils, Classes, UTime, MicroCoin.Account.Transaction, MicroCoin.Transaction.HashTree,
   MicroCoin.BlockChain.BlockHeader, MicroCoin.Common.Config, UCrypto, MicroCoin.Account.AccountKey, Ulog,
-  MicroCoin.Transaction.ITransaction, UBaseTypes, SyncObjs,
+  MicroCoin.Transaction.ITransaction, UBaseTypes, SyncObjs, MicroCoin.Crypto.Keys,
   MicroCoin.BlockChain.Protocol, MicroCoin.BlockChain.Base, MicroCoin.Transaction.Base, UThread;
 
 type
@@ -746,7 +746,6 @@ end;
 
 function TBlock.ValidateBlock(var errors: AnsiString): Boolean;
 var
-  lastpow: AnsiString;
   i: Integer;
   xPow: AnsiString;
 begin

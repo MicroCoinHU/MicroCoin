@@ -335,15 +335,12 @@ function TNode.AddOperations(SenderConnection: TNetConnection; Operations: TTran
 
 var
   i, j: Integer;
-  xBlock: TBlock;
   xValidTransactions: TTransactionHashTree;
   xNetConnection: TNetConnection;
   xError: AnsiString;
-  xList: TList;
   s: string;
   xTransactionData: TTransactionData;
   xTransaction: ITransaction;
-  xAccount: TAccount;
 begin
   Result := -1;
   if Assigned(OperationsResult) then
@@ -587,7 +584,6 @@ class procedure TNode.DecodeIpStringToNodeServerAddressArray(const Ips: AnsiStri
   end;
 
 var
-  i, j: Integer;
   ips_string: AnsiString;
   nsa: TNodeServer;
 begin
@@ -771,7 +767,7 @@ end;
 class function TNode.Node: TNode;
 begin
   if not Assigned(CriticalSection)
-  then exit;
+  then exit(nil);
   CriticalSection.Acquire;
   if not Assigned(_Node) then
     _Node := TNode.Create(nil);

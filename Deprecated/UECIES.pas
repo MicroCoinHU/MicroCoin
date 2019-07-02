@@ -196,7 +196,7 @@ end;
 function ecies_key_derivation_512(const _in: Pointer; _inlen: TC_SIZE_T; _out: Pointer; var _outlen: TC_SIZE_T): pointer; cdecl;
 begin
   if ( _outlen < SHA512_DIGEST_LENGTH) then begin
-     Result := Nil;
+     Result := nil;
   end;
   _outlen := SHA512_DIGEST_LENGTH;
   Result := SHA512(_in,_inlen,_out);

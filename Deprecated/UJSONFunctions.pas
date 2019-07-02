@@ -23,7 +23,7 @@ uses
 {$IFDEF FPC}
     fpjson, jsonparser,
 {$ELSE}
-  System.Json,
+  System.Json, System.Generics.Collections,
 {$ENDIF}
   SysUtils, DateUtils, Variants, Classes, ULog;
 
@@ -230,15 +230,15 @@ begin
               else raise EPCParametresError.Create('Invalid TJSON Data: ' + JSONArray.Items[i].ClassName);
   end;
 {$ELSE}
-  for i := 0 to JSONArray.Size - 1
+  for i := 0 to JSONArray.Count - 1
   do begin
-    if (JSONArray.Get(i) is TJSONArray)
-    then Insert(i, TPCJSONArray.CreateFromJSONArray(TJSONArray(JSONArray.Get(i))))
-    else if (JSONArray.Get(i) is TJSONObject)
-        then Insert(i, TPCJSONObject.CreateFromJSONObject(TJSONObject(JSONArray.Get(i))))
-        else if (JSONArray.Get(i) is TJSONValue)
-             then Insert(i, TPCJSONVariantValue.CreateFromJSONValue(TJSONValue(JSONArray.Get(i))))
-             else raise EPCParametresError.Create('Invalid TJSON Data: ' + JSONArray.Get(i).ClassName);
+    if (JSONArray.Items[i] is TJSONArray)
+    then Insert(i, TPCJSONArray.CreateFromJSONArray(TJSONArray(JSONArray.Items[i])))
+    else if (JSONArray.Items[i] is TJSONObject)
+        then Insert(i, TPCJSONObject.CreateFromJSONObject(TJSONObject(JSONArray.Items[i])))
+        else if (JSONArray.Items[i] is TJSONValue)
+             then Insert(i, TPCJSONVariantValue.CreateFromJSONValue(TJSONValue(JSONArray.Items[i])))
+             else raise EPCParametresError.Create('Invalid TJSON Data: ' + JSONArray.Items[i].ClassName);
   end;
 {$ENDIF}
 end;
@@ -825,27 +825,27 @@ begin
         .ClassName);
   end;
 {$ELSE}
-  for i := 0 to JSONObject.Size - 1 do
+  for i := 0 to JSONObject.Count - 1 do
   begin
-    i2 := GetIndexOrCreateName(JSONObject.Get(i).JsonString.Value);
-    if (JSONObject.Get(i).JSONValue is TJSONArray) then
+    i2 := GetIndexOrCreateName(JSONObject.Pairs[i].JsonString.Value);
+    if (JSONObject.Pairs[i].JSONValue is TJSONArray) then
     begin
       (Items[i2] as TPCJSONNameValue).Value := TPCJSONArray.CreateFromJSONArray
-        (TJSONArray(JSONObject.Get(i).JSONValue));
+        (TJSONArray(JSONObject.Pairs[i].JSONValue));
     end
-    else if (JSONObject.Get(i).JSONValue is TJSONObject) then
+    else if (JSONObject.Pairs[i].JSONValue is TJSONObject) then
     begin
       (Items[i2] as TPCJSONNameValue).Value := TPCJSONObject.CreateFromJSONObject
-        (TJSONObject(JSONObject.Get(i).JSONValue));
+        (TJSONObject(JSONObject.Pairs[i].JSONValue));
     end
-    else if (JSONObject.Get(i).JSONValue is TJSONValue) then
+    else if (JSONObject.Pairs[i].JSONValue is TJSONValue) then
     begin
       (Items[i2] as TPCJSONNameValue).Value := TPCJSONVariantValue.CreateFromJSONValue
-        (TJSONValue(JSONObject.Get(i).JSONValue));
+        (TJSONValue(JSONObject.Pairs[i].JSONValue));
     end
     else
-      raise EPCParametresError.Create('Invalid TJSON Data in JSONObject.' + JSONObject.Get(i).JsonString.Value + ': ' +
-        JSONObject.Get(i).ClassName);
+      raise EPCParametresError.Create('Invalid TJSON Data in JSONObject.' + JSONObject.Pairs[i].JsonString.Value + ': ' +
+        JSONObject.Pairs[i].ClassName);
   end;
 {$ENDIF}
 end;

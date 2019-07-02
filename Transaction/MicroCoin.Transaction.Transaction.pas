@@ -304,6 +304,7 @@ end;
 function TTransaction.SaveToStorage(Stream: TStream): Boolean;
 begin
   Result := SaveToStream(Stream, true);
+  if not Result then Exit;
   Stream.Write(FPrevious_Signer_updated_block, Sizeof(FPrevious_Signer_updated_block));
   Stream.Write(FPrevious_Destination_updated_block, Sizeof(FPrevious_Destination_updated_block));
   Stream.Write(FPrevious_Seller_updated_block, Sizeof(FPrevious_Seller_updated_block));

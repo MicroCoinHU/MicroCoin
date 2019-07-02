@@ -246,7 +246,6 @@ var
   ctx: PBN_CTX;
   pub_key: PEC_POINT;
 begin
-  Result := false;
   bn := BN_new;
   try
     if BN_hex2bn(@bn, PAnsiChar(hexa)) = 0 then

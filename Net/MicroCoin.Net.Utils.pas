@@ -33,7 +33,6 @@ procedure TThreadGetNewBlockChainFromClient.BCExecute;
 var
   i, j, xAccount: Integer;
   xMaxWork: UInt64;
-  xNodeServer: TNodeServer;
   xCandidateList: TList;
   xBlockHeader: TBlockHeader;
   xConnection: TNetConnection;

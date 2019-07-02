@@ -176,7 +176,6 @@ var
   pctx: PEVP_CIPHER_CTX;
   ctx: EVP_CIPHER_CTX;
   salt, Key, IV, buf: TBytes;
-  l: integer;
   src_start, buf_start, out_len: integer;
 begin
   result := false;

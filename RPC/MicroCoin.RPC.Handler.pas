@@ -18,7 +18,7 @@ unit MicroCoin.RPC.Handler;
 interface
 
 uses UThread, SysUtils, Classes, blcksock,
-  MicroCoin.Crypto.Keys,
+  MicroCoin.Crypto.Keys, System.SyncObjs,
   Synautil, Math, UCrypto, MicroCoin.RPC.MethodHandler,
   MicroCoin.Account.Data, MicroCoin.BlockChain.Block,
   MicroCoin.RPC.PluginManager, MicroCoin.Node.Node,
@@ -94,7 +94,7 @@ var
   x, n: integer;
   resultcode: integer;
   inputdata: TBytes;
-  js, jsresult: TPCJsonData;
+  js: TPCJsonData;
   jsonobj, jsonresponse: TPCJSONObject;
   errNum: integer;
   errDesc: string;
@@ -647,7 +647,7 @@ var
     FNode.SequenceLock.Acquire; // Use lock to prevent N_Operation race-condition on concurrent sends
     try
       Result := false;
-      if (Sender < 0) or (Sender >= FNode.BlockManager.AccountsCount) then
+      if (Sender >= FNode.BlockManager.AccountsCount) then
       begin
         if (Sender = cMaxAccountNumber) then
           ErrorDesc := 'Need sender'
@@ -656,7 +656,7 @@ var
         ErrorNum := CT_RPC_ErrNum_InvalidAccount;
         exit;
       end;
-      if (target < 0) or (target >= FNode.BlockManager.AccountsCount) then
+      if (target >= FNode.BlockManager.AccountsCount) then
       begin
         if (target = cMaxAccountNumber) then
           ErrorDesc := 'Need target'
@@ -731,7 +731,6 @@ var
   // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
   var
     i: integer;
-    errors: AnsiString;
     f_raw: TRawBytes;
   begin
     Result := nil;
@@ -813,7 +812,7 @@ var
     FNode.SequenceLock.Acquire; // Use lock to prevent N_Operation race-condition on concurrent invocations
     try
       Result := false;
-      if (account_signer < 0) or (account_signer >= FNode.BlockManager.AccountsCount) then
+      if (account_signer >= FNode.BlockManager.AccountsCount) then
       begin
         ErrorDesc := 'Invalid account ' + Inttostr(account_signer);
         ErrorNum := CT_RPC_ErrNum_InvalidAccount;
@@ -852,7 +851,6 @@ var
   // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
   var
     i: integer;
-    errors: AnsiString;
     f_raw: TRawBytes;
   begin
     Result := nil;
@@ -992,7 +990,6 @@ var
   // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
   var
     i: integer;
-    errors: AnsiString;
     f_raw: TRawBytes;
   begin
     Result := nil;
@@ -1119,7 +1116,6 @@ var
     acc: TAccount;
     i, ian: integer;
     errors: AnsiString;
-    OPR: TTransactionData;
     accountsnumber: TOrderedList;
     operationsht: TTransactionHashTree;
     OperationsResumeList: TTransactionList;
@@ -1140,7 +1136,7 @@ var
           for ian := 0 to accountsnumber.Count - 1 do
           begin
 
-            if (accountsnumber.Get(ian) < 0) or (accountsnumber.Get(ian) >= FNode.BlockManager.AccountsCount) then
+            if (accountsnumber.Get(ian) >= FNode.BlockManager.AccountsCount) then
             begin
               ErrorDesc := 'Invalid account ' + Inttostr(accountsnumber.Get(ian));
               ErrorNum := CT_RPC_ErrNum_InvalidAccount;
@@ -1229,6 +1225,7 @@ var
     xTransaction: ITransaction;
     i: integer;
   begin
+    Result := false;
     if not HexaStringToOperationsHashTree(HexaStringOperationsHashTree, xTransactionHashTree, xErrors) then
     begin
       ErrorNum := CT_RPC_ErrNum_InvalidData;
@@ -1263,6 +1260,7 @@ var
     i: integer;
     OperationsResumeList: TTransactionList;
   begin
+    Result := false;
     if not HexaStringToOperationsHashTree(HexaStringOperationsHashTree, OperationsHashTree, errors) then
     begin
       ErrorNum := CT_RPC_ErrNum_InvalidData;
@@ -1369,7 +1367,6 @@ var
     pkey: TECKeyPair;
     decrypted_payload: TRawBytes;
   begin
-    Result := false;
     if RawEncryptedPayload = '' then
     begin
       GetResultObject.GetAsVariant('result').Value := false;
@@ -1635,7 +1632,6 @@ var
   // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
   var
     i: integer;
-    errors: AnsiString;
     f_raw: TRawBytes;
   begin
     Result := nil;
@@ -1996,7 +1992,7 @@ var
           exit;
         end;
         c_account := params.AsCardinal('account_signer', 0);
-        if (c_account < 0) or (c_account >= FNode.BlockManager.AccountsCount) then
+        if (c_account >= FNode.BlockManager.AccountsCount) then
         begin
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
           ErrorDesc := 'Invalid account_signer ' + params.AsString('account_signer', '');
@@ -2010,7 +2006,7 @@ var
           exit;
         end;
         c_account := params.AsCardinal('account_target', 0);
-        if (c_account < 0) or (c_account >= FNode.BlockManager.AccountsCount) then
+        if (c_account >= FNode.BlockManager.AccountsCount) then
         begin
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
           ErrorDesc := 'Invalid account_target ' + params.AsString('account_target', '');
@@ -2066,7 +2062,7 @@ var
           exit;
         end;
         c_account := params.AsCardinal('account_signer', 0);
-        if (c_account < 0) or (c_account >= FNode.BlockManager.AccountsCount) then
+        if (c_account >= FNode.BlockManager.AccountsCount) then
         begin
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
           ErrorDesc := 'Invalid account_signer ' + params.AsString('account_signer', '');
@@ -2080,7 +2076,7 @@ var
           exit;
         end;
         c_account := params.AsCardinal('account_target', 0);
-        if (c_account < 0) or (c_account >= FNode.BlockManager.AccountsCount) then
+        if (c_account >= FNode.BlockManager.AccountsCount) then
         begin
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
           ErrorDesc := 'Invalid account_target ' + params.AsString('account_target', '');
@@ -2136,7 +2132,7 @@ var
           exit;
         end;
         c_account := params.AsCardinal('buyer_account', 0);
-        if (c_account < 0) or (c_account >= FNode.BlockManager.AccountsCount) then
+        if (c_account >= FNode.BlockManager.AccountsCount) then
         begin
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
           ErrorDesc := 'Invalid account ' + params.AsString('buyer_account', '');
@@ -2186,7 +2182,7 @@ var
           exit;
         end;
         c_account := params.AsCardinal('account_signer', 0);
-        if (c_account < 0) or (c_account >= FNode.BlockManager.AccountsCount) then
+        if (c_account >= FNode.BlockManager.AccountsCount) then
         begin
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
           ErrorDesc := 'Invalid account_signer ' + params.AsString('account_signer', '');
@@ -2200,7 +2196,7 @@ var
           exit;
         end;
         c_account := params.AsCardinal('account_target', 0);
-        if (c_account < 0) or (c_account >= FNode.BlockManager.AccountsCount) then
+        if (c_account >= FNode.BlockManager.AccountsCount) then
         begin
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
           ErrorDesc := 'Invalid account_target ' + params.AsString('account_target', '');
@@ -2338,7 +2334,7 @@ var
 
 var
   c, c2: cardinal;
-  i, j, k, l: integer;
+  i, j, k: integer;
   Account: TAccount;
   senderpubkey, destpubkey: TAccountKey;
   ansistr: AnsiString;
@@ -2347,7 +2343,6 @@ var
   ecpkey: TECKeyPair;
   OPR: TTransactionData;
   r: TRawBytes;
-  ocl: TOrderedList;
   jsonarr: TPCJSONArray;
   jso: TPCJSONObject;
   Handler: THandler;
@@ -2392,7 +2387,7 @@ begin
     // Param "block" contains block number (0..getblockcount-1)
     // Returns JSON object with block information
     c := params.GetAsVariant('block').AsCardinal(cMaxBlocks);
-    if (c >= 0) and (c < FNode.BlockManager.BlocksCount) then
+    if (c < FNode.BlockManager.BlocksCount) then
     begin
       Result := GetBlock(c, GetResultObject);
     end
@@ -2430,7 +2425,7 @@ begin
         else c2 := FNode.BlockManager.BlocksCount - 1;
       end;
     end;
-    if ((c >= 0) and (c < FNode.BlockManager.BlocksCount)) and (c2 >= c) and (c2 < FNode.BlockManager.BlocksCount) then
+    if ((c < FNode.BlockManager.BlocksCount)) and (c2 >= c) and (c2 < FNode.BlockManager.BlocksCount) then
     begin
       i := 0;
       Result := true;
@@ -2466,7 +2461,7 @@ begin
     // Param "opblock" contains operation inside a block: (0..getblock.operations-1)
     // Returns a JSON object with operation values as "Operation resume format"
     c := params.GetAsVariant('block').AsCardinal(cMaxBlocks);
-    if (c >= 0) and (c < FNode.BlockManager.BlocksCount) then
+    if (c < FNode.BlockManager.BlocksCount) then
     begin
       pcops := TBlock.Create(nil);
       try
@@ -2510,7 +2505,7 @@ begin
     // Param "block" contains block
     // Returns a JSON array with items as "Operation resume format"
     c := params.GetAsVariant('block').AsCardinal(cMaxBlocks);
-    if (c >= 0) and (c < FNode.BlockManager.BlocksCount) then
+    if (c < FNode.BlockManager.BlocksCount) then
     begin
       pcops := TBlock.Create(nil);
       try
@@ -2559,7 +2554,7 @@ begin
     // Param "depht" (optional or "deep") contains max blocks deep to search (Default: 100)
     // Param "start" and "max" contains starting index and max operations respectively
     c := params.GetAsVariant('account').AsCardinal(cMaxAccountNumber);
-    if ((c >= 0) and (c < FNode.BlockManager.AccountsCount)) then
+    if ((c < FNode.BlockManager.AccountsCount)) then
     begin
       if (params.IndexOfName('depth') >= 0) then
         i := params.AsInteger('depth', 100)

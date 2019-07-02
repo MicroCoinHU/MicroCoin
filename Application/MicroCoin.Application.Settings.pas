@@ -235,7 +235,7 @@ begin
   if AStream.ReadAnsiString(FName) < 0 then
     exit;
   AStream.Read(xByteSettingType, 1);
-  if (xByteSettingType >= Integer(low(xSettingsType))) and (xByteSettingType <= Integer(high(xSettingsType)))
+  if (xByteSettingType <= Integer(high(xSettingsType)))
   then xSettingsType := TAppSettingType(xByteSettingType)
   else xSettingsType := stString;
   FType := xSettingsType;

@@ -127,7 +127,6 @@ end;
 function TTransferMoneyTransaction.ApplyTransaction(AccountTransaction: TAccountTransaction;
   var errors: AnsiString): Boolean;
 var
-  s_new, t_new: Int64;
   xTotalAmount: UInt64;
   xSenderAccount, xTargetAccount, xSellerAccount: TAccount;
   _h: TRawBytes;
@@ -332,9 +331,6 @@ end;
 
 function TTransferMoneyTransaction.GetTransactionData(ABlock: Cardinal; AAffectedAccountNumber: Cardinal;
   var TransactionData: TTransactionData): Boolean;
-var
-  spayload: AnsiString;
-  s: AnsiString;
 begin
   Result := false;
   TransactionData := TTransactionData.Empty;
@@ -676,7 +672,7 @@ begin
     TransactionData.amount := Data.AccountPrice;
     TransactionData.fee := 0;
     Result := true;
-  end else Exit;
+  end else Exit(false);
   TransactionData.OriginalPayload := GetPayload;
   if TCrypto.IsHumanReadable(TransactionData.OriginalPayload)
   then TransactionData.PrintablePayload := TransactionData.OriginalPayload

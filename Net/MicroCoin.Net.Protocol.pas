@@ -164,7 +164,7 @@ type
 
 implementation
 
-uses MicroCoin.Net.ConnectionManager, MicroCoin.Node.Node;
+uses MicroCoin.Net.ConnectionManager, MicroCoin.Node.Node, MicroCoin.Crypto.Keys;
 
 { TNetHeaderData }
 
@@ -308,7 +308,7 @@ class function TNetMessage_GetBlocks.LoadFromStream(
 begin
   AStream.Read(Result.StartBlock, SizeOf(Result.StartBlock));
   AStream.Read(Result.EndBlock, SizeOf(Result.EndBlock));
-  if (Result.StartBlock<0) or (Result.StartBlock > Result.EndBlock)
+  if (Result.StartBlock > Result.EndBlock)
   then raise Exception.CreateFmt('Invalid structure start or end %d, %d',[Result.StartBlock, Result.EndBlock]);
 end;
 

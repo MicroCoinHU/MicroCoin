@@ -22,7 +22,6 @@ type
   private
     FTimesList: TPCThreadList;
     FTimeOffset: Integer;
-    FLock: TCriticalSection;
     FTotalCounter: Integer;
     function IndexOfClientIp(list: TList; const clientIp: AnsiString): Integer;
     procedure UpdateMedian(list: TList);

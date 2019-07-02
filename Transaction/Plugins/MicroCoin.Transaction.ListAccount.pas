@@ -66,7 +66,7 @@ type
     function GetBuffer(UseProtocolV2: Boolean): TRawBytes; override;
     function ApplyTransaction(AccountTransaction: TAccountTransaction; var errors: AnsiString): Boolean; override;
     procedure AffectedAccounts(list: TList); override;
-    function toString: string; override;
+    function ToString: string; override;
     property Data: TListAccountTransactionData read FData;
   end;
 
@@ -457,7 +457,7 @@ begin
   end;
 end;
 
-function TListAccountTransaction.toString: string;
+function TListAccountTransaction.ToString: string;
 begin
   case FData.TransactionType of
     lat_ListForSale:

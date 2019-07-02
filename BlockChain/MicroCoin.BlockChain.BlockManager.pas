@@ -137,7 +137,6 @@ end;
 function TBlockManager.AddNewBlockToBlockChain(ABlock: TBlock; MaxAllowedTimestamp: Cardinal;
   var newBlock: TAccountStorageEntry; var errors: AnsiString): Boolean;
 var
-  buffer, PoW: AnsiString;
   i: Integer;
 begin
   TPCThread.ProtectEnterCriticalSection(Self, FAccountStorageLock);

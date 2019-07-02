@@ -16,7 +16,7 @@ unit MicroCoin.Net.Discovery;
 
 interface
 
-uses UThread, MicroCoin.Net.NodeServer, SysUtils, Classes;
+uses UThread, MicroCoin.Net.NodeServer, SysUtils, Classes, SyncObjs;
 
 type
 

@@ -108,7 +108,6 @@ end;
 class procedure TMicroCoinProtocol.CalcProofOfWork_Part3(const operationBlock: TBlockHeader; var Part3: TRawBytes);
 var
   ms: TMemoryStream;
-  s: AnsiString;
 begin
   ms := TMemoryStream.Create;
   try

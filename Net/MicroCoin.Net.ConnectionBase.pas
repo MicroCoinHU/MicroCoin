@@ -396,7 +396,6 @@ var
   l: TList;
   i: Integer;
   xHandler: ICommandHandler;
-  xObj: TObject;
 begin
   try
     Result := false;
@@ -535,8 +534,6 @@ var
   tc: Cardinal;
   last_bytes_read, t_bytes_read: Int64;
   //
-  operation: Word;
-  request_id: Integer;
   IsValidHeaderButNeedMoreData: Boolean;
   deletedBytes: Int64;
 

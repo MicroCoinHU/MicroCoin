@@ -378,7 +378,6 @@ function TFileStorage.DoMoveBlockChain(Start_Block: Cardinal; const DestOrphan: 
 
 var
   db: TFileStorage;
-  i: Integer;
   ops: TBlock;
   b: Cardinal;
 begin
@@ -743,7 +742,7 @@ function TFileStorage.LockBlockChainStream: TFileStream;
   var
     mem: TStream;
     iPos: Int64;
-    i, j, k: Integer;
+    i: Integer;
     bh, lastbh: TBlockHeader;
   begin
     errors := '';
@@ -852,7 +851,6 @@ var
   fn: TFilename;
   fm: Word;
   exists: Boolean;
-  bh: TBlockHeader;
   errors: string;
 begin
   TPCThread.ProtectEnterCriticalSection(Self, FStorageLock);
@@ -928,7 +926,7 @@ function TFileStorage.StreamBlockRead(Stream: TStream; iBlockHeaders: Integer; B
 var
   p: Int64;
   errors: AnsiString;
-  streamFirstBlock, _BlockSizeC, _intBlockIndex: Cardinal;
+  _BlockSizeC: Cardinal;
   _Header: TBlockHeader;
   _ops: TStream;
   _StreamBlockHeaderStartPos: Int64;
@@ -984,9 +982,7 @@ var
   _intBlockIndex: Cardinal;
   _ops: TStream;
   _StreamBlockHeaderStartPos: Int64;
-{$IFDEF HIGHLOG}s: string; {$ENDIF}
 begin
-  Result := false;
   _Header := CT_TBlockHeader_NUL;
   _Header.BlockNumber := Operations.BlockHeader.Block;
   if BlockHeaderFirstBlock > _Header.BlockNumber then
@@ -1023,8 +1019,6 @@ begin
     _intBlockIndex := (_Header.BlockNumber - BlockHeaderFirstBlock);
     p := Int64(_intBlockIndex) * Int64(CT_SizeOfBlockHeader);
     _StreamBlockHeaderStartPos := FBlockHeadersFirstBytePosition[iBlockHeaders];
-{$IFDEF HIGHLOG}s := Format('Saving block header (block %d) at position %d', [_Header.BlockNumber, Stream.Position]);
-    {$ENDIF}
     GrowStreamUntilPos(Stream, _StreamBlockHeaderStartPos + p, false);
     // Save Header
     Stream.Write(_Header.BlockNumber, SizeOf(_Header.BlockNumber));
@@ -1036,10 +1030,6 @@ begin
     // And now positioning until Data:
     GrowStreamUntilPos(Stream, _StreamBlockHeaderStartPos + GetBlockHeaderFixedSize +
       _Header.StreamBlockRelStartPos, false);
-{$IFDEF HIGHLOG}
-    s := s + Format(' saving content at position %d (size %d)', [Stream.Position, _Header.BlockSize]);
-    TLog.NewLog(ltInfo, ClassName, s);
-{$ENDIF}
     // Save stream size
     Stream.Write(_Header.BlockSize, SizeOf(_Header.BlockSize));
     // Save Data

@@ -51,7 +51,7 @@ type
     function GetTransactionType: Byte; override;
   public
     constructor Create(account_signer, n_operation, account_target: Cardinal; key: TECKeyPair;
-      new_account_key: TAccountKey; fee: UInt64; payload: TRawBytes);
+      new_account_key: TAccountKey; fee: UInt64; payload: TRawBytes); reintroduce;
 
     class function GetHashToSignature(const AData: ChangeKeyTransactionData): TRawBytes;
     class function DoSignTransaction(AKey: TECKeyPair; var ATransaction: ChangeKeyTransactionData): Boolean;
@@ -61,7 +61,7 @@ type
     procedure AffectedAccounts(AList: TList); override;
     function GetTransactionData(ABlock: Cardinal; Affected_account_number: Cardinal;
       var TransactionData: TTransactionData): Boolean; override;
-    function toString: string; override;
+    function ToString: string; override;
 
     property Data: ChangeKeyTransactionData read FData;
   end;
@@ -441,7 +441,7 @@ begin
   Result := FData.NumberOfTransactions;
 end;
 
-function TChangeKeyTransaction.toString: string;
+function TChangeKeyTransaction.ToString: string;
 begin
   Result := Format('Change key of %s to new key: %s fee:%s (n_op:%d) payload size:%d',
     [TAccount.AccountNumberToString(FData.TargetAccount),

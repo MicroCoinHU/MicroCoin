@@ -111,13 +111,11 @@ end;
 
 procedure TPCThread.Execute;
 Var l : TList;
-  i : Integer;
 begin
   FStartTickCount := GetTickCount;
   if not assigned(_threads) then exit;
-  i := _threads.Add(Self);
+  _threads.Add(Self);
   try
-    {$IFDEF HIGHLOG}LogDebug(Classname,'Starting Thread '+IntToHex(PtrInt(Self),8)+' in pos '+inttostr(i+1));{$ENDIF}
     Try
       Try
         BCExecute;
@@ -133,8 +131,7 @@ begin
   finally
     l := _threads.LockList;
     Try
-      i := l.Remove(Self);
-      {$IFDEF HIGHLOG}LogDebug(Classname,'Finalizing Thread in pos '+inttostr(i+1)+'/'+inttostr(l.Count+1)+' working time: '+FormatFloat('0.000',(GetTickCount-FStartTickCount) / 1000)+' sec');{$ENDIF}
+     l.Remove(Self);
     Finally
       _threads.UnlockList;
     End;

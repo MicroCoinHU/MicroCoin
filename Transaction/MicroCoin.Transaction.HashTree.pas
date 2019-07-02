@@ -274,7 +274,6 @@ var
   msCopy: TMemoryStream;
   h: TRawBytes;
   P: PTransacionHashTreeReg;
-  op2: ITransaction;
 begin
   msCopy := TMemoryStream.Create;
   try

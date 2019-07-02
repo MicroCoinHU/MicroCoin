@@ -15,10 +15,10 @@ unit MicroCoin.Mining.Server;
 interface
 
 uses UTCPIP, UJsonFunctions, MicroCoin.Account.AccountKey, UThread,
-  MicroCoin.BlockChain.Block,
+  MicroCoin.BlockChain.Block, SyncObjs,
   UCrypto, MicroCoin.Node.Events, SysUtils, Classes, ULog, MicroCoin.RPC.Client,
   MicroCoin.BlockChain.BlockHeader, MicroCoin.Common.Config, MicroCoin.Net.ConnectionManager,
-  Variants, UBaseTypes,
+  Variants, UBaseTypes, MicroCoin.Crypto.Keys,
   MicroCoin.Node.Node, MicroCoin.Transaction.HashTree,
   MicroCoin.Transaction.Base,
   MicroCoin.Transaction.Itransaction,
@@ -110,7 +110,6 @@ begin
     exit;
   if FClientsCount <= 0 then
     exit;
-  doAdd := false;
   P := nil;
   l := FPoolJobs.LockList;
   try
@@ -418,12 +417,10 @@ end;
 
 function TMiningServer.MinerSubmit(Client: TJSONRPCTcpIpClient; params: TPCJSONObject; const id: Variant): Boolean;
 var
-  s: string;
   nbOperations: TBlock;
   errors, sJobInfo: AnsiString;
   nba: TAccountStorageEntry;
   json: TPCJSONObject;
-  p1, p2, p3: TRawBytes;
   P: PPoolJob;
   i: Integer;
   l: TList;
@@ -593,14 +590,13 @@ var
   ts: Cardinal;
 var
   P: PPoolJob;
-  i, nJobs: Integer;
+  nJobs: Integer;
   l: TList;
 begin
   if FClientsCount <= 0 then
     exit;
   if (not Assigned(Operations)) then
   begin
-    P := nil;
     l := FPoolJobs.LockList;
     try
       if l.count > 0 then

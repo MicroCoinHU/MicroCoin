@@ -41,8 +41,8 @@ unit MicroCoin.Account.Storage;
 
 interface
 
-uses SysUtils, Classes, UCrypto, UThread, MicroCoin.Common.Lists,
-  MicroCoin.Crypto.BigNum, SyncObjs,
+uses SysUtils, Classes, UCrypto, UThread, MicroCoin.Common.Lists, MicroCoin.Crypto.Keys,
+  MicroCoin.Crypto.BigNum, SyncObjs, System.Types,
   MicroCoin.Account.Data, MicroCoin.Account.AccountKey, MicroCoin.BlockChain.BlockHeader,
   MicroCoin.Common.Config, UBaseTypes, ULog, MicroCoin.BlockChain.Protocol;
 
@@ -1481,7 +1481,6 @@ begin
       P^.AccountNumbers.Free;
       P^:=Default(TOrderedAccountKeyList);
       Dispose(P);
-      P := nil;
     end else P^.AccountNumbers.Clear;
   end;
   if ARemoveAccountList

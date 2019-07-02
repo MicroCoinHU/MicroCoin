@@ -34,7 +34,6 @@ type
   TWalletKeys = class(TComponent)
   strict private
     FSearchableKeys: TList;
-    FFileName: AnsiString;
     FWalletPassword: AnsiString;
     FWalletFileStream: TFileStream;
     FIsValidPassword: Boolean;
@@ -89,7 +88,6 @@ const
 function TWalletKeys.AddPrivateKey(const Name: AnsiString; ECPrivateKey: TECKeyPair): Integer;
 var
   P: PWalletKey;
-  s: AnsiString;
 begin
   if not Find(ECPrivateKey.PublicKey, Result) then
   begin

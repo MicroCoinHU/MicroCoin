@@ -118,19 +118,15 @@ end;
 
 procedure TRPCServer.OnNodeNewOperation(Sender: TObject);
 var
-  i, j: Integer;
+  i: Integer;
   xTransaction: ITransaction;
   xTransactionData: TTransactionData;
-  an: cardinal;
   xToAccount: string;
   xAmount: string;
   xFromAccount: string;
   xPayload: string;
   xHTTP: THTTPSend;
-  xDecrypted: string;
-  xWalletKey: TWalletKey;
   xResult: Boolean;
-  xfrom: string;
   xini: TIniFile;
   xProxy: string;
   xStream: TMemoryStream;
@@ -153,7 +149,6 @@ begin
     xTransaction := TNodeNotifyEvents(Sender).Node.TransactionStorage.Transaction[i];
     xTransaction := TNodeNotifyEvents(Sender).Node.TransactionStorage.TransactionHashTree.GetTransaction(i);
     xTransaction.GetTransactionData(0, xTransaction.SignerAccount, xTransactionData);
-    an := xTransactionData.DestAccount;
     xFromAccount := TAccount.AccountNumberToString(xTransactionData.AffectedAccount);
     xToAccount := TAccount.AccountNumberToString(xTransactionData.DestAccount);
     xAmount := TCurrencyUtils.CurrencyToString(xTransactionData.Amount * -1);
@@ -163,8 +158,8 @@ begin
     if TCrypto.IsHumanReadable(xTransactionData.OriginalPayload)
     then xPayload := xTransactionData.OriginalPayload
     else xPayload := '';
+    xStream := TMemoryStream.Create;
     try
-      xStream := TMemoryStream.Create;
       xHTTP := THTTPSend.Create;
       try
         with TPCJSONObject.Create do

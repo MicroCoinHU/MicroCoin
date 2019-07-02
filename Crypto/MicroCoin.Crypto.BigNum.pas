@@ -239,7 +239,7 @@ begin
   i := BN_num_bytes(FBN);
   SetLength(Result, i);
   p := @Result[1];
-  i := BN_bn2bin(FBN, p);
+  BN_bn2bin(FBN, p);
 end;
 
 function BigInteger.GetValue: Int64;

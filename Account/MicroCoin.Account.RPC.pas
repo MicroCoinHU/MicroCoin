@@ -40,9 +40,9 @@ unit MicroCoin.Account.RPC;
 
 interface
 
-uses Sysutils, classes, MicroCoin.RPC.Handler, MicroCoin.Account.Data, MicroCoin.Common.Config, MicroCoin.Common.Lists,
+uses Sysutils, Math, Classes, MicroCoin.RPC.Handler, MicroCoin.Account.Data, MicroCoin.Common.Config, MicroCoin.Common.Lists,
   MicroCoin.RPC.Server, MicroCoin.Node.Node, MicroCoin.Account.AccountKey, MicroCoin.RPC.PluginManager, UJsonFunctions,
-  UBaseTypes, UCrypto, MicroCoin.Common, MicroCoin.RPC.Plugin, MicroCoin.RPC.Result;
+  UBaseTypes, UCrypto, MicroCoin.Common, MicroCoin.RPC.Plugin, MicroCoin.RPC.Result, MicroCoin.Crypto.Keys;
 
 type
 
@@ -268,7 +268,7 @@ begin
   Result.ErrorCode := CT_RPC_ErrNum_InternalError;
   Result.ErrorMessage := '';
   xAccountNumber := AParams.GetAsVariant('account').AsCardinal(cMaxAccountNumber);
-  if (xAccountNumber >= 0) and (xAccountNumber < TNode.Node.BlockManager.AccountsCount) then
+  if (xAccountNumber < TNode.Node.BlockManager.AccountsCount) then
   begin
     xAccount := TNode.Node.TransactionStorage.AccountTransaction.Account(xAccountNumber);
     FillAccountObject(xAccount, TPCJSONObject(Result.Response).GetAsObject('result'));
@@ -397,7 +397,7 @@ end;
 function TRPCAccountPlugin.GetWalletCoins(AParams: TPCJSONObject): TRPCResult;
 var
   xNewKey: TAccountKey;
-  i, j, c: integer;
+  i, j: integer;
   xOrderedList: TOrderedList;
   xAccount: TAccount;
 begin
@@ -430,7 +430,6 @@ begin
   else
   begin
     Result.ErrorMessage := '';
-    c := 0;
     xAccount.Balance := 0;
     for i := 0 to TRPCServer.Instance.WalletKeys.AccountsKeyList.Count - 1 do
     begin

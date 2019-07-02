@@ -270,9 +270,9 @@ end;
 
 procedure TConnectionManager.CleanBlackList;
 var
-  P, Pns: PNodeServerAddress;
-  i, n, j: Integer;
-  l, lns: TList;
+  P: PNodeServerAddress;
+  i, n: Integer;
+  l: TList;
 begin
   CleanNodeServersList;
   // This procedure cleans old blacklisted IPs
@@ -304,11 +304,10 @@ end;
 procedure TConnectionManager.CleanNodeServersList;
 // Will mantain NodeServersAddesses with few nodes in order to keep memory and cpu speed
 var
-  i, j: Integer;
+  i: Integer;
   nsa: TNodeServer;
   currunixtimestamp: Cardinal;
   l: TList;
-  Aux: TNodeServerAddressArray;
 begin
   currunixtimestamp := UnivDateTimeToUnix(DateTime2UnivDateTime(now));
   l := FNodeServersAddresses.LockList;
@@ -399,7 +398,6 @@ var
   i: Integer;
   l: TList;
   nc: TNetConnection;
-  lock: TCriticalSection;
 begin
   Result := false;
   nc := nil;
@@ -1077,7 +1075,6 @@ const
   var
     BlocksList: TList;
     i: Integer;
-    tempfolder: AnsiString;
     OpComp, OpExecute: TBlock;
     oldBlockchainOperations: TTransactionHashTree;
     opsResume: TTransactionList;
@@ -1717,7 +1714,6 @@ end;
 
 function TConnectionManager.PendingRequest(Sender: TNetConnectionBase; var requests_data: AnsiString): Integer;
 var
-  P: PNetRequestRegistered;
   i: Integer;
   l: TList;
 begin

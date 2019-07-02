@@ -252,7 +252,6 @@ function TNetConnection.Send_Hello(NetTranferType: TNetTransferType; request_id:
 var
   xData: TMemoryStream;
   xMessage: TNetMessage_Hello;
-  xBlock: TBlock;
 begin
   Result := false;
   if not Connected then exit;
