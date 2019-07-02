@@ -67,7 +67,7 @@ end;
 
 function THandlerWrapper.GetDescription: string;
 begin
-
+ Result := FDescription;
 end;
 
 function THandlerWrapper.GetHandler: THandler;

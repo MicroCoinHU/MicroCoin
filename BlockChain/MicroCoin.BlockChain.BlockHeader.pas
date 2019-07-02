@@ -36,6 +36,8 @@ type
     procedure SaveToStream(const stream: TStream);
     class function Empty : TBlockHeader; static;
     function ToString : AnsiString;
+    class operator Equal(ABlock1, ABlock2 : TBlockHeader) : Boolean;
+    class operator NotEqual(ABlock1, ABlock2 : TBlockHeader) : Boolean;
   end;
 
 
@@ -84,6 +86,21 @@ begin
   Result.proof_of_work := '';
 end;
 
+class operator TBlockHeader.Equal(ABlock1, ABlock2: TBlockHeader): Boolean;
+begin
+    Result := (ABlock1.Block = ABlock2.Block) and
+    (ABlock1.account_key = ABlock2.account_key) and
+    (ABlock1.reward = ABlock2.reward) and (ABlock1.Fee = ABlock2.Fee) and
+    (ABlock1.protocol_version = ABlock2.protocol_version) and
+    (ABlock1.protocol_available = ABlock2.protocol_available) and
+    (ABlock1.timestamp = ABlock2.timestamp) and
+    (ABlock1.compact_target = ABlock2.compact_target) and
+    (ABlock1.nonce = ABlock2.nonce) and (ABlock1.block_payload = ABlock2.block_payload)
+    and (ABlock1.initial_safe_box_hash = ABlock2.initial_safe_box_hash) and
+    (ABlock1.transactionHash = ABlock2.transactionHash) and
+    (ABlock1.proof_of_work = ABlock2.proof_of_work);
+end;
+
 class function TBlockHeader.LoadFromStream(const stream: TStream; var ABlockHeader: TBlockHeader): Boolean;
 begin
   Result := false;
@@ -107,6 +124,11 @@ begin
   if stream.ReadAnsiString(ABlockHeader.proof_of_work) < 0
   then exit;
   Result := true;
+end;
+
+class operator TBlockHeader.NotEqual(ABlock1, ABlock2: TBlockHeader): Boolean;
+begin
+  Result := not (ABlock1 = ABlock2);
 end;
 
 end.

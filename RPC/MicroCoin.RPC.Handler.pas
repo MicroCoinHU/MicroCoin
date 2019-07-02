@@ -1437,7 +1437,7 @@ var
       if (params.IndexOfName(prefix + 'enc_pubkey') >= 0) then
       begin
         auxpubkey := TAccountKey.FromRawString(TBaseType.HexaToRaw(params.AsString(prefix + 'enc_pubkey', '')));
-        if (not TAccountKey.EqualAccountKeys(auxpubkey, PubKey)) then
+        if (auxpubkey <> PubKey) then
         begin
           errortxt := 'Params "' + prefix + 'b58_pubkey" and "' + prefix +
             'enc_pubkey" public keys are not the same public key';
@@ -2017,8 +2017,7 @@ var
           exit;
         end;
         account_target := FNode.TransactionStorage.AccountTransaction.Account(c_account);
-        if (not TAccountKey.EqualAccountKeys(account_signer.accountInfo.AccountKey,
-          account_target.accountInfo.AccountKey)) then
+        if (account_signer.accountInfo.AccountKey <> account_target.accountInfo.AccountKey) then
         begin
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
           ErrorDesc := 'account_signer and account_target have distinct keys. Cannot sign';
@@ -2088,9 +2087,8 @@ var
           exit;
         end;
         account_target := FNode.TransactionStorage.AccountTransaction.Account(c_account);
-        if (not TAccountKey.EqualAccountKeys(account_signer.accountInfo.AccountKey,
-          account_target.accountInfo.AccountKey)) then
-        begin
+        if (account_signer.accountInfo.AccountKey <> account_target.accountInfo.AccountKey)
+        then begin
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
           ErrorDesc := 'account_signer and account_target have distinct keys. Cannot sign';
           exit;
@@ -2209,8 +2207,7 @@ var
           exit;
         end;
         account_target := FNode.TransactionStorage.AccountTransaction.Account(c_account);
-        if (not TAccountKey.EqualAccountKeys(account_signer.accountInfo.AccountKey,
-          account_target.accountInfo.AccountKey)) then
+        if (account_signer.accountInfo.AccountKey <> account_target.accountInfo.AccountKey) then
         begin
           ErrorNum := CT_RPC_ErrNum_InvalidAccount;
           ErrorDesc := 'account_signer and account_target have distinct keys. Cannot sign';
@@ -2311,8 +2308,8 @@ var
       for i := start to FNode.BlockManager.AccountsCount - 1 do
       begin
         Account := FNode.TransactionStorage.AccountTransaction.Account(i);
-        if TAccountKey.EqualAccountKeys(Account.accountInfo.AccountKey, PubKey) then
-        begin
+        if Account.accountInfo.AccountKey = PubKey
+        then begin
           // Found a match
           FillAccountObject(Account, output.GetAsObject(output.Count));
           if output.Count >= max then
@@ -2385,10 +2382,8 @@ begin
     // Param "nodes" contains ip's and ports in format "ip1:port1;ip2:port2 ...". If port is not specified, use default
     // Returns quantity of nodes added
     TNode.DecodeIpStringToNodeServerAddressArray(params.AsString('nodes', ''), nsaarr);
-    for i := low(nsaarr) to high(nsaarr) do
-    begin
-      TConnectionManager.Instance.AddServer(nsaarr[i]);
-    end;
+    for i := low(nsaarr) to high(nsaarr)
+    do TConnectionManager.Instance.AddServer(nsaarr[i]);
     jsonresponse.GetAsVariant('result').Value := length(nsaarr);
     Result := true;
   end
@@ -2404,10 +2399,9 @@ begin
     else
     begin
       ErrorNum := CT_RPC_ErrNum_InvalidBlock;
-      if (c = cMaxBlocks) then
-        ErrorDesc := 'Need block param'
-      else
-        ErrorDesc := 'Block not found: ' + Inttostr(c);
+      if (c = cMaxBlocks)
+      then ErrorDesc := 'Need block param'
+      else ErrorDesc := 'Block not found: ' + Inttostr(c);
     end;
   end
   else if (method = 'getblocks') then
@@ -2418,13 +2412,11 @@ begin
     i := params.AsCardinal('last', 0);
     if (i > 0) then
     begin
-      if (i > 1000) then
-        i := 1000;
+      if (i > 1000) then i := 1000;
       c2 := FNode.BlockManager.BlocksCount - 1;
-      if (FNode.BlockManager.BlocksCount >= i) then
-        c := (FNode.BlockManager.BlocksCount) - i
-      else
-        c := 0;
+      if (FNode.BlockManager.BlocksCount >= i)
+      then c := (FNode.BlockManager.BlocksCount) - i
+      else c := 0;
     end
     else
     begin
@@ -2433,10 +2425,9 @@ begin
       i := params.AsInteger('max', 0);
       if (c < FNode.BlockManager.BlocksCount) and (i > 0) and (i <= 1000) then
       begin
-        if (c + i < FNode.BlockManager.BlocksCount) then
-          c2 := c + i
-        else
-          c2 := FNode.BlockManager.BlocksCount - 1;
+        if (c + i < FNode.BlockManager.BlocksCount)
+        then c2 := c + i
+        else c2 := FNode.BlockManager.BlocksCount - 1;
       end;
     end;
     if ((c >= 0) and (c < FNode.BlockManager.BlocksCount)) and (c2 >= c) and (c2 < FNode.BlockManager.BlocksCount) then

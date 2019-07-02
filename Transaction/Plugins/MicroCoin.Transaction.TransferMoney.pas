@@ -168,7 +168,7 @@ begin
   end;
   // Build 1.4
   if (FData.PublicKey.EC_OpenSSL_NID <> TAccountKey.Empty.EC_OpenSSL_NID) and
-    (not TAccountKey.EqualAccountKeys(FData.PublicKey, xSenderAccount.accountInfo.AccountKey)) then
+    (FData.PublicKey <> xSenderAccount.accountInfo.AccountKey) then
   begin
     errors := Format('Invalid sender public key for account %d. Distinct from SafeBox public key! %s <> %s',
       [FData.SenderAccount, TBaseType.ToHexaString((FData.PublicKey.ToRawString)),

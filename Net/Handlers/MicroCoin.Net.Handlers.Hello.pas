@@ -85,7 +85,7 @@ begin
       (not SameText(Connection.Client.RemoteHost, '127.0.0.1')) and
       (not SameText('192.168.', Copy(Connection.Client.RemoteHost, 1, 8))) and
       (not SameText('10.', Copy(Connection.Client.RemoteHost, 1, 3))) and
-      (not TAccountKey.EqualAccountKeys(xHello.AccountKey, TConnectionManager.Instance.NodePrivateKey.PublicKey)) then
+      ((xHello.AccountKey <> TConnectionManager.Instance.NodePrivateKey.PublicKey)) then
     begin
       nsa := TNodeServer.Empty;
       nsa.ip := xHello.RemoteHost;
@@ -120,7 +120,7 @@ begin
       if (AHeader.HeaderType = ntp_request) then
         Connection.Send_Hello(ntp_response, AHeader.RequestId);
 
-      if (TAccountKey.EqualAccountKeys(Connection.ClientPublicKey, TConnectionManager.Instance.NodePrivateKey.PublicKey))
+      if ((Connection.ClientPublicKey = TConnectionManager.Instance.NodePrivateKey.PublicKey))
       then
       begin
         Connection.DisconnectInvalidClient(true, 'MySelf disconnecting...');

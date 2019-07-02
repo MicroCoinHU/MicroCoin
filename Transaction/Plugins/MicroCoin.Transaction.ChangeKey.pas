@@ -186,7 +186,7 @@ begin
 
   if (AAccountTransaction.FreezedAccountStorage.CurrentProtocol >= cPROTOCOL_2)
   then begin
-    if (TAccountKey.EqualAccountKeys(account_target.accountInfo.AccountKey, FData.NewAccountKey))
+    if account_target.accountInfo.AccountKey <> FData.NewAccountKey
     then begin
       RErrors := 'New public key is the same public key';
       Exit;
@@ -194,7 +194,7 @@ begin
   end;
 
   if (FData.PublicKey.EC_OpenSSL_NID <> TAccountKey.Empty.EC_OpenSSL_NID) and
-    (not TAccountKey.EqualAccountKeys(FData.PublicKey, account_signer.accountInfo.AccountKey))
+    (FData.PublicKey <> account_signer.accountInfo.AccountKey)
   then begin
     RErrors := Format('Invalid public key for account %d. Distinct from SafeBox public key! %s <> %s',
       [FData.SignerAccount, TBaseType.ToHexaString(FData.PublicKey.ToRawString),
@@ -209,7 +209,7 @@ begin
       RErrors := 'Account target is currently locked';
       Exit;
     end;
-    if not TAccountKey.EqualAccountKeys(account_signer.accountInfo.AccountKey, account_target.accountInfo.AccountKey)
+    if (account_signer.accountInfo.AccountKey <> account_target.accountInfo.AccountKey)
     then begin
       RErrors := 'Signer and target accounts have different public key';
       Exit;

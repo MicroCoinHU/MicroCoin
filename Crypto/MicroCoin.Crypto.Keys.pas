@@ -47,6 +47,8 @@ type
     x: TRawBytes;
     y: TRawBytes;
     class function Empty : TECPublicKey; static;
+    class operator Equal(AKey1, AKey2: TECPublicKey) : Boolean;
+    class operator NotEqual(AKey1, AKey2: TECPublicKey) : Boolean;
   end;
 
   PECPublicKey = ^TECPublicKey;
@@ -281,6 +283,18 @@ begin
   Result.EC_OpenSSL_NID := 0;
   Result.x := '';
   Result.y := '';
+end;
+
+class operator TECPublicKey.Equal(AKey1, AKey2: TECPublicKey): Boolean;
+begin
+  Result := (AKey1.EC_OpenSSL_NID = AKey2.EC_OpenSSL_NID) and
+            (AKey1.x = AKey2.x) and
+            (AKey1.y = AKey2.y);
+end;
+
+class operator TECPublicKey.NotEqual(AKey1, AKey2: TECPublicKey): Boolean;
+begin
+  Result := not (AKey1 = AKey2);
 end;
 
 end.

@@ -27,7 +27,7 @@ type
     its_myself: Boolean;
     last_attempt_to_connect: TDateTime;
     total_failed_attemps_to_connect: Integer;
-    is_blacklisted: Boolean; // Build 1.4.4
+    is_blacklisted: Boolean;
     BlackListText: string;
     class function LoadFromStream(AStream : TStream) : TNodeServer; static;
     class function Empty : TNodeServer; static;

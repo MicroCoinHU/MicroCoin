@@ -898,7 +898,7 @@ begin
     for i := 0 to l.Count - 1 do
     begin
       Result := TNetConnection(l[i]);
-      if TAccountKey.EqualAccountKeys(Result.ClientPublicKey, Sender.ClientPublicKey) and (Sender <> Result) then
+      if (Result.ClientPublicKey = Sender.ClientPublicKey) and (Sender <> Result) then
         exit;
     end;
   finally
@@ -1049,8 +1049,8 @@ const
           ant_nblock := auxBlock.Block;
           //
           sbBlock := TNode.Node.BlockManager.AccountStorage.Blocks[auxBlock.Block].Blockheader;
-          if TBlock.Equals(sbBlock, auxBlock) then
-          begin
+          if sbBlock = auxBlock
+          then begin
             distinctmin := auxBlock.Block;
             OperationBlock := auxBlock;
           end
@@ -1455,7 +1455,7 @@ begin
       exit;
     end;
 
-    if (not TBlock.Equals(xMyBlockHeader, xClientBlockHeader)) then
+    if xMyBlockHeader <> xClientBlockHeader then
     begin
       TLog.NewLog(ltInfo, CT_LogSender, 'My blockchain is not equal... received: ' +
         xClientBlockHeader.ToString() + ' My: ' + xMyBlockHeader.ToString());

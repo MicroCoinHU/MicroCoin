@@ -54,13 +54,12 @@ type
     FPreviusHash: TRawBytes;
     FAccountNames_Deleted: TOrderedRawList;
     FAccountNames_Added: TOrderedRawList;
-  protected
   public
     constructor Create(AAccountStorage: TAccountStorage);
     destructor Destroy; override;
     function GetInternalAccount(AAccountNumber: Cardinal): PAccount;
     function TransferAmount(ASender, ATarget: Cardinal; ANumberOfTransactions: Cardinal; AAmount, AFee: UInt64;
-      var RErrors: AnsiString; ASubAccount : Cardinal = 0; ATargetSubAccount : Cardinal = 0): Boolean;
+      var RErrors: AnsiString): Boolean;
     function UpdateAccountInfo(ASignerAccount, ASignerAccountNumberOfTransactions, ATargetAccount: Cardinal; AAccountInfo: TAccountInfo;
       ANewName: TRawBytes; ANewType: Word; AFee: UInt64; var RErrors: AnsiString): Boolean;
     function BuyAccount(ABuyer, AAccountToBuy, ASeller: Cardinal; ANumberOfTransactions: Cardinal;
@@ -68,14 +67,14 @@ type
     function Commit(const FBlockLock: TBlockHeader; var RErrors: AnsiString): Boolean;
     function Account(AAccountNumber: Cardinal): TAccount;
     procedure Rollback;
+    procedure CopyFrom(Transaction: TAccountTransaction);
+    procedure CleanTransaction;
     function CheckIntegrity: Boolean;
+    function ModifiedCount: Integer;
+    function Modified(Index: Integer): TAccount;
     property FreezedAccountStorage: TAccountStorage read FFreezedAccounts;
     property TotalFee: UInt64 read FTotalFee;
     property TotalBalance: UInt64 read FTotalBalance;
-    procedure CopyFrom(Transaction: TAccountTransaction);
-    procedure CleanTransaction;
-    function ModifiedCount: Integer;
-    function Modified(Index: Integer): TAccount;
     property FreezedAccounts: TAccountStorage read FFreezedAccounts;
   end;
 
@@ -158,7 +157,7 @@ begin
     exit;
   end;
   if (PaccAccountToBuy^.AccountInfo.NewPublicKey.EC_OpenSSL_NID <> TAccountKey.Empty.EC_OpenSSL_NID) and
-    (not TAccountKey.EqualAccountKeys(PaccAccountToBuy^.AccountInfo.NewPublicKey, ANewKey)) then
+    (PaccAccountToBuy^.AccountInfo.NewPublicKey <> ANewKey) then
   begin
     RErrors := 'New public key is not equal to allowed new public key for account';
     exit;
@@ -352,7 +351,7 @@ begin
 end;
 
 function TAccountTransaction.TransferAmount(ASender, ATarget: Cardinal; ANumberOfTransactions: Cardinal; AAmount, AFee: UInt64;
-  var RErrors: AnsiString; ASubAccount : Cardinal = 0; ATargetSubAccount : Cardinal = 0): Boolean;
+  var RErrors: AnsiString): Boolean;
 var
   PaccSender, PaccTarget: PAccount;
 begin
@@ -422,16 +421,6 @@ begin
   PaccSender^.NumberOfTransactions := ANumberOfTransactions;
   PaccSender^.Balance := PaccSender^.Balance - (AAmount + AFee);
   PaccTarget^.Balance := PaccTarget^.Balance + (AAmount);
-{$IFDEF EXTENDEDACCOUNT}
-  if ASubAccount <> 0
-  then PaccSender^.SubAccounts[ASubAccount-1].Balance := PaccSender^.SubAccounts[ASubAccount-1].Balance - AAmount;
-  if ATargetSubAccount <> 0
-  then begin
-    PaccTarget^.SubAccounts[ATargetSubAccount-1].Balance := PaccTarget^.SubAccounts[ATargetSubAccount-1].Balance + AAmount;
-    inc(PaccTarget^.ExtraData.DataType);
-  end;
-{$ENDIF}
-
   Dec(FTotalBalance, AFee);
   inc(FTotalFee, AFee);
   Result := true;
@@ -492,7 +481,7 @@ begin
       P_target^.UpdatedBlock := FFreezedAccounts.BlocksCount;
     end;
   end;
-  if not TAccountKey.EqualAccountKeys(P_signer^.AccountInfo.AccountKey, P_target^.AccountInfo.AccountKey)
+  if P_signer^.AccountInfo.AccountKey <> P_target^.AccountInfo.AccountKey
   then begin
     RErrors := 'Signer and target have diff key';
     exit;

@@ -50,12 +50,13 @@ type
     function LoadBlockChainBlock(Operations: TBlock; Block: Cardinal): Boolean;
     function SaveBlockChainBlock(Operations: TBlock): Boolean;
     function MoveBlockChainBlocks(StartBlock: Cardinal; const DestOrphan: TOrphan; DestStorage: TStorage): Boolean;
-    procedure DeleteBlockChainBlocks(StartingDeleteBlock: Cardinal);
     function SaveAccountStorage: Boolean;
     function RestoreAccountStorage(max_block: Int64): Boolean;
-    procedure CopyConfiguration(const CopyFrom: TStorage); virtual;
     function CreateAccountStorageStream(ABlockCount: Cardinal): TStream;
     function HasUpgradedToVersion2: Boolean; virtual; abstract;
+    function Initialize: Boolean;
+    procedure DeleteBlockChainBlocks(StartingDeleteBlock: Cardinal);
+    procedure CopyConfiguration(const CopyFrom: TStorage); virtual;
     procedure CleanupVersion1Data; virtual; abstract;
     procedure EraseStorage;
     property Orphan: TOrphan read FOrphan write SetOrphan;
@@ -63,7 +64,6 @@ type
     property BlockManager: TBlockManagerBase read FBlockManager write SetBlockManager;
     property FirstBlock: Int64 read GetFirstBlockNumber;
     property LastBlock: Int64 read GetLastBlockNumber;
-    function Initialize: Boolean;
   end;
 
 implementation

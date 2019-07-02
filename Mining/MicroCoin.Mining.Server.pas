@@ -355,7 +355,7 @@ begin
     try
       tree := TTransactionHashTree.Create;
       try
-        if (not(TBlock.Equals(FMinerOperations.BlockHeader, xMaster.BlockHeader))) then
+        if FMinerOperations.BlockHeader <> xMaster.BlockHeader then
         begin
           FMinerOperations.Clear(true);
           if xMaster.TransactionCount > 0 then
@@ -734,7 +734,7 @@ end;
 
 procedure TMiningServer.SetMinerAccountKey(const Value: TAccountKey);
 begin
-  if TAccountKey.EqualAccountKeys(FMinerAccountKey, Value) then
+  if (FMinerAccountKey = Value) then
     exit;
   FMinerAccountKey := Value;
   CaptureNewJobAndSendToMiners;

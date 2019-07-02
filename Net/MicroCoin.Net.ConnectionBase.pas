@@ -136,12 +136,12 @@ uses UTime, MicroCoin.Net.ConnectionManager, MicroCoin.Common.Config, UCrypto,
 
 class procedure TNetConnectionBase.AddHandler(ACommand: Word; AHandler: TClass);
 begin
-  if not Supports(AHandler, ICommandHandler) then
-    raise Exception.Create('Invalid command handler');
-  if not assigned(FHandlers) then
-    FHandlers := TDictionary<Word, TClass>.Create;
-  if FHandlers.ContainsKey(ACommand) then
-    raise Exception.Create('Duplicated command handler');
+  if not Supports(AHandler, ICommandHandler)
+  then raise Exception.Create('Invalid command handler');
+  if not assigned(FHandlers)
+  then FHandlers := TDictionary<Word, TClass>.Create;
+  if FHandlers.ContainsKey(ACommand)
+  then raise Exception.Create('Duplicated command handler');
   FHandlers.Add(ACommand, AHandler);
 end;
 

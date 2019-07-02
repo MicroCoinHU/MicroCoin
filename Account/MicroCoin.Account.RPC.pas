@@ -90,7 +90,7 @@ begin
     if (AParams.IndexOfName(APrefix + 'enc_pubkey') >= 0) then
     begin
       xPublicKey := TAccountKey.FromRawString(TBaseType.HexaToRaw(AParams.AsString(APrefix + 'enc_pubkey', '')));
-      if (not TAccountKey.EqualAccountKeys(xPublicKey, APubKey)) then
+      if (xPublicKey <> APubKey) then
       begin
         RErrorText := 'Params "' + APrefix + 'b58_pubkey" and "' + APrefix +
           'enc_pubkey" public keys are not the same public key';
@@ -230,7 +230,7 @@ begin
     for i := xStart to TNode.Node.BlockManager.AccountsCount - 1 do
     begin
       xAccount := TNode.Node.TransactionStorage.AccountTransaction.Account(i);
-      if TAccountKey.EqualAccountKeys(xAccount.accountInfo.AccountKey, xPubKey) then
+      if xAccount.accountInfo.AccountKey = xPubKey then
       begin
         // Found a match
         FillAccountObject(xAccount, xOutput.GetAsObject(xOutput.Count));

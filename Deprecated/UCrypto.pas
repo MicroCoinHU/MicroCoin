@@ -33,8 +33,7 @@ type
 
   TCrypto = class
   private
-    class function ECDSAVerify(EC_OpenSSL_NID: Word; PubKey: EC_POINT; const digest: AnsiString; Signature: TECDSA_SIG)
-      : Boolean; overload;
+    class function ECDSAVerify(EC_OpenSSL_NID: Word; PubKey: EC_POINT; const digest: AnsiString; Signature: TECDSA_SIG) : Boolean; overload;
   public
     class function DoSha256(p: PAnsiChar; plength: Cardinal): TRawBytes; overload;
     class function DoSha256(const TheMessage: AnsiString): TRawBytes; overload;

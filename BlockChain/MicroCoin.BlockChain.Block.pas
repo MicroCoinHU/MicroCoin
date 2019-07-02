@@ -78,7 +78,6 @@ type
     procedure Sanitize;
 
     class function GetFirstBlock: TBlockHeader;
-    class function Equals(const ABlock1, ABlock2: TBlockHeader): Boolean;
     //
     property BlockHeader: TBlockHeader read FBlockHeader write FBlockHeader;
     property TransactionCount : Integer read GetTransactionCount;
@@ -147,8 +146,7 @@ begin
   try
     Result := 0;
     errors := '';
-    if ATransactions = FTransactionHashTree then
-      exit;
+    if ATransactions = FTransactionHashTree then exit;
     inc(FDisableds);
     try
       for i := 0 to ATransactions.TransactionCount - 1 do
@@ -257,18 +255,16 @@ end;
 
 procedure TBlock.CopyFrom(ATransactions: TBlock);
 begin
-  if Self = ATransactions then
-    exit;
+  if Self = ATransactions
+  then exit;
   Lock;
   ATransactions.Lock;
   try
     FBlockHeader := ATransactions.FBlockHeader;
     FIsOnlyBlock := ATransactions.FIsOnlyBlock;
     FTransactionHashTree.CopyFromHashTree(ATransactions.FTransactionHashTree);
-    if Assigned(FAccountTransaction) and Assigned(ATransactions.FAccountTransaction) then
-    begin
-      FAccountTransaction.CopyFrom(ATransactions.FAccountTransaction);
-    end;
+    if Assigned(FAccountTransaction) and Assigned(ATransactions.FAccountTransaction)
+    then FAccountTransaction.CopyFrom(ATransactions.FAccountTransaction);
     FDigest_Part1 := ATransactions.FDigest_Part1;
     FDigest_Part2_Payload := ATransactions.FDigest_Part2_Payload;
     FDigest_Part3 := ATransactions.FDigest_Part3;
@@ -284,8 +280,7 @@ var
 begin
   Lock;
   try
-    if Self = ATransactions then
-      exit;
+    if Self = ATransactions then exit;
     lastopb := FBlockHeader;
     FBlockHeader := ATransactions.FBlockHeader;
     FBlockHeader.account_key := lastopb.account_key; // Except AddressKey
@@ -294,10 +289,9 @@ begin
     FIsOnlyBlock := ATransactions.FIsOnlyBlock;
     FTransactionHashTree.CopyFromHashTree(ATransactions.FTransactionHashTree);
     FBlockHeader.transactionHash := FTransactionHashTree.HashTree;
-    if Assigned(FAccountTransaction) and Assigned(ATransactions.FAccountTransaction) then
-    begin
-      FAccountTransaction.CopyFrom(ATransactions.FAccountTransaction);
-    end;
+    if Assigned(FAccountTransaction) and Assigned(ATransactions.FAccountTransaction)
+    then FAccountTransaction.CopyFrom(ATransactions.FAccountTransaction);
+
     // Recalc all
     CalcProofOfWork(true, FBlockHeader.proof_of_work);
   finally
@@ -322,12 +316,9 @@ begin
   FBlockManager := nil;
   FBlockHeader := GetFirstBlock;
   FAccountTransaction := nil;
-  if Assigned(AOwner) and (AOwner is TBlockManagerBase) then
-  begin
-    BlockManager := TBlockManagerBase(AOwner);
-  end
-  else
-    Clear(true);
+  if Assigned(AOwner) and (AOwner is TBlockManagerBase)
+  then BlockManager := TBlockManagerBase(AOwner)
+  else Clear(true);
 end;
 
 destructor TBlock.Destroy;
@@ -345,22 +336,6 @@ begin
     FreeAndNil(FBlockLock);
   end;
   inherited;
-end;
-
-class function TBlock.Equals(const ABlock1, ABlock2: TBlockHeader): Boolean;
-begin
-
-  Result := (ABlock1.Block = ABlock2.Block) and
-    (TAccountKey.EqualAccountKeys(ABlock1.account_key, ABlock2.account_key)) and
-    (ABlock1.reward = ABlock2.reward) and (ABlock1.Fee = ABlock2.Fee) and
-    (ABlock1.protocol_version = ABlock2.protocol_version) and
-    (ABlock1.protocol_available = ABlock2.protocol_available) and
-    (ABlock1.timestamp = ABlock2.timestamp) and
-    (ABlock1.compact_target = ABlock2.compact_target) and
-    (ABlock1.nonce = ABlock2.nonce) and (ABlock1.block_payload = ABlock2.block_payload)
-    and (ABlock1.initial_safe_box_hash = ABlock2.initial_safe_box_hash) and
-    (ABlock1.transactionHash = ABlock2.transactionHash) and
-    (ABlock1.proof_of_work = ABlock2.proof_of_work);
 end;
 
 function TBlock.GetAccountKey: TAccountKey;
@@ -413,7 +388,7 @@ var
   i: Cardinal;
   lastfee: UInt64;
   soob: Byte;
-  m: AnsiString;
+  xAccountKeyString: AnsiString;
   load_protocol_v2: Boolean;
 begin
   Lock;
@@ -422,8 +397,7 @@ begin
     Result := false;
     //
     RErrors := 'Invalid protocol structure. Check application version!';
-    if (AStream.Size - AStream.Position < 5) then
-      exit;
+    if (AStream.Size - AStream.Position < 5) then exit;
     AStream.Read(soob, 1);
     // About soob var:
     // In build prior to 1.0.4 soob only can have 2 values: 0 or 1
@@ -435,58 +409,43 @@ begin
     // - Value 2 and 3 means that contains protocol info prior to block number
     // - Value 4 means that is loading from storage using protocol v2 (so, includes always operations)
     load_protocol_v2 := false;
-    if (soob in [0, 2]) then
-      FIsOnlyBlock := false
-    else if (soob in [1, 3]) then
-      FIsOnlyBlock := true
-    else if (soob in [4]) then
-    begin
-      FIsOnlyBlock := false;
-      load_protocol_v2 := true;
-    end
-    else
-    begin
-      RErrors := 'Invalid value in protocol header! Found:' + Inttostr(soob) +
-        ' - Check if your application version is Ok';
-      exit;
-    end;
-
+    if (soob in [0, 2])
+    then FIsOnlyBlock := false
+    else if (soob in [1, 3])
+         then FIsOnlyBlock := true
+         else if (soob in [4])
+         then begin
+           FIsOnlyBlock := false;
+           load_protocol_v2 := true;
+         end else begin
+           RErrors := 'Invalid value in protocol header! Found:' + Inttostr(soob) +
+             ' - Check if your application version is Ok';
+           exit;
+         end;
     if (soob in [2, 3, 4]) then
     begin
       AStream.Read(FBlockHeader.protocol_version, Sizeof(FBlockHeader.protocol_version));
       AStream.Read(FBlockHeader.protocol_available, Sizeof(FBlockHeader.protocol_available));
-    end
-    else
-    begin
+    end else begin
       // We assume that protocol_version is 1 and protocol_available is 0
       FBlockHeader.protocol_version := 1;
       FBlockHeader.protocol_available := 0;
     end;
 
-    if AStream.Read(FBlockHeader.Block, Sizeof(FBlockHeader.Block)) < 0 then
-      exit;
+    if AStream.Read(FBlockHeader.Block, Sizeof(FBlockHeader.Block)) < 0
+    then exit;
 
-    if AStream.ReadAnsiString(m) < 0 then
-      exit;
-    FBlockHeader.account_key := TAccountKey.FromRawString(m);
-    if AStream.Read(FBlockHeader.reward, Sizeof(FBlockHeader.reward)) < 0 then
-      exit;
-    if AStream.Read(FBlockHeader.Fee, Sizeof(FBlockHeader.Fee)) < 0 then
-      exit;
-    if AStream.Read(FBlockHeader.timestamp, Sizeof(FBlockHeader.timestamp)) < 0 then
-      exit;
-    if AStream.Read(FBlockHeader.compact_target, Sizeof(FBlockHeader.compact_target)) < 0 then
-      exit;
-    if AStream.Read(FBlockHeader.nonce, Sizeof(FBlockHeader.nonce)) < 0 then
-      exit;
-    if AStream.ReadAnsiString(FBlockHeader.block_payload) < 0 then
-      exit;
-    if AStream.ReadAnsiString(FBlockHeader.initial_safe_box_hash) < 0 then
-      exit;
-    if AStream.ReadAnsiString(FBlockHeader.transactionHash) < 0 then
-      exit;
-    if AStream.ReadAnsiString(FBlockHeader.proof_of_work) < 0 then
-      exit;
+    if AStream.ReadAnsiString(xAccountKeyString) < 0 then exit;
+    FBlockHeader.account_key := TAccountKey.FromRawString(xAccountKeyString);
+    if AStream.Read(FBlockHeader.reward, Sizeof(FBlockHeader.reward)) < 0 then exit;
+    if AStream.Read(FBlockHeader.Fee, Sizeof(FBlockHeader.Fee)) < 0 then exit;
+    if AStream.Read(FBlockHeader.timestamp, Sizeof(FBlockHeader.timestamp)) < 0 then exit;
+    if AStream.Read(FBlockHeader.compact_target, Sizeof(FBlockHeader.compact_target)) < 0 then exit;
+    if AStream.Read(FBlockHeader.nonce, Sizeof(FBlockHeader.nonce)) < 0 then  exit;
+    if AStream.ReadAnsiString(FBlockHeader.block_payload) < 0 then exit;
+    if AStream.ReadAnsiString(FBlockHeader.initial_safe_box_hash) < 0 then exit;
+    if AStream.ReadAnsiString(FBlockHeader.transactionHash) < 0 then exit;
+    if AStream.ReadAnsiString(FBlockHeader.proof_of_work) < 0 then exit;
     if FIsOnlyBlock then
     begin
       Result := true;
@@ -496,10 +455,8 @@ begin
     lastfee := BlockHeader.Fee;
     FBlockHeader.Fee := 0;
     Result := FTransactionHashTree.LoadFromStream(AStream, ALoadingFromStorage, load_protocol_v2, RErrors);
-    if not Result then
-    begin
-      exit;
-    end;
+    if not Result
+    then exit;
     FBlockHeader.Fee := FTransactionHashTree.TotalFee;
     FBlockHeader.transactionHash := FTransactionHashTree.HashTree;
     Calc_Digest_Parts;
@@ -507,10 +464,8 @@ begin
     if (lastfee <> BlockHeader.Fee) then
     begin
       RErrors := 'Corrupted operations fee old:' + Inttostr(lastfee) + ' new:' + Inttostr(BlockHeader.Fee);
-      for i := 0 to FTransactionHashTree.TransactionCount - 1 do
-      begin
-        RErrors := RErrors + ' Op' + Inttostr(i + 1) + ':' + FTransactionHashTree.GetTransaction(i).ToString;
-      end;
+      for i := 0 to FTransactionHashTree.TransactionCount - 1
+      do RErrors := RErrors + ' Op' + Inttostr(i + 1) + ':' + FTransactionHashTree.GetTransaction(i).ToString;
       Result := false;
       exit;
     end;
@@ -523,13 +478,10 @@ end;
 procedure TBlock.Notification(AComponent: TComponent; Operation: TOperation);
 begin
   inherited;
-  if (Operation = opRemove) then
-  begin
-    if AComponent = FBlockManager then
-    begin
-      FBlockManager := nil;
-      FreeAndNil(FAccountTransaction);
-    end;
+  if (Operation = opRemove) and (AComponent = FBlockManager)
+  then begin
+    FBlockManager := nil;
+    FreeAndNil(FAccountTransaction);
   end;
 end;
 
@@ -653,25 +605,11 @@ var
 begin
   Lock;
   try
-    if ASaveOnlyBlock then
-    begin
-      { Old versions:
-        if (FOperationBlock.protocol_version=1) And (FOperationBlock.protocol_available=0) then soob := 1
-        else soob := 3; }
-      soob := 3;
-    end
-    else
-    begin
-      { Old versions:
-        if (FOperationBlock.protocol_version=1) And (FOperationBlock.protocol_available=0) then soob := 0
-        else soob := 2; }
-      soob := 2;
-      if (ASaveToStorage) then
-      begin
-        // Introduced on protocol v2: soob = 4 when saving to storage
-        soob := 4;
-      end;
-    end;
+    if ASaveOnlyBlock
+    then soob := 3
+    else if (ASaveToStorage)
+         then soob := 4
+         else soob := 2;
     AStream.Write(soob, 1);
     if (soob >= 2) then
     begin
@@ -700,12 +638,9 @@ begin
       sbh, operations_hash, pow ( 32 + 32 + 32 ) =  96 bytes
       Total, by average: 242 bytes
     }
-    if (not ASaveOnlyBlock) then
-    begin
-      Result := FTransactionHashTree.SaveToStream(AStream, ASaveToStorage);
-    end
-    else
-      Result := true;
+    if (not ASaveOnlyBlock)
+    then Result := FTransactionHashTree.SaveToStream(AStream, ASaveToStorage)
+    else Result := true;
   finally
     Unlock;
   end;
@@ -715,8 +650,8 @@ procedure TBlock.SetAccountKey(const value: TAccountKey);
 begin
   Lock;
   try
-    if value.ToRawString = FBlockHeader.account_key.ToRawString then
-      exit;
+    if value.ToRawString = FBlockHeader.account_key.ToRawString
+    then exit;
     FBlockHeader.account_key := value;
     Calc_Digest_Parts;
   finally
@@ -726,12 +661,10 @@ end;
 
 procedure TBlock.SetBank(const value: TBlockManagerBase);
 begin
-  if FBlockManager = value then
-    exit;
-  if Assigned(FBlockManager) then
-  begin
-    FreeAndNil(FAccountTransaction);
-  end;
+  if FBlockManager = value
+  then exit;
+  if Assigned(FBlockManager)
+  then FreeAndNil(FAccountTransaction);
   FBlockManager := value;
   if Assigned(value) then
   begin
@@ -754,10 +687,8 @@ begin
     // Checking Miner Payload valid chars
     for i := 1 to length(value) do
     begin
-      if not(value[i] in [#32 .. #254]) then
-      begin
-        exit;
-      end;
+      if not(value[i] in [#32 .. #254])
+      then exit;
     end;
     FBlockHeader.block_payload := value;
     CalcProofOfWork(true, FBlockHeader.proof_of_work);
@@ -792,8 +723,8 @@ procedure TBlock.Settimestamp(const value: Cardinal);
 begin
   Lock;
   try
-    if FBlockHeader.timestamp = value then
-      exit; // No change, nothing to do
+    if FBlockHeader.timestamp = value
+    then exit; // No change, nothing to do
     FBlockHeader.timestamp := value;
     CalcProofOfWork(false, FBlockHeader.proof_of_work);
   finally
@@ -808,11 +739,8 @@ begin
   Lock;
   try
     ts := UnivDateTimeToUnix(DateTime2UnivDateTime(now));
-    if Assigned(BlockManager) then
-    begin
-      if BlockManager.LastBlock.timestamp > ts then
-        ts := BlockManager.LastBlock.timestamp;
-    end;
+    if Assigned(BlockManager) and (BlockManager.LastBlock.timestamp > ts)
+    then ts := BlockManager.LastBlock.timestamp;
     timestamp := ts;
   finally
     Unlock;
@@ -840,15 +768,15 @@ begin
       exit;
     end;
 
-    TMicroCoinProtocol.CalcProofOfWork(self.FBlockHeader, xPow);
-    if xPow<>self.FBlockHeader.proof_of_work then
+    TMicroCoinProtocol.CalcProofOfWork(FBlockHeader, xPow);
+    if xPow <> FBlockHeader.proof_of_work then
     begin
       FBlockHeader.proof_of_work := xPow;
     end;
 
     // Check OperationBlock info:
-    if not AccountTransaction.FreezedAccountStorage.IsValidNewBlockHeader(BlockHeader, true, errors) then
-      exit;
+    if not AccountTransaction.FreezedAccountStorage.IsValidNewBlockHeader(BlockHeader, true, errors)
+    then exit;
     // Execute SafeBoxTransaction operations:
     AccountTransaction.Rollback;
     for i := 0 to TransactionCount - 1 do

@@ -57,10 +57,8 @@ type
     class function AccountKeyFromImport(const HumanReadable: AnsiString; var RAccountKey: TAccountKey; var errors: AnsiString): Boolean; static;
     function AccountPublicKeyExport: AnsiString;
     class function AccountPublicKeyImport(const HumanReadable: AnsiString; var RAccountKey: TAccountKey; var errors: AnsiString): Boolean; static;
-    class function EqualAccountKeys(const account1, account2: TAccountKey): Boolean; static;
     class function GetECInfoTxt(const EC_OpenSSL_NID: Word): AnsiString; static;
     class procedure ValidsEC_OpenSSL_NID(list: TList); static;
-    function Equals(other: TAccountKey) : boolean; inline;
   end;
 
 const
@@ -293,17 +291,6 @@ begin
       errors := 'Error on conversion from Raw to Account key';
     end;
   end;
-end;
-
-class function TAccountKeyHelper.EqualAccountKeys(const account1, account2: TAccountKey): Boolean;
-begin
-  Result := (account1.EC_OpenSSL_NID = account2.EC_OpenSSL_NID) and (account1.x = account2.x) and
-    (account1.y = account2.y);
-end;
-
-function TAccountKeyHelper.Equals(other: TAccountKey): boolean;
-begin
-  Result := TAccountKey.EqualAccountKeys(self, other);
 end;
 
 end.

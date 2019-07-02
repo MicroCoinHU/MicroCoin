@@ -322,7 +322,7 @@ begin
       FBufferLock.Release;
     end;
     // Checking if operationblock is the same to prevent double messaging...
-    if (TBlock.Equals(FRemoteOperationBlock, NewBlock.BlockHeader)) then
+    if FRemoteOperationBlock = NewBlock.BlockHeader then
     begin
       LogDebug(Classname, 'This connection has the same block, does not need to send');
       exit;

@@ -155,8 +155,8 @@ begin
   end;
   try
     // Check block number:
-    if TBlock.Equals(BlockManager.LastBlock, NewBlockOperations.BlockHeader) then
-    begin
+    if BlockManager.LastBlock = NewBlockOperations.BlockHeader
+    then begin
       errors := 'Duplicated block';
       exit;
     end;

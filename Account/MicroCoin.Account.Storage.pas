@@ -200,7 +200,6 @@ procedure ToTMemBlockAccount(const Source: TAccountStorageEntry; var dest: TMemB
 {$IFDEF uselowmem}
 var
   i: Integer;
-var
   raw: TRawBytes;
 {$ENDIF}
 begin
@@ -1471,7 +1470,7 @@ begin
   acc := Accounts[AAccountNumber];
   P := FBlockAccountsList.Items[iblock];
 
-  if (not TAccountKey.EqualAccountKeys(acc.AccountInfo.AccountKey, ANewAccountInfo.AccountKey)) then
+  if (acc.AccountInfo.AccountKey <> ANewAccountInfo.AccountKey) then
   begin
     AccountKeyListRemoveAccount(acc.AccountInfo.AccountKey, [AAccountNumber]);
     AccountKeyListAddAccounts(ANewAccountInfo.AccountKey, [AAccountNumber]);
@@ -1567,7 +1566,7 @@ begin
     begin
       for i := 0 to FAccountStorage.AccountsCount - 1 do
       begin
-        if TAccountKey.EqualAccountKeys(FAccountStorage.Accounts[i].AccountInfo.AccountKey, AAccountKey) then
+        if FAccountStorage.Accounts[i].AccountInfo.AccountKey = AAccountKey then
         begin
           // Note: P^.accounts will be ascending ordered due to "for i:=0 to ..."
           P^.AccountNumbers.Add(i);

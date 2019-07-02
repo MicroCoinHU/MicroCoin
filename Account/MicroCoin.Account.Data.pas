@@ -228,10 +228,10 @@ end;
 class function TAccountInfo.EqualAccountInfos(const AAccountInfo1, AAccountInfo2: TAccountInfo): Boolean;
 begin
   Result := (AAccountInfo1.State = AAccountInfo2.State) and
-    (TAccountKey.EqualAccountKeys(AAccountInfo1.AccountKey, AAccountInfo2.AccountKey)) and
+    (AAccountInfo1.AccountKey = AAccountInfo2.AccountKey) and
     (AAccountInfo1.LockedUntilBlock = AAccountInfo2.LockedUntilBlock) and (AAccountInfo1.Price = AAccountInfo2.Price)
     and (AAccountInfo1.AccountToPay = AAccountInfo2.AccountToPay) and
-    (TAccountKey.EqualAccountKeys(AAccountInfo1.NewPublicKey, AAccountInfo2.NewPublicKey));
+    (AAccountInfo1.NewPublicKey = AAccountInfo2.NewPublicKey);
 end;
 
 function TAccountInfo.IsLocked(ABlockCount: Cardinal): Boolean;

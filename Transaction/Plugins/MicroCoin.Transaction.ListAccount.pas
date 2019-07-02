@@ -190,7 +190,7 @@ begin
   if (FData.SignerAccount <> FData.TargetAccount) then
   begin
     // Both accounts must have same PUBLIC KEY!
-    if not TAccountKey.EqualAccountKeys(account_signer.accountInfo.AccountKey, account_target.accountInfo.AccountKey)
+    if account_signer.accountInfo.AccountKey <> account_target.accountInfo.AccountKey
     then
     begin
       errors := 'Signer and affected accounts have different public key';
@@ -225,7 +225,7 @@ begin
   end;
   if (IsPrivateSale) then
   begin
-    if TAccountKey.EqualAccountKeys(account_target.accountInfo.AccountKey, FData.NewPublicKey) then
+    if account_target.accountInfo.AccountKey = FData.NewPublicKey then
     begin
       errors := 'New public key for private sale is the same public key';
       exit;
@@ -234,7 +234,7 @@ begin
   //
   // Build 1.4
   if (FData.PublicKey.EC_OpenSSL_NID <> TAccountKey.Empty.EC_OpenSSL_NID) and
-    (not TAccountKey.EqualAccountKeys(FData.PublicKey, account_signer.accountInfo.AccountKey)) then
+    (FData.PublicKey <> account_signer.accountInfo.AccountKey) then
   begin
     errors := Format('Invalid public key for account %d. Distinct from SafeBox public key! %s <> %s',
       [FData.SignerAccount, TBaseType.ToHexaString(FData.PublicKey.ToRawString),
