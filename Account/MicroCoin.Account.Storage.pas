@@ -643,7 +643,7 @@ begin
           end;
         end;
 
-        if not TBlockHeader.LoadFromStream(AStream, block.BlockHeader)
+        if not block.BlockHeader.LoadFromStream(AStream)
         then exit;
 
         if block.BlockHeader.block <> iblock

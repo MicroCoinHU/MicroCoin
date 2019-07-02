@@ -51,10 +51,10 @@ type
     class function HasTransactionPlugin(ATransactionClass: TTransactionClass): boolean; overload; static;
     class function HasTransactionPlugin(ATransactionType: Cardinal): boolean; overload; static;
   public
-    class function RegisterTransactionPlugin(ATransactionClass: TTransactionClass; ATransactionType: byte)
-      : boolean; static;
+    class function RegisterTransactionPlugin(ATransactionClass: TTransactionClass; ATransactionType: byte): boolean; static;
     class function GetTransactionPlugin(ATransactionType: Cardinal): TTransactionClass; static;
     class function CreateTransaction(ATransactionType: Cardinal): ITransaction; static;
+
     class destructor Destroy;
   end;
 

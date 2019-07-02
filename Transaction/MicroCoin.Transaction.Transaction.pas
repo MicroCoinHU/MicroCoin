@@ -94,8 +94,6 @@ type
     class function FinalOperationHashAsHexa(const OperationHash: TRawBytes): AnsiString;
 
     function Sha256: TRawBytes;
-    function _AddRef: Integer; stdcall;
-    function _Release: Integer; stdcall;
 
     property Previous_Signer_updated_block: Cardinal read Get_Previous_Signer_updated_block
       write Set_Previous_Signer_updated_block;
@@ -231,16 +229,6 @@ begin
   finally
     ms.Free;
   end;
-end;
-
-function TTransaction._AddRef: Integer;
-begin
-  inherited;
-end;
-
-function TTransaction._Release: Integer;
-begin
-  inherited;
 end;
 
 function TTransaction.TransactionHash(Block: Cardinal): TRawBytes;

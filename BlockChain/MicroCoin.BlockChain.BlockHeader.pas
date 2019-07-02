@@ -18,6 +18,7 @@ interface
 uses Sysutils, classes, UCrypto, UBaseTypes, MicroCoin.Account.AccountKey;
 
 type
+
   TBlockHeader = record
     block: Cardinal;
     account_key: TAccountKey;
@@ -32,14 +33,17 @@ type
     initial_safe_box_hash: TRawBytes; // RAW Safe Box Hash value (32 bytes, it's a Sha256)
     transactionHash: TRawBytes; // RAW sha256 (32 bytes) of Operations
     proof_of_work: TRawBytes; // RAW Double Sha256
-    class function LoadFromStream(const stream: TStream; var ABlockHeader: TBlockHeader): Boolean; static;
-    procedure SaveToStream(const stream: TStream);
+
     class function Empty : TBlockHeader; static;
+
+    function LoadFromStream(const stream: TStream): Boolean;
+    procedure SaveToStream(const stream: TStream);
+
     function ToString : AnsiString;
+
     class operator Equal(ABlock1, ABlock2 : TBlockHeader) : Boolean;
     class operator NotEqual(ABlock1, ABlock2 : TBlockHeader) : Boolean;
   end;
-
 
 implementation
 
@@ -101,28 +105,23 @@ begin
     (ABlock1.proof_of_work = ABlock2.proof_of_work);
 end;
 
-class function TBlockHeader.LoadFromStream(const stream: TStream; var ABlockHeader: TBlockHeader): Boolean;
+function TBlockHeader.LoadFromStream(const stream: TStream): Boolean;
 begin
   Result := false;
-  ABlockHeader := TBlockHeader.Empty;
-  if stream.Read(ABlockHeader.block, Sizeof(ABlockHeader.block)) < Sizeof(ABlockHeader.block)
+  if stream.Read(block, Sizeof(block)) < Sizeof(block)
   then exit;
-  stream.ReadAccountKey(ABlockHeader.account_key);
-  stream.Read(ABlockHeader.reward, Sizeof(ABlockHeader.reward));
-  stream.Read(ABlockHeader.fee, Sizeof(ABlockHeader.fee));
-  stream.Read(ABlockHeader.protocol_version, Sizeof(ABlockHeader.protocol_version));
-  stream.Read(ABlockHeader.protocol_available, Sizeof(ABlockHeader.protocol_available));
-  stream.Read(ABlockHeader.timestamp, Sizeof(ABlockHeader.timestamp));
-  stream.Read(ABlockHeader.compact_target, Sizeof(ABlockHeader.compact_target));
-  stream.Read(ABlockHeader.nonce, Sizeof(ABlockHeader.nonce));
-  if stream.ReadAnsiString(ABlockHeader.block_payload) < 0
-  then exit;
-  if stream.ReadAnsiString(ABlockHeader.initial_safe_box_hash) < 0
-  then exit;
-  if stream.ReadAnsiString(ABlockHeader.transactionHash) < 0
-  then exit;
-  if stream.ReadAnsiString(ABlockHeader.proof_of_work) < 0
-  then exit;
+  stream.ReadAccountKey(account_key);
+  stream.Read(reward, Sizeof(reward));
+  stream.Read(fee, Sizeof(fee));
+  stream.Read(protocol_version, Sizeof(protocol_version));
+  stream.Read(protocol_available, Sizeof(protocol_available));
+  stream.Read(timestamp, Sizeof(timestamp));
+  stream.Read(compact_target, Sizeof(compact_target));
+  stream.Read(nonce, Sizeof(nonce));
+  if stream.ReadAnsiString(block_payload) < 0 then exit;
+  if stream.ReadAnsiString(initial_safe_box_hash) < 0 then exit;
+  if stream.ReadAnsiString(transactionHash) < 0then exit;
+  if stream.ReadAnsiString(proof_of_work) < 0 then exit;
   Result := true;
 end;
 
