@@ -101,6 +101,7 @@ type
     function GetOnBlackListUpdated: TNotifyEvent;
     function GetOnReceivedHelloMessage: TNotifyEvent;
     function GetOnStatisticsChanged: TNotifyEvent;
+    class function GetHasInstance: boolean; static;
 
   strict protected
     class function GetInstance: TConnectionManager; static;
@@ -175,6 +176,7 @@ type
 
     property MaxConnections: Integer read FMaxConnections write FMaxConnections;
     class property Instance: TConnectionManager read GetInstance;
+    class property HasInstance: boolean read GetHasInstance;
     class property NodeServersAddresses: TPCThreadList read FNodeServersAddresses;
     class property Destroying : boolean read FDestroying;
     class property IgnoreOldBlocks : boolean read FIgnoreOldBlocks write FIgnoreOldBlocks;
@@ -928,6 +930,11 @@ begin
   finally
     FNetConnections.UnlockList;
   end;
+end;
+
+class function TConnectionManager.GetHasInstance: boolean;
+begin
+  Result := Assigned(FInstance);
 end;
 
 // TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
