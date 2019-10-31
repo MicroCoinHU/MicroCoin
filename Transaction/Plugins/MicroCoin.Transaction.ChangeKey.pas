@@ -186,7 +186,7 @@ begin
 
   if (AAccountTransaction.FreezedAccountStorage.CurrentProtocol >= cPROTOCOL_2)
   then begin
-    if account_target.accountInfo.AccountKey <> FData.NewAccountKey
+    if account_target.accountInfo.AccountKey = FData.NewAccountKey
     then begin
       RErrors := 'New public key is the same public key';
       Exit;
