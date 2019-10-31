@@ -71,9 +71,9 @@ type
 
   TBlockManager = class(TBlockManagerBase)
   private
-    class var FStorage: TStorage;
     class var FStorageClass: TStorageClass;
   private
+    FBlockStorage: TStorage;
     FAccountStorage: TAccountStorage;
     FLastBlockCache: TBlock;
     FLastBlockHeader: TBlockHeader;
@@ -237,7 +237,8 @@ end;
 constructor TBlockManager.Create(AOwner: TComponent);
 begin
   inherited;
-  FStorage := nil;
+  FBlockStorage := StorageClass.Create;
+  FBlockStorage.BlockManager := self;
   FAccountStorageLock := TCriticalSection.Create();
   FIsRestoringFromFile := false;
   FOnLog := nil;
@@ -265,7 +266,7 @@ begin
     step := 'Destroying NotifyList';
     FreeAndNil(FNotifyList);
     step := 'Destroying Storage';
-    FreeAndNil(FStorage);
+    FreeAndNil(FBlockStorage);
     step := 'inherited';
     inherited;
   except
@@ -434,14 +435,14 @@ end;
 
 function TBlockManager.GetStorage: TStorage;
 begin
-  if not Assigned(FStorage) then
+  if not Assigned(FBlockStorage) then
   begin
     if not Assigned(FStorageClass) then
       raise Exception.Create('StorageClass not defined');
-    FStorage := FStorageClass.Create;
-    FStorage.BlockManager := Self;
+//    FBlockStorage := FStorageClass.Create;
+//    FBlockStorage.BlockManager := Self;
   end;
-  Result := FStorage;
+  Result := FBlockStorage;
 end;
 
 function TBlockManager.IsReady(var CurrentProcess: AnsiString): Boolean;
@@ -547,8 +548,8 @@ begin
   if FStorageClass = value then
     exit;
   FStorageClass := value;
-  if Assigned(FStorage) then
-    FreeAndNil(FStorage);
+  //if Assigned(FStorage)
+  //then FreeAndNil(FStorage);
 end;
 
 constructor TBlockManagerNotify.Create(AOwner: TComponent);
