@@ -448,6 +448,7 @@ var
   sbHeader: TAccountStorageHeader;
 begin
   LockBlockChainStream;
+  Result := false;
   try
     FileAttrs := faArchive;
     folder := GetFolder(Orphan);
@@ -486,7 +487,9 @@ begin
           if not BlockManager.LoadAccountsFromStream(ms, false, errors) then
           begin
             TLog.NewLog(ltError, ClassName, 'Error reading bank from file: ' + Filename + ' Error: ' + errors);
+            Exit;
           end;
+          Result := true;
         finally
           ms.Free;
         end;
