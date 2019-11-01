@@ -84,7 +84,7 @@ type
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
-    class constructor Create;
+    class constructor CreateClass;
     class destructor DestroyClass;
 
     procedure Send(NetTranferType: TNetTransferType; operation, errorcode: Word; request_id: Integer;
@@ -204,7 +204,7 @@ begin
   end;
 end;
 
-class constructor TNetConnectionBase.Create;
+class constructor TNetConnectionBase.CreateClass;
 begin
   FHandlers := TDictionary<Word, TClass>.Create;
 end;
