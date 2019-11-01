@@ -42,7 +42,7 @@ unit MicroCoin.Account.Storage;
 interface
 
 uses SysUtils, Classes, UCrypto, UThread, MicroCoin.Common.Lists, MicroCoin.Crypto.Keys,
-  MicroCoin.Crypto.BigNum, SyncObjs, System.Types,
+  MicroCoin.Crypto.BigNum, SyncObjs, Types,
   MicroCoin.Account.Data, MicroCoin.Account.AccountKey, MicroCoin.BlockChain.BlockHeader,
   MicroCoin.Common.Config, UBaseTypes, ULog, MicroCoin.BlockChain.Protocol;
 

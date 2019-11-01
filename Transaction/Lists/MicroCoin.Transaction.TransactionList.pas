@@ -17,7 +17,7 @@ unit MicroCoin.Transaction.TransactionList;
 
 interface
 
-uses SysUtils, Classes, MicroCoin.Transaction.Base, UThread, System.SyncObjs,
+uses SysUtils, Classes, MicroCoin.Transaction.Base, UThread, SyncObjs,
   MicroCoin.Account.Storage, MicroCoin.Account.AccountKey,
   MicroCoin.Common.Lists, UCrypto, MicroCoin.Common.Config, ULog;
 

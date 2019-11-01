@@ -439,8 +439,6 @@ begin
   begin
     if not Assigned(FStorageClass) then
       raise Exception.Create('StorageClass not defined');
-//    FBlockStorage := FStorageClass.Create;
-//    FBlockStorage.BlockManager := Self;
   end;
   Result := FBlockStorage;
 end;
@@ -455,8 +453,7 @@ begin
       CurrentProcess := StrMigratingToVersion
     else if not FIsLoadingBlocks
          then CurrentProcess := Format(StrLoadingCheckpointBlocks,[BlocksCount, Storage.LastBlock])
-         else CurrentProcess := StrLoadingBlocks; // Format('Loading blockchain %d%%',
-//         [Round(100*(BlocksCount mod 100) / Max(1, (Storage.LastBlock) mod 100)) ])
+         else CurrentProcess := StrLoadingBlocks;
   end
   else
     Result := true;

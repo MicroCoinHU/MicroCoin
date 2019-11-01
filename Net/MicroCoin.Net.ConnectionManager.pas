@@ -102,7 +102,9 @@ type
     function GetOnReceivedHelloMessage: TNotifyEvent;
     function GetOnStatisticsChanged: TNotifyEvent;
     class function GetHasInstance: boolean; static;
-
+    function Do_GetOperationsBlock(AssignToBank: TBlockManager; block_start, block_end, MaxWaitMilliseconds: Cardinal;
+      OnlyOperationBlock: Boolean; BlocksList: TList; Connection : TNetConnection): Boolean;
+    function Do_GetOperationBlock(Block, MaxWaitMilliseconds: Cardinal; var OperationBlock: TBlockHeader; Connection : TNetConnection): Boolean;
   strict protected
     class function GetInstance: TConnectionManager; static;
   public
@@ -937,91 +939,92 @@ begin
   Result := Assigned(FInstance);
 end;
 
+const CT_LogSender = 'GetNewBlockChainFromClient';
+
+function TConnectionManager.Do_GetOperationsBlock(AssignToBank: TBlockManager; block_start, block_end, MaxWaitMilliseconds: Cardinal;
+  OnlyOperationBlock: Boolean; BlocksList: TList; Connection : TNetConnection): Boolean;
+var
+  xSendData, xReceiveData: TMemoryStream;
+  xHeaderData: TNetHeaderData;
+  xBlock: TBlock;
+  xRequestId, xCount, i: Cardinal;
+  xErrors: AnsiString;
+  xNetOperationNumber: Integer;
+begin
+  Result := false;
+  BlocksList.Clear;
+  if (Connection.RemoteOperationBlock.Block < block_end) then
+    block_end := Connection.RemoteOperationBlock.Block;
+  // First receive operations from
+  xSendData := TMemoryStream.Create;
+  xReceiveData := TMemoryStream.Create;
+  try
+    if OnlyOperationBlock
+    then xNetOperationNumber := cNetOp_GetOperationsBlock
+    else xNetOperationNumber := cNetOp_GetBlocks;
+    LogDebug(CT_LogSender, Format('Sending %d from block %d to %d (Total: %d)',
+      [xNetOperationNumber, block_start, block_end, block_end - block_start + 1]));
+    xSendData.Write(block_start, 4);
+    xSendData.Write(block_end, 4);
+    xRequestId := TConnectionManager.Instance.NewRequestId;
+    if Connection.DoSendAndWaitForResponse(xNetOperationNumber, xRequestId, xSendData, xReceiveData, MaxWaitMilliseconds, xHeaderData)
+    then begin
+      if xHeaderData.IsError then exit;
+      if xReceiveData.Read(xCount, 4) < 4 then
+        exit; // Error in data
+      i := 0;
+      while (i < xCount) do
+      begin
+        // decode data
+        xBlock := TBlock.Create(AssignToBank);
+        if xBlock.LoadBlockFromStream(xReceiveData, xErrors)
+        then BlocksList.Add(xBlock)
+        else begin
+          TLog.NewLog(ltError, CT_LogSender, Format('Error reading OperationBlock from received stream %d/%d: %s',
+            [i + 1, xCount, xErrors]));
+          xBlock.Free;
+          break;
+        end;
+        Inc(i);
+      end;
+      Result := true;
+    end
+    else
+    begin
+      TLog.NewLog(ltError, CT_LogSender, Format('No received response after waiting %d request id %d operation %d',
+        [MaxWaitMilliseconds, xRequestId, (xNetOperationNumber)]));
+    end;
+  finally
+    xSendData.Free;
+    xReceiveData.Free;
+  end;
+end;
+
+function TConnectionManager.Do_GetOperationBlock(Block, MaxWaitMilliseconds: Cardinal; var OperationBlock: TBlockHeader; Connection : TNetConnection): Boolean;
+var
+  BlocksList: TList;
+  i: Integer;
+begin
+  OperationBlock := TBlockHeader.Empty;
+  BlocksList := TList.Create;
+  try
+    Result := Do_GetOperationsBlock(TNode.Node.BlockManager, Block, Block, MaxWaitMilliseconds, true, BlocksList, Connection);
+    if (Result) and (BlocksList.Count = 1) then
+    begin
+      OperationBlock := TBlock(BlocksList[0]).BlockHeader;
+    end;
+  finally
+    for i := 0 to BlocksList.Count - 1 do
+      TBlock(BlocksList[i]).Free;
+    BlocksList.Free;
+  end;
+end;
+
+
 // TODO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 // Spaghetti code
 // Move to other class!
 procedure TConnectionManager.GetNewBlockChainFromClient(Connection: TNetConnection; const why: string);
-const
-  CT_LogSender = 'GetNewBlockChainFromClient';
-
-  function Do_GetOperationsBlock(AssignToBank: TBlockManager; block_start, block_end, MaxWaitMilliseconds: Cardinal;
-    OnlyOperationBlock: Boolean; BlocksList: TList): Boolean;
-  var
-    xSendData, xReceiveData: TMemoryStream;
-    xHeaderData: TNetHeaderData;
-    xBlock: TBlock;
-    xRequestId, xCount, i: Cardinal;
-    xErrors: AnsiString;
-    xNetOperationNumber: Integer;
-  begin
-    Result := false;
-    BlocksList.Clear;
-    if (Connection.RemoteOperationBlock.Block < block_end) then
-      block_end := Connection.RemoteOperationBlock.Block;
-    // First receive operations from
-    xSendData := TMemoryStream.Create;
-    xReceiveData := TMemoryStream.Create;
-    try
-      if OnlyOperationBlock
-      then xNetOperationNumber := cNetOp_GetOperationsBlock
-      else xNetOperationNumber := cNetOp_GetBlocks;
-      LogDebug(CT_LogSender, Format('Sending %d from block %d to %d (Total: %d)',
-        [xNetOperationNumber, block_start, block_end, block_end - block_start + 1]));
-      xSendData.Write(block_start, 4);
-      xSendData.Write(block_end, 4);
-      xRequestId := TConnectionManager.Instance.NewRequestId;
-      if Connection.DoSendAndWaitForResponse(xNetOperationNumber, xRequestId, xSendData, xReceiveData, MaxWaitMilliseconds, xHeaderData)
-      then begin
-        if xHeaderData.IsError then exit;
-        if xReceiveData.Read(xCount, 4) < 4 then
-          exit; // Error in data
-        i := 0;
-        while (i < xCount) do
-        begin
-          // decode data
-          xBlock := TBlock.Create(AssignToBank);
-          if xBlock.LoadBlockFromStream(xReceiveData, xErrors)
-          then BlocksList.Add(xBlock)
-          else begin
-            TLog.NewLog(ltError, CT_LogSender, Format('Error reading OperationBlock from received stream %d/%d: %s',
-              [i + 1, xCount, xErrors]));
-            xBlock.Free;
-            break;
-          end;
-          Inc(i);
-        end;
-        Result := true;
-      end
-      else
-      begin
-        TLog.NewLog(ltError, CT_LogSender, Format('No received response after waiting %d request id %d operation %d',
-          [MaxWaitMilliseconds, xRequestId, (xNetOperationNumber)]));
-      end;
-    finally
-      xSendData.Free;
-      xReceiveData.Free;
-    end;
-  end;
-
-  function Do_GetOperationBlock(Block, MaxWaitMilliseconds: Cardinal; var OperationBlock: TBlockHeader): Boolean;
-  var
-    BlocksList: TList;
-    i: Integer;
-  begin
-    OperationBlock := TBlockHeader.Empty;
-    BlocksList := TList.Create;
-    try
-      Result := Do_GetOperationsBlock(TNode.Node.BlockManager, Block, Block, MaxWaitMilliseconds, true, BlocksList);
-      if (Result) and (BlocksList.Count = 1) then
-      begin
-        OperationBlock := TBlock(BlocksList[0]).BlockHeader;
-      end;
-    finally
-      for i := 0 to BlocksList.Count - 1 do
-        TBlock(BlocksList[i]).Free;
-      BlocksList.Free;
-    end;
-  end;
 
   function FindLastSameBlockByOperationsBlock(min, Max: Cardinal; var OperationBlock: TBlockHeader): Boolean;
   var
@@ -1036,7 +1039,7 @@ const
     repeat
       BlocksList := TList.Create;
       try
-        if not Do_GetOperationsBlock(nil, min, Max, 5000, true, BlocksList) then
+        if not Do_GetOperationsBlock(nil, min, Max, 5000, true, BlocksList, Connection) then
           exit;
         distinctmin := min;
         distinctmax := Max;
@@ -1120,7 +1123,7 @@ const
       repeat
         BlocksList := TList.Create;
         try
-          finished := not Do_GetOperationsBlock(Bank, start, start + 50, 30000, false, BlocksList);
+          finished := not Do_GetOperationsBlock(Bank, start, start + 50, 30000, false, BlocksList, Connection);
           i := 0;
           while (i < BlocksList.Count) and (not finished) do
           begin
@@ -1326,7 +1329,7 @@ type
     // Will try to download penultimate saved safebox
     x_blockcount := ((Connection.RemoteOperationBlock.Block div cSaveAccountStorageOnBlocks) - 1) *
       cSaveAccountStorageOnBlocks;
-    if not Do_GetOperationBlock(x_blockcount, 5000, xBlockHeader) then
+    if not Do_GetOperationBlock(x_blockcount, 5000, xBlockHeader, Connection) then
     begin
       Connection.DisconnectInvalidClient(false, Format('Cannot obtain operation block %d for downloading safebox',
         [x_blockcount]));
@@ -1451,7 +1454,7 @@ begin
     // NOTE: FRemoteOperationBlock.block >= TNode.Node.Bank.BlocksCount
     // First capture same block than me (TNode.Node.Bank.BlocksCount-1) to check if i'm an orphan block...
     xMyBlockHeader := TNode.Node.BlockManager.LastBlock;
-    if not Do_GetOperationBlock(xMyBlockHeader.Block, 5000, xClientBlockHeader) then
+    if not Do_GetOperationBlock(xMyBlockHeader.Block, 5000, xClientBlockHeader, Connection) then
     begin
       TLog.NewLog(ltError, CT_LogSender, 'Cannot receive information about my block (' + Inttostr(xMyBlockHeader.Block)
         + ')...');

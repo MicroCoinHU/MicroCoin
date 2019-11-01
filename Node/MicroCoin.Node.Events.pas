@@ -15,7 +15,7 @@ unit MicroCoin.Node.Events;
 
 interface
 
-uses MicroCoin.Node.Node, UBaseTypes, Sysutils, classes, MicroCoin.Net.Connection, UThread, UCrypto, ULog, System.Types;
+uses MicroCoin.Node.Node, UBaseTypes, Sysutils, classes, MicroCoin.Net.Connection, UThread, UCrypto, ULog, Types;
 
 type
 

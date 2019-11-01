@@ -95,34 +95,6 @@ const
 
   CT_GroupBlockSize = 1000;
   CT_SizeOfBlockHeader = 16;
-  {
-    BlockChain file storage:
-
-    BlockHeader 0 -> From Block 0 to (CT_GroupBlockSize-1)
-    Foreach Block:
-    BlockNumber : 4 bytes
-    StreamBlockRelStartPos : 8 bytes  -> Start pos relative to End of BlockHeader
-    BlockSizeH : 4 bytes
-    -- Total size of BlockHeader: (4+8+4) * (CT_GroupBlockSize) = 16 * CT_GroupBlockSize
-    -- Note: If BlockHeader starts at pos X, it ends at pos X + (16*CT_GroupBlockSize)
-    Block 0
-    BlockSizeC: 4 bytes
-    Data: BlockSizeC bytes
-    Block 1
-    ...
-    Block CT_GroupBlockSize-1
-
-    BlockHeader 1 -> From Block CT_GroupBlockSize to ((CT_GroupBlockSize*2)-1)
-    (Same as BlockHeader 1)
-    Block CT_GroupBlockSize
-    ...
-    Block ((CT_GroupBlockSize*2)-1)
-
-    ...
-    BlockHeader X -> From (CT_GroupBlockSize*X) to ((CT_GroupBlockSize*(X+1))-1)
-    ...
-
-  }
 
 function TFileStorage.BlockExists(Block: Cardinal): Boolean;
 var
@@ -197,7 +169,6 @@ begin
   FStreamFirstBlockNumber := 0;
   FStreamLastBlockNumber := -1;
   FStorageLock := TCriticalSection.Create;
-//  Remove(TFolderHelper.GetMicroCoinDataFolder + PathDelim + 'Data');
   FDatabaseFolder := MicroCoinDataFolder + PathDelim + 'Data';
 end;
 
