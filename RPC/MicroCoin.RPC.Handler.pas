@@ -79,6 +79,32 @@ begin
   FreeOnTerminate := true;
 end;
 
+function DumpExceptionCallStack(E: Exception) : string;
+{$IFDEF FPC}
+var
+  I: Integer;
+  Frames: PPointer;
+  Report: string;
+begin
+  Report := 'Program exception! ' + LineEnding +
+    'Stacktrace:' + LineEnding + LineEnding;
+  if E <> nil then begin
+    Report := Report + 'Exception class: ' + E.ClassName + LineEnding +
+    'Message: ' + E.Message + LineEnding;
+  end;
+  Report := Report + BackTraceStrFunc(ExceptAddr);
+  Frames := ExceptFrames;
+  for I := 0 to ExceptFrameCount - 1 do
+    Report := Report + LineEnding + BackTraceStrFunc(Frames[I]);
+  Result := Report;
+end;
+{$ELSE}
+begin
+  Result := E.StackTrace;
+end;
+{$ENDIF}
+
+
 destructor TRPCHandler.Destroy;
 begin
   FSock.Free;
@@ -217,10 +243,11 @@ begin
             except
               on E: Exception do
               begin
-                TLog.NewLog(lterror, Classname, 'Exception processing method' + jsonobj.AsString('method', '') + ' (' +
+                TLog.NewLog(lterror, Classname, 'Exception processing method: ' + jsonobj.AsString('method', '') + ' (' +
                   E.Classname + '): ' + E.Message);
                 jsonresponse.GetAsObject('error').GetAsVariant('code').Value := CT_RPC_ErrNum_InternalError;
                 jsonresponse.GetAsObject('error').GetAsVariant('message').Value := E.Message;
+                TLog.NewLog(lterror, ClassName, DumpExceptionCallStack(E));
                 valid := false;
               end;
             end;
@@ -286,6 +313,10 @@ function TRPCHandler.ProcessMethod(const method: string; params: TPCJSONObject; 
 var
   _ro: TPCJSONObject;
   _ra: TPCJSONArray;
+  Sender, Target : Cardinal;
+  Amount, Fee : Uint64;
+  Payload: TRawBytes;
+  PMethod, Pwd: AnsiString;
   function GetResultObject: TPCJSONObject;
   begin
     if not Assigned(_ro) then
@@ -644,7 +675,7 @@ var
     errors: AnsiString;
     OPR: TTransactionData;
   begin
-    FNode.SequenceLock.Acquire; // Use lock to prevent N_Operation race-condition on concurrent sends
+    TNode.Node.SequenceLock.Acquire; // Use lock to prevent N_Operation race-condition on concurrent sends
     try
       Result := false;
       if (Sender >= FNode.BlockManager.AccountsCount) then
@@ -667,11 +698,11 @@ var
       end;
       sacc := FNode.TransactionStorage.AccountTransaction.Account(Sender);
       tacc := FNode.TransactionStorage.AccountTransaction.Account(target);
-
       opt := CreateOperationTransaction(Sender, target, sacc.NumberOfTransactions, Amount, fee, sacc.accountInfo.AccountKey,
         tacc.accountInfo.AccountKey, RawPayload, Payload_method, EncodePwd);
       if opt = nil then
         exit;
+      opt.GetTransactionData(0, Sender, OPR);
       try
         if not FNode.AddTransaction(nil, opt, errors) then
         begin
@@ -679,14 +710,13 @@ var
           ErrorNum := CT_RPC_ErrNum_InvalidOperation;
           exit;
         end;
-        opt.GetTransactionData(0, Sender, OPR);
         FillOperationResumeToJSONObject(OPR, GetResultObject);
         Result := true;
       finally
 //        opt.Free;
       end;
     finally
-      FNode.SequenceLock.Release;
+      TNode.Node.SequenceLock.Leave;
     end;
   end;
 
@@ -2353,7 +2383,7 @@ begin
   ErrorNum := 0;
   ErrorDesc := '';
   Result := false;
-  LogDebug( Classname, 'Processing RPC-JSON method ' + method);
+  TLog.NewLog(ltInfo, Classname, 'Processing RPC-JSON method ' + method);
 
   Handler := TRPCPluginManager.GetHandler(method);
 
@@ -2624,6 +2654,7 @@ begin
   end
   else if (method = 'sendto') then
   begin
+    TLog.NewLog(ltInfo, ClassName, 'SendTo call');
     // Sends "amount" coins from "sender" to "target" with "fee"
     // If "payload" is present, it will be encoded using "payload_method"
     // "payload_method" types: "none","dest"(default),"sender","aes"(must provide "pwd" param)
@@ -2635,10 +2666,18 @@ begin
       ErrorDesc := 'Wallet is password protected. Unlock first';
       exit;
     end;
-    Result := OpSendTo(params.AsCardinal('sender', cMaxAccountNumber), params.AsCardinal('target', cMaxAccountNumber),
-      ToMicroCoins(params.AsDouble('amount', 0)), ToMicroCoins(params.AsDouble('fee', 0)),
-      TBaseType.HexaToRaw(params.AsString('payload', '')), params.AsString('payload_method', 'dest'),
-      params.AsString('pwd', ''));
+    Sender := params.AsCardinal('sender', cMaxAccountNumber);
+    Target := params.AsCardinal('target', cMaxAccountNumber);
+    Amount := ToMicroCoins(params.AsDouble('amount', 0));
+    Fee := ToMicroCoins(params.AsDouble('fee', 0));
+    Payload := TBaseType.HexaToRaw(params.AsString('payload', ''));
+    PMethod :=  params.AsString('payload_method', 'dest');
+    Pwd :=  params.AsString('pwd', '');
+    Result := OpSendTo(Sender, Target,
+      Amount, Fee,
+      Payload,
+      PMethod,
+      Pwd);
   end
   else if (method = 'signsendto') then
   begin

@@ -45,7 +45,6 @@ function DateTimeElapsedTime(dtDate: TDateTime): AnsiString;
 implementation
 
 {$IFDEF FPC}
-
 uses DateUtils;
 {$ELSE}
 function TzSpecificLocalTimeToSystemTime; external 'kernel32.dll' name 'TzSpecificLocalTimeToSystemTime';
@@ -114,7 +113,6 @@ function UnivDateTime2LocalDateTime(d: TDateTime): TDateTime;
 begin
   Result := UniversalTimeToLocal(d, -GetLocalTimeOffset);
 end;
-
 {$ELSE}
 
 var

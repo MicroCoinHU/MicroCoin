@@ -103,16 +103,16 @@ type
 
 procedure LogDebug(const ASender, ALogText: string); inline;
 begin
-{$IFDEF DEBUG}
+{IFDEF DEBUG}
   TLog.NewLog(ltdebug, ASender, ALogText);
-{$ENDIF}
+{ENDIF}
 end;
 
 procedure LogDebug(const ASender, ALogText: string; const params : array of const);
 begin
-{$IFDEF DEBUG}
+{IFDEF DEBUG}
   LogDebug(ASender, Format(ALogText, params));
-{$ENDIF}
+{ENDIF}
 end;
 
 { TLog }

@@ -88,7 +88,7 @@ type
 
 implementation
 
-uses MicroCoin.Common.Stream;
+uses MicroCoin.Common.Stream, MicroCoin.Node.Node;
 
 const
   CT_TOpTransactionData_NUL: TTransferMoneyTransaction.TTransferMoneyTransactionData = (SenderAccount: 0; NumberOfTransactions: 0; TargetAccount: 0; Amount: 0; Fee: 0;

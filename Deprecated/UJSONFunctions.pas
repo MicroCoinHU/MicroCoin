@@ -887,10 +887,14 @@ function TPCJSONObject.GetAsObject(Name: string): TPCJSONObject;
 var
   NV: TPCJSONNameValue;
 begin
+  TLog.NewLog(ltInfo, ClassName, 'GetByName');
   NV := GetByName(name);
+  TLog.NewLog(ltInfo, ClassName, 'if NV.Value');
   if not(NV.Value is TPCJSONObject)
   then NV.Value := TPCJSONObject.Create;
+  TLog.NewLog(ltInfo, ClassName, 'as TPCJSONObject');
   Result := NV.Value as TPCJSONObject;
+  TLog.NewLog(ltInfo, ClassName, 'Done TGetAsObject');
 end;
 
 function TPCJSONObject.GetAsVariant(Name: string): TPCJSONVariantValue;

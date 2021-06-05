@@ -101,6 +101,7 @@ implementation
 
 class function TTransactionData.Empty: TTransactionData;
 begin
+  Result.Balance := -1;
   Result.valid := false;
   Result.NOpInsideBlock := -1;
   Result.transactionType := 0;

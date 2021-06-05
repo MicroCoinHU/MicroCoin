@@ -79,13 +79,16 @@ var
   xIndex : integer;
   xHandlerWrapper : IHandlerWrapper;
 begin
+  TLog.NewLog(ltInfo, ClassName, 'GetHandler starts');
   Result := nil;
   {$IFDEF USE_GENERICS}
     FHandlers.TryGetValue(AMethod, Result);
   {$ELSE}
+    TLog.NewLog(ltInfo, ClassName, 'IndexOf');
     xIndex := FHandlers.IndexOf(AMethod);
     if xIndex >-1
     then begin
+    TLog.NewLog(ltInfo, ClassName, 'Supports');
      if Supports(FHandlers.Objects[xIndex], IHandlerWrapper, xHandlerWrapper)
      then Result := xHandlerWrapper.Handler;
     end;
